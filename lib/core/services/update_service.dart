@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
+import 'package:campussetu/core/config/app_config.dart';
 
 class UpdateInfo {
   final String currentVersion;
@@ -28,10 +29,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String githubRepo = 'prateekagrawal589-create/campussetu';
-  static const String githubApi = 'https://api.github.com/repos/prateekagrawal589-create/campussetu/releases/latest';
-  static const String fallbackVersionUrl = 'https://campussetu-production.up.railway.app/api/v1/version';
-  static const String rawPubspecUrl = 'https://raw.githubusercontent.com/prateekagrawal589-create/campussetu/main/pubspec.yaml';
+
 
   static final Dio _dio = Dio();
 
@@ -55,7 +53,7 @@ class UpdateService {
 
       // 2. Try GitHub releases
       try {
-        final res = await _dio.get(githubApi, options: Options(headers: {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'CampusSetu-App'}));
+        final res = await _dio.get(AppConfig.githubApiUrl, options: Options(headers: {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'CampusSetu-App'}));
         if (res.statusCode == 200 && res.data is Map) {
           final tag = (res.data['tag_name'] ?? '').toString().replaceAll('v', '');
           final notes = (res.data['body'] ?? '').toString();
@@ -68,7 +66,7 @@ class UpdateService {
             }
             apkUrl ??= assets.isNotEmpty ? assets.first['browser_download_url']?.toString() : null;
           }
-          apkUrl ??= 'https://github.com/$githubRepo/releases/latest/download/app-release.apk';
+          apkUrl ??= AppConfig.githubApkUrl;
           final info = UpdateInfo(currentVersion: currentShort, latestVersion: tag.isEmpty ? currentShort : tag, apkUrl: apkUrl, releaseNotes: notes);
           if (info.hasUpdate) return info;
         }
@@ -76,12 +74,12 @@ class UpdateService {
 
       // 2b. Try raw pubspec.yaml (no Release needed — just push + version bump)
       try {
-        final res = await _dio.get(rawPubspecUrl, options: Options(headers: {'Cache-Control': 'no-cache'}, responseType: ResponseType.plain));
+        final res = await _dio.get(AppConfig.githubRawPubspecUrl, options: Options(headers: {'Cache-Control': 'no-cache'}, responseType: ResponseType.plain));
         final body = res.data?.toString() ?? '';
         final match = RegExp(r'version:\s*([0-9]+\.[0-9]+\.[0-9]+)').firstMatch(body);
         if (match != null) {
           final tag = match.group(1)!;
-          const apkUrl = 'https://github.com/$githubRepo/releases/latest/download/app-release.apk';
+          final apkUrl = AppConfig.githubApkUrl;
           final info = UpdateInfo(currentVersion: currentShort, latestVersion: tag, apkUrl: apkUrl, releaseNotes: 'New version $tag available — please update');
           if (info.hasUpdate) return info;
         }
@@ -89,10 +87,10 @@ class UpdateService {
 
       // 3. Fallback: backend version
       try {
-        final res = await _dio.get(fallbackVersionUrl);
+        final res = await _dio.get(AppConfig.fallbackVersionUrl);
         if (res.statusCode == 200 && res.data is Map && res.data['version'] != null) {
           final tag = res.data['version'].toString().replaceAll('v', '');
-          final apk = res.data['apkUrl']?.toString() ?? 'https://github.com/$githubRepo/releases/latest/download/app-release.apk';
+          final apk = res.data['apkUrl']?.toString() ?? AppConfig.githubApkUrl;
           final info = UpdateInfo(currentVersion: currentShort, latestVersion: tag, apkUrl: apk, releaseNotes: res.data['notes']?.toString());
           if (info.hasUpdate) return info;
         }
