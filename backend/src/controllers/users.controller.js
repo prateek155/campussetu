@@ -1,0 +1,307 @@
+// backend/src/controllers/users.controller.js
+const db = require('../config/db');
+const admin = require('../config/firebase');
+const { v4: uuidv4 } = require('uuid');
+
+const CAMPUS_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function genCampusId() {
+  let s = 'CS-';
+  for (let i = 0; i < 6; i++) s += CAMPUS_ID_CHARS[Math.floor(Math.random() * CAMPUS_ID_CHARS.length)];
+  return s;
+}
+
+// Ensures user has a unique campus_id (for identity card + points transfer)
+async function ensureCampusId(userId) {
+  const { rows } = await db.query('SELECT campus_id FROM users WHERE id = $1', [userId]);
+  if (!rows.length || rows[0].campus_id) return rows.length ? rows[0].campus_id : null;
+  for (let i = 0; i < 8; i++) {
+    try {
+      const cid = genCampusId();
+      const { rows: u } = await db.query('UPDATE users SET campus_id = $1 WHERE id = $2 AND campus_id IS NULL RETURNING campus_id', [cid, userId]);
+      if (u.length) return u[0].campus_id;
+      const { rows: cur } = await db.query('SELECT campus_id FROM users WHERE id = $1', [userId]);
+      if (cur.length && cur[0].campus_id) return cur[0].campus_id;
+    } catch (e) { if (e.code !== '23505') throw e; }
+  }
+  return null;
+}
+
+// Awards 25 signup bonus once (unique index makes concurrent calls safe)
+async function ensureSignupBonus(userId) {
+  await db.query(
+    `INSERT INTO points_ledger (id, user_id, amount, reason)
+     VALUES ($1, $2, 25, 'signup_bonus') ON CONFLICT DO NOTHING`,
+    [uuidv4(), userId]
+  );
+}
+
+function parseStrictAmount(v) {
+  const s = String(v ?? '').trim();
+  if (!/^\d+$/.test(s)) return null;
+  const n = parseInt(s, 10);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+// ── GET /users/:id ──────────────────────────────────────
+exports.getUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await db.query(
+      `SELECT u.*,
+        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+       FROM users u WHERE u.id = $1`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    await ensureCampusId(id);
+    const { rows: fresh } = await db.query(
+      `SELECT u.*,
+        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+       FROM users u WHERE u.id = $1`,
+      [id]
+    );
+    res.json(fresh[0] || rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET /users/me ────────────────────────────────────────
+exports.getMe = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT u.*,
+        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+       FROM users u WHERE u.firebase_uid = $1`,
+      [req.user.uid]
+    );
+    if (rows.length) {
+      await ensureCampusId(rows[0].id);
+      await ensureSignupBonus(rows[0].id);
+      const { rows: fresh } = await db.query(
+        `SELECT u.*,
+          (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+          (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+          (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+         FROM users u WHERE u.firebase_uid = $1`,
+        [req.user.uid]
+      );
+      return res.json(fresh[0] || rows[0]);
+    }
+
+    const email = req.user.email || '';
+    const name = req.user.name || req.user.displayName || email.split('@')[0] || 'User';
+    const photo = req.user.picture || req.user.photoURL || req.user.photo_url || null;
+
+    const { rows: created } = await db.query(
+      `INSERT INTO users (firebase_uid, email, name, photo_url)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (firebase_uid) DO UPDATE SET email = EXCLUDED.email RETURNING *`,
+      [req.user.uid, email, name, photo]
+    );
+    await ensureCampusId(created[0].id);
+    await ensureSignupBonus(created[0].id);
+    const { rows: withCounts } = await db.query(
+      `SELECT u.*,
+        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+       FROM users u WHERE u.id = $1`,
+      [created[0].id]
+    );
+    return res.json(withCounts[0] || created[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── PUT /users/:id/profile ──────────────────────────────
+exports.updateProfile = async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+
+    // Verify that the authenticated Firebase user exists
+    const { rows: user } = await db.query(
+      'SELECT id, firebase_uid FROM users WHERE firebase_uid = $1',
+      [firebaseUid]
+    );
+
+    if (!user.length) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const {
+      name,
+      college,
+      state,
+      city,
+      course,
+      branch,
+      year_of_study,
+      bio,
+      skills,
+      profile_complete,
+      photo_url,
+    } = req.body;
+
+    const { rows } = await db.query(
+      `UPDATE users SET
+         name = COALESCE($1, name),
+         college = COALESCE($2, college),
+         state = COALESCE($3, state),
+         city = COALESCE($4, city),
+         course = COALESCE($5, course),
+         branch = COALESCE($6, branch),
+         year_of_study = COALESCE($7, year_of_study),
+         bio = COALESCE($8, bio),
+         skills = COALESCE($9, skills),
+         profile_complete = COALESCE($10, profile_complete),
+         photo_url = COALESCE($11, photo_url),
+         updated_at = NOW()
+       WHERE firebase_uid = $12
+       RETURNING *`,
+      [
+        name,
+        college,
+        state,
+        city,
+        course,
+        branch,
+        year_of_study,
+        bio,
+        skills,
+        profile_complete,
+        photo_url,
+        firebaseUid,
+      ]
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET /users/by-campus/:campusId ──────────────────────
+// Public mini-profile to verify receiver before points transfer
+exports.getByCampusId = async (req, res) => {
+  try {
+    const cid = (req.params.campusId || '').toString().trim().toUpperCase();
+    if (!cid) return res.status(400).json({ error: 'campusId required' });
+    const { rows } = await db.query(
+      `SELECT u.id, u.name, u.photo_url, u.college, u.city, u.state, u.campus_id
+       FROM users u WHERE UPPER(u.campus_id) = $1`,
+      [cid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Student not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── POST /users/transfer {to_campus_id, amount} ──────────
+// Student → student points transfer (atomic, balance-checked)
+exports.transferPoints = async (req, res) => {
+  try {
+    const toCampusId = (req.body.to_campus_id || '').toString().trim().toUpperCase();
+    const amount = parseStrictAmount(req.body.amount);
+    if (!toCampusId) return res.status(400).json({ error: 'to_campus_id required' });
+    if (!amount) return res.status(400).json({ error: 'valid amount required' });
+    if (amount > 100000) return res.status(400).json({ error: 'amount too large' });
+
+    const { rows: me } = await db.query('SELECT id FROM users WHERE firebase_uid = $1', [req.user.uid]);
+    if (!me.length) return res.status(404).json({ error: 'User not found' });
+    const senderId = me[0].id;
+
+    const { rows: recv } = await db.query('SELECT id, name FROM users WHERE UPPER(campus_id) = $1', [toCampusId]);
+    if (!recv.length) return res.status(404).json({ error: 'Receiver not found' });
+    if (recv[0].id === senderId) return res.status(400).json({ error: 'Cannot transfer to yourself' });
+
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [senderId]);
+      const { rows: b } = await client.query('SELECT COALESCE(SUM(amount),0)::int AS bal FROM points_ledger WHERE user_id = $1', [senderId]);
+      if (b[0].bal < amount) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Insufficient points. Balance: ${b[0].bal}` }); }
+      await client.query(`INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`, [uuidv4(), senderId, -amount, `points_transfer_sent:${recv[0].id}`]);
+      await client.query(`INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`, [uuidv4(), recv[0].id, amount, `points_transfer_received:${senderId}`]);
+      const { rows: nb } = await client.query('SELECT COALESCE(SUM(amount),0)::int AS bal FROM points_ledger WHERE user_id = $1', [senderId]);
+      await client.query('COMMIT');
+      res.json({ sent: amount, to: recv[0].name, new_balance: nb[0].bal });
+    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── POST /users/:id/photo ──────────────────────────────
+exports.uploadPhoto = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const firebaseUid = req.user.uid;
+    const fileUrl = `/uploads/${req.file.filename}`;
+    const { rows } = await db.query(
+      `UPDATE users SET photo_url = $1, updated_at = NOW() WHERE firebase_uid = $2 RETURNING *`,
+      [fileUrl, firebaseUid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    const host = `${req.protocol}://${req.get('host')}`;
+    const fullUrl = `${host}${fileUrl}`;
+    res.json({ ...rows[0], photo_url: fullUrl, file_url: fullUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET /connect/discover ────────────────────────────────
+exports.discoverStudents = async (req, res) => {
+  try {
+    const { state, city, branch, year, skill, q, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const conditions = ['u.profile_complete = true', 'u.firebase_uid != $1'];
+    const params = [req.user.uid];
+    let pi = 2;
+
+    if (state) { conditions.push(`u.state = $${pi++}`); params.push(state); }
+    if (city) { conditions.push(`u.city = $${pi++}`); params.push(city); }
+    if (branch) { conditions.push(`u.branch ILIKE $${pi++}`); params.push(`%${branch}%`); }
+    if (year) { conditions.push(`u.year_of_study = $${pi++}`); params.push(parseInt(year)); }
+    if (skill) { conditions.push(`$${pi++} = ANY(u.skills)`); params.push(skill); }
+    if (q) {
+      conditions.push(`(u.name ILIKE $${pi} OR u.college ILIKE $${pi} OR u.branch ILIKE $${pi})`);
+      params.push(`%${q}%`); pi++;
+    }
+
+    params.push(parseInt(limit), parseInt(offset));
+
+    const { rows } = await db.query(
+      `SELECT u.id, u.name, u.college, u.city, u.state, u.branch, u.year_of_study,
+              u.skills, u.photo_url, u.is_verified, u.is_premium, u.campus_id,
+              (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points,
+              (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count
+       FROM users u
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY u.is_verified DESC, u.created_at DESC
+       LIMIT $${pi++} OFFSET $${pi++}`,
+      params
+    );
+    res.json({ data: rows, page: parseInt(page) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
