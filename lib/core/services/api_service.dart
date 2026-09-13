@@ -1,12 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:campussetu/core/config/app_config.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
   factory ApiService() => _instance;
   ApiService._() {
     _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
+      baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: const Duration(seconds: 7),
       receiveTimeout: const Duration(seconds: 12),
       sendTimeout: const Duration(seconds: 10),
@@ -49,7 +50,7 @@ class ApiService {
     handler.next(error);
   }
 
-  static const String _baseUrl = 'https://campussetu-production.up.railway.app/api/v1';
+
 
   late final Dio _dio;
   String? _token;
@@ -60,7 +61,7 @@ class ApiService {
   void warmup() {
     // Fire-and-forget pings to wake up the server
     // ignore: unawaited_futures
-    Dio().get('https://campussetu-production.up.railway.app/health').catchError((e) => Response<dynamic>(requestOptions: RequestOptions(path: '/health'), statusCode: 0));
+    Dio().get(AppConfig.apiHealthUrl).catchError((e) => Response<dynamic>(requestOptions: RequestOptions(path: '/health'), statusCode: 0));
     // ignore: unawaited_futures
     _dio.get('/health').catchError((e) => Response<dynamic>(requestOptions: RequestOptions(path: '/health'), statusCode: 0));
   }
