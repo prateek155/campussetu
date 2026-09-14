@@ -30,29 +30,45 @@ exports.getTasks = async (req, res) => {
     const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
-    let pi = 1;
 
-    if (type === 'paid' || type === 'points') { conditions.push(`t.type = $${pi++}`); params.push(type); }
-    if (status && status !== 'all') { conditions.push(`t.status = $${pi++}`); params.push(status); }
-    if (q) { conditions.push(`(t.title ILIKE $${pi} OR t.description ILIKE $${pi})`); params.push(`%${q}%`); pi++; }
+    if (type === 'paid' || type === 'points') {
+      params.push(type);
+      conditions.push(`t.type = $${params.length}`);
+    }
+    if (status && status !== 'all') {
+      params.push(status);
+      conditions.push(`t.status = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      conditions.push(`(t.title ILIKE $${params.length} OR t.description ILIKE $${params.length})`);
+    }
+
     if (mine === 'true') {
       const uid = await meId(req.user.uid);
-      conditions.push(`t.poster_id = $${pi++}`); params.push(uid);
+      params.push(uid);
+      conditions.push(`t.poster_id = $${params.length}`);
     } else {
       const uid = await meId(req.user.uid);
-      if (uid) { conditions.push(`t.poster_id != $${pi++}`); params.push(uid); }
+      if (uid) {
+        params.push(uid);
+        conditions.push(`t.poster_id != $${params.length}`);
+      }
       conditions.push(`t.status != 'on_hold'`);
       conditions.push(`COALESCE(t.expires_at, t.created_at + INTERVAL '7 days') > NOW()`);
     }
 
     params.push(parseInt(limit), parseInt(offset));
+    const limitIndex = params.length - 1;
+    const offsetIndex = params.length;
+
     const { rows } = await db.query(
       `SELECT t.*,
         (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count,
         row_to_json(u.*) AS poster
        FROM helping_tasks t JOIN users u ON u.id = t.poster_id
        ${conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''}
-       ORDER BY t.created_at DESC LIMIT $${pi++} OFFSET $${pi}`,
+       ORDER BY t.created_at DESC LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
       params
     );
     rows.forEach((r) => { r.image_url = fullImageUrl(req, r.image_url); });
@@ -68,12 +84,12 @@ exports.createTask = async (req, res) => {
     if (type !== 'paid' && type !== 'points') return res.status(400).json({ error: 'type must be paid|points' });
     let amt = null, pts = null;
     if (type === 'paid') {
-      amt = parseFloat(amount);
-      if (!amt || amt <= 0) return res.status(400).json({ error: 'valid amount required for paid task' });
+      amt = parseFloat(amount) || 0;
+      if (amt <= 0) return res.status(400).json({ error: 'valid amount required for paid task' });
       if (!deadline) return res.status(400).json({ error: 'deadline required for paid task' });
     } else {
-      pts = parseInt(points);
-      if (!pts || pts <= 0) return res.status(400).json({ error: 'valid points required' });
+      pts = parseInt(points) || 0;
+      if (pts <= 0) return res.status(400).json({ error: 'valid points required' });
     }
     const uid = await meId(req.user.uid);
     if (!uid) return res.status(404).json({ error: 'User not found' });
