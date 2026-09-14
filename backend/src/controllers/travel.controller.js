@@ -42,8 +42,8 @@ exports.createRide = async (req, res) => {
 
     const { rows } = await db.query(
       `INSERT INTO travel_rides 
-       (user_id, vehicle_type, destination, time_date, contact_number) 
-       VALUES ($1, $2, $3, $4, $5) 
+       (user_id, vehicle_type, destination, time_date, contact_number, status) 
+       VALUES ($1, $2, $3, $4, $5, 'active') 
        RETURNING *`,
       [userId, vehicle_type, destination, time_date, contact_number]
     );
