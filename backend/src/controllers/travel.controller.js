@@ -9,7 +9,7 @@ exports.getRides = async (req, res) => {
     if (cached) return res.json(JSON.parse(cached));
 
     const { rows } = await db.query(
-      `SELECT t.*, u.name as user_name, u.college, u.avatar 
+      `SELECT t.*, u.name as user_name, u.college, u.photo_url as avatar 
        FROM travel_rides t
        JOIN users u ON t.user_id = u.id
        WHERE t.status = 'active'
