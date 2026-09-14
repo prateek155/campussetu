@@ -37,7 +37,6 @@ async function ensureSignupBonus(userId) {
 
 function parseStrictAmount(v) {
   const s = String(v ?? '').trim();
-  if (!/^\d+$/.test(s)) return null;
   const n = parseInt(s, 10);
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
@@ -274,19 +273,27 @@ exports.discoverStudents = async (req, res) => {
 
     const conditions = ['u.profile_complete = true', 'u.firebase_uid != $1'];
     const params = [req.user.uid];
-    let pi = 2;
 
-    if (state) { conditions.push(`u.state = $${pi++}`); params.push(state); }
-    if (city) { conditions.push(`u.city = $${pi++}`); params.push(city); }
-    if (branch) { conditions.push(`u.branch ILIKE $${pi++}`); params.push(`%${branch}%`); }
-    if (year) { conditions.push(`u.year_of_study = $${pi++}`); params.push(parseInt(year)); }
-    if (skill) { conditions.push(`$${pi++} = ANY(u.skills)`); params.push(skill); }
+    if (state) { params.push(state); conditions.push(`u.state = $${params.length}`); }
+    if (city) { params.push(city); conditions.push(`u.city = $${params.length}`); }
+    if (branch) { params.push(`%${branch}%`); conditions.push(`u.branch ILIKE $${params.length}`); }
+    if (year) { params.push(parseInt(year)); conditions.push(`u.year_of_study = $${params.length}`); }
+    if (skill) { params.push(skill); conditions.push(`$${params.length} = ANY(u.skills)`); }
     if (q) {
-      conditions.push(`(u.name ILIKE $${pi} OR u.college ILIKE $${pi} OR u.branch ILIKE $${pi})`);
-      params.push(`%${q}%`); pi++;
+      params.push(`%${q}%`);
+      conditions.push(`(u.name ILIKE $${params.length} OR u.college ILIKE $${params.length} OR u.branch ILIKE $${params.length})`);
     }
 
+    // Exclude users already connected or pending
+    conditions.push(`u.id NOT IN (
+      SELECT requester_id FROM connections WHERE receiver_id = (SELECT id FROM users WHERE firebase_uid = $1)
+      UNION
+      SELECT receiver_id FROM connections WHERE requester_id = (SELECT id FROM users WHERE firebase_uid = $1)
+    )`);
+
     params.push(parseInt(limit), parseInt(offset));
+    const limitIndex = params.length - 1;
+    const offsetIndex = params.length;
 
     const { rows } = await db.query(
       `SELECT u.id, u.name, u.college, u.city, u.state, u.branch, u.year_of_study,
@@ -296,7 +303,7 @@ exports.discoverStudents = async (req, res) => {
        FROM users u
        WHERE ${conditions.join(' AND ')}
        ORDER BY u.is_verified DESC, u.created_at DESC
-       LIMIT $${pi++} OFFSET $${pi++}`,
+       LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
       params
     );
     res.json({ data: rows, page: parseInt(page) });
