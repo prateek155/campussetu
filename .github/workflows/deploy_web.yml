@@ -1,0 +1,51 @@
+name: Build and Deploy Web Portals
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build User Web
+        run: |
+          flutter build web -t lib/main_user.dart
+          mkdir -p build/web_user
+          cp -r build/web/* build/web_user/
+
+      - name: Build Admin Web
+        run: |
+          flutter build web -t lib/main_admin.dart
+          mkdir -p build/web_admin
+          cp -r build/web/* build/web_admin/
+
+      - name: Build Enterprise Web
+        run: |
+          flutter build web -t lib/main_enterprise.dart
+          mkdir -p build/web_enterprise
+          cp -r build/web/* build/web_enterprise/
+
+      - name: Build Faculty Web
+        run: |
+          flutter build web -t lib/main_faculty.dart
+          mkdir -p build/web_faculty
+          cp -r build/web/* build/web_faculty/

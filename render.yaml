@@ -1,0 +1,73 @@
+# Render Blueprint Specification for CampusSetu
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ── 1. Backend API & WebSocket Service ───────────────────
+  - type: web
+    name: campussetu-backend
+    env: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+
+  # ── 2. User (Student) Web Portal ─────────────────────────
+  - type: web
+    name: campussetu-user
+    env: static
+    plan: free
+    staticPublishPath: ./build/web_user
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ── 3. Admin Web Portal ──────────────────────────────────
+  - type: web
+    name: campussetu-admin
+    env: static
+    plan: free
+    staticPublishPath: ./build/web_admin
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ── 4. Enterprise Web Portal ─────────────────────────────
+  - type: web
+    name: campussetu-enterprise
+    env: static
+    plan: free
+    staticPublishPath: ./build/web_enterprise
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ── 5. Faculty Web Portal ────────────────────────────────
+  - type: web
+    name: campussetu-faculty
+    env: static
+    plan: free
+    staticPublishPath: ./build/web_faculty
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
