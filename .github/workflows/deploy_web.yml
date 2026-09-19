@@ -59,34 +59,12 @@ jobs:
           cp -r build/web/* build/web_faculty/
           echo "/* /index.html 200" > build/web_faculty/_redirects
 
-      - name: Deploy User Web to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: campussetu-user
-          directory: build/web_user
-
-      - name: Deploy Admin Web to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: campussetu-admin
-          directory: build/web_admin
-
-      - name: Deploy Enterprise Web to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: campussetu-enterprise
-          directory: build/web_enterprise
-
-      - name: Deploy Faculty Web to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: campussetu-faculty
-          directory: build/web_faculty
+      - name: Deploy All 4 Portals to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler pages deploy build/web_user --project-name campussetu-user --commit-dirty=true
+          npx --yes wrangler pages deploy build/web_admin --project-name campussetu-admin --commit-dirty=true
+          npx --yes wrangler pages deploy build/web_enterprise --project-name campussetu-enterprise --commit-dirty=true
+          npx --yes wrangler pages deploy build/web_faculty --project-name campussetu-faculty --commit-dirty=true
