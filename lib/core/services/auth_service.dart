@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'api_service.dart';
 
@@ -18,23 +19,39 @@ class AuthService {
   bool _isCacheValid() => _cachedToken != null && _cachedAt != null && DateTime.now().difference(_cachedAt!).inMinutes < 50;
 
   Future<Map<String, dynamic>> signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) throw Exception('Google sign-in cancelled');
+    UserCredential cred;
+    if (kIsWeb) {
+      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
+      cred = await _auth.signInWithPopup(googleProvider);
+    } else {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) throw Exception('Google sign-in cancelled');
 
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
 
-    final UserCredential cred = await _auth.signInWithCredential(credential);
-    final String idToken = await cred.user!.getIdToken(false) ?? '';
+      cred = await _auth.signInWithCredential(credential);
+    }
+
+    final user = cred.user;
+    if (user == null) throw Exception('Failed to get user details from Google');
+
+    final String? idToken = await user.getIdToken(false);
+    if (idToken == null || idToken.isEmpty) throw Exception('Failed to get ID token');
 
     _cachedToken = idToken;
     _cachedAt = DateTime.now();
     ApiService().setToken(idToken);
 
-    final response = await ApiService().getMe().timeout(const Duration(seconds: 10), onTimeout: () => throw Exception('Server cold start, retrying...'));
+    final response = await ApiService().getMe().timeout(
+      const Duration(seconds: 15), 
+      onTimeout: () => throw Exception('Server cold start, retrying...')
+    );
     return response;
   }
 
@@ -49,6 +66,10 @@ class AuthService {
     _cachedToken = null;
     _cachedAt = null;
     ApiService().clearToken();
-    await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+    if (kIsWeb) {
+      await _auth.signOut();
+    } else {
+      await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+    }
   }
 }
