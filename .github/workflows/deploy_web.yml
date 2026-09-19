@@ -25,8 +25,8 @@ jobs:
 
       - name: Create .env
         run: |
-          echo "API_BASE_URL=https://campussetu1-production.up.railway.app/api/v1" > .env
-          echo "API_HEALTH_URL=https://campussetu1-production.up.railway.app/health" >> .env
+          echo "API_BASE_URL=https://campussetu-lvlq.onrender.com/api/v1" > .env
+          echo "API_HEALTH_URL=https://campussetu-lvlq.onrender.com/health" >> .env
 
       - name: Install dependencies
         run: flutter pub get

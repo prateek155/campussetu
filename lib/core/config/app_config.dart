@@ -5,12 +5,12 @@ class AppConfig {
   AppConfig._();
 
   // ── Backend API ───────────────────────────────────────────
-  static String get apiBaseUrl => dotenv.env['API_BASE_URL'] ?? 'https://campussetu-production.up.railway.app/api/v1';
+  static String get apiBaseUrl => dotenv.env['API_BASE_URL'] ?? 'https://campussetu-lvlq.onrender.com/api/v1';
 
-  static String get apiHealthUrl => dotenv.env['API_HEALTH_URL'] ?? 'https://campussetu-production.up.railway.app/health';
+  static String get apiHealthUrl => dotenv.env['API_HEALTH_URL'] ?? 'https://campussetu-lvlq.onrender.com/health';
 
   // ── GitHub (update service) ───────────────────────────────
-  static String get githubRepo => dotenv.env['GITHUB_REPO'] ?? 'prateekagrawal589-create/campussetu';
+  static String get githubRepo => dotenv.env['GITHUB_REPO'] ?? 'prateek155/campussetu';
 
   static String get githubApiUrl => 'https://api.github.com/repos/$githubRepo/releases/latest';
 
