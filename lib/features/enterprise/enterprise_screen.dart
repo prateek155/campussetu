@@ -78,63 +78,87 @@ class _EnterpriseScreenState extends ConsumerState<EnterpriseScreen> {
           if (_selectedDeal == null && deals.isNotEmpty) {
             _selectedDeal = deals.first;
           }
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                NeuCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('Redeem Offer', style: AppTypography.soraHeading3()),
-                      const SizedBox(height: 8),
-                      Text("Select the deal and enter the student's deal code (e.g. PA1542) to mark it as availed.", style: AppTypography.interBody(color: AppColors.inkSoft)),
-                      const SizedBox(height: 24),
-                      DropdownButtonFormField<DealModel>(
-                        initialValue: _selectedDeal,
-                        decoration: InputDecoration(
-                          labelText: 'Select Deal',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        items: deals.map((d) {
-                          return DropdownMenuItem(
-                            value: d,
-                            child: Text(d.title, overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedDeal = val;
-                          });
-                        },
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    NeuCard(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary, size: 24),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Redeem Offer', style: AppTypography.soraHeading3()),
+                                  Text('Enterprise Deal Verification', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text("Select the deal and enter the student's deal code (e.g. PA1542) to mark it as availed.", style: AppTypography.interBody(color: AppColors.inkSoft)),
+                          const SizedBox(height: 24),
+                          DropdownButtonFormField<DealModel>(
+                            initialValue: _selectedDeal,
+                            decoration: InputDecoration(
+                              labelText: 'Select Deal',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            items: deals.map((d) {
+                              return DropdownMenuItem(
+                                value: d,
+                                child: Text(d.title, overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedDeal = val;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _codeCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Student Deal Code',
+                              hintText: 'PA1542',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: _isLoading ? null : _redeem,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Verify & Redeem', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      TextFormField(
-                        controller: _codeCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'Student Deal Code',
-                          hintText: 'PA1542',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        textCapitalization: TextCapitalization.characters,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _redeem,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Verify & Redeem'),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           );
         },

@@ -55,6 +55,9 @@ class MainShell extends ConsumerWidget {
       _baseNavItems[3].copyWith(badgeCount: jobsNew),
       _baseNavItems[4],
     ];
+
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(children: [
@@ -76,14 +79,129 @@ class MainShell extends ConsumerWidget {
               ]),
             ),
           ),
-        Expanded(child: child),
+
+        // Desktop Web Top Header
+        if (isDesktop)
+          Container(
+            height: 68,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border(bottom: BorderSide(color: AppColors.cardBorder, width: 1)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      // Brand
+                      Row(
+                        children: [
+                          Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFF3FD8F5), Color(0xFF1BA8C4)]),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.school_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          RichText(
+                            text: const TextSpan(
+                              children: [
+                                TextSpan(text: 'Campus', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w800)),
+                                TextSpan(text: 'Setu', style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 18, fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const Spacer(),
+
+                      // Desktop Navigation Links
+                      Row(
+                        children: List.generate(navItems.length, (i) {
+                          final item = navItems[i];
+                          final isSelected = index == i;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => context.go(_routes[i]),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF3FD8F5).withValues(alpha: 0.12) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Badge(
+                                      isLabelVisible: item.badgeCount > 0,
+                                      label: Text('${item.badgeCount}'),
+                                      child: Icon(
+                                        isSelected ? item.activeIcon : item.icon,
+                                        size: 18,
+                                        color: isSelected ? const Color(0xFF3FD8F5) : AppColors.inkSoft,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      item.label,
+                                      style: TextStyle(
+                                        color: isSelected ? const Color(0xFF3FD8F5) : AppColors.ink,
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+
+                      const SizedBox(width: 16),
+
+                      // Notification icon
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none_rounded, size: 20),
+                        color: AppColors.inkSoft,
+                        onPressed: () => context.push(AppRoutes.notifications),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Main Body (Centered on Desktop)
+        Expanded(
+          child: isDesktop
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: child,
+                  ),
+                )
+              : child,
+        ),
       ]),
-      extendBody: true,
-      bottomNavigationBar: BottomNavDock(
-        currentIndex: index,
-        items: navItems,
-        onTap: (i) => context.go(_routes[i]),
-      ),
+      extendBody: !isDesktop,
+      bottomNavigationBar: isDesktop
+          ? null
+          : BottomNavDock(
+              currentIndex: index,
+              items: navItems,
+              onTap: (i) => context.go(_routes[i]),
+            ),
     );
   }
 }

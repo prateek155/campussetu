@@ -137,10 +137,10 @@ exports.approveNote = async (req, res) => {
   }
 };
 
-// ── GET /admin/users?page=1&limit=20&q=&is_banned= ──────────
+// ── GET /admin/users?page=1&limit=20&q=&is_banned=&state=&city=&college= ──
 exports.getUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 20, q, is_banned } = req.query;
+    const { page = 1, limit = 20, q, is_banned, state, city, college } = req.query;
     const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
@@ -155,6 +155,21 @@ exports.getUsers = async (req, res) => {
     }
     if (is_banned === 'true') conditions.push('u.is_banned = true');
     if (is_banned === 'false') conditions.push('u.is_banned = false');
+    if (state && state.trim().length > 0) {
+      conditions.push(`u.state ILIKE $${pi}`);
+      params.push(`%${state.trim()}%`);
+      pi++;
+    }
+    if (city && city.trim().length > 0) {
+      conditions.push(`u.city ILIKE $${pi}`);
+      params.push(`%${city.trim()}%`);
+      pi++;
+    }
+    if (college && college.trim().length > 0) {
+      conditions.push(`(u.college ILIKE $${pi} OR u.college_name ILIKE $${pi})`);
+      params.push(`%${college.trim()}%`);
+      pi++;
+    }
 
     const whereClause = conditions.length
       ? 'WHERE ' + conditions.join(' AND ')
@@ -165,7 +180,7 @@ exports.getUsers = async (req, res) => {
     const { rows } = await db.query(
       `SELECT u.id, u.name, u.email, u.campus_id, u.college, u.state, u.city,
          u.course, u.branch, u.year_of_study, u.photo_url, u.is_banned,
-         u.is_admin, u.is_verified, u.is_premium, u.created_at,
+         u.is_admin, u.is_verified, u.is_premium, u.role, u.college_name, u.created_at,
          (SELECT COALESCE(SUM(amount), 0)::int FROM points_ledger WHERE user_id = u.id) AS points,
          (SELECT COUNT(*)::int FROM posts WHERE author_id = u.id AND is_deleted = false) AS post_count,
          (SELECT COUNT(*)::int FROM connections
@@ -186,6 +201,24 @@ exports.getUsers = async (req, res) => {
       data: rows,
       total: countRows[0]?.total || rows.length,
       page: parseInt(page),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET /admin/users/meta ─────────────────────────────────
+exports.getUsersMeta = async (req, res) => {
+  try {
+    const [statesRes, citiesRes, collegesRes] = await Promise.all([
+      db.query(`SELECT DISTINCT state FROM users WHERE state IS NOT NULL AND state != '' ORDER BY state ASC`),
+      db.query(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND city != '' ORDER BY city ASC`),
+      db.query(`SELECT DISTINCT COALESCE(college, college_name) AS college FROM users WHERE (college IS NOT NULL AND college != '') OR (college_name IS NOT NULL AND college_name != '') ORDER BY college ASC`),
+    ]);
+    res.json({
+      states: statesRes.rows.map(r => r.state),
+      cities: citiesRes.rows.map(r => r.city),
+      colleges: collegesRes.rows.map(r => r.college),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

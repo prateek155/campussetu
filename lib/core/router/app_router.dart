@@ -37,6 +37,8 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/quiz/quiz_list_screen.dart';
 import '../../features/quiz/quiz_join_screen.dart';
 import '../../features/quiz/quiz_play_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../features/landing/web_landing_screen.dart';
 import '../shell/main_shell.dart';
 
 
@@ -44,6 +46,7 @@ final authStateProvider = StreamProvider<User?>((ref) => FirebaseAuth.instance.a
 
 class AppRoutes {
   static const welcome = '/';
+  static const login = '/login';
   static const authConfirm = '/auth-confirm';
   static const profileSetup = '/profile-setup';
   static const home = '/home';
@@ -83,17 +86,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.welcome,
     redirect: (context, state) {
       if (isLoading) return null;
-      final isOnAuthRoute = state.matchedLocation == AppRoutes.welcome ||
-          state.matchedLocation == AppRoutes.authConfirm ||
-          state.matchedLocation == AppRoutes.profileSetup;
+      final loc = state.matchedLocation;
+      final isOnAuthRoute = loc == AppRoutes.welcome ||
+          loc == AppRoutes.login ||
+          loc == AppRoutes.authConfirm ||
+          loc == AppRoutes.profileSetup;
 
       if (user == null && !isOnAuthRoute) return AppRoutes.welcome;
-      if (user != null && isOnAuthRoute && state.matchedLocation == AppRoutes.welcome) return AppRoutes.home;
+      if (user != null && (loc == AppRoutes.welcome || loc == AppRoutes.login)) return AppRoutes.home;
       return null;
     },
     routes: [
       // Auth routes (no shell)
-      GoRoute(path: AppRoutes.welcome, builder: (_, __) => const WelcomeScreen()),
+      GoRoute(
+        path: AppRoutes.welcome,
+        builder: (_, __) => kIsWeb ? const WebLandingScreen() : const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (_, __) => const WelcomeScreen(),
+      ),
       GoRoute(
         path: AppRoutes.authConfirm,
         builder: (_, state) {

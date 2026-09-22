@@ -19,6 +19,7 @@ router.post('/broadcast', c.broadcast);
 router.post('/points', c.grantPoints);
 
 // ── User management ────────────────────────────────────────
+router.get('/users/meta', c.getUsersMeta);
 router.get('/users', c.getUsers);
 router.put('/users/:id/block', c.blockUser);
 router.put('/users/:id/unblock', c.unblockUser);

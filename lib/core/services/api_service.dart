@@ -414,12 +414,27 @@ class ApiService {
 
   // ── Admin User Management ────────────────────────────────────
 
-  Future<Map<String, dynamic>> getAdminUsers({int page = 1, String? q, bool? isBanned}) async {
+  Future<Map<String, dynamic>> getAdminUsers({
+    int page = 1,
+    String? q,
+    bool? isBanned,
+    String? state,
+    String? city,
+    String? college,
+  }) async {
     final res = await _dio.get('/admin/users', queryParameters: {
       'page': page,
       if (q != null && q.isNotEmpty) 'q': q,
       if (isBanned != null) 'is_banned': isBanned.toString(),
+      if (state != null && state.isNotEmpty) 'state': state,
+      if (city != null && city.isNotEmpty) 'city': city,
+      if (college != null && college.isNotEmpty) 'college': college,
     });
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAdminUsersMeta() async {
+    final res = await _dio.get('/admin/users/meta');
     return res.data as Map<String, dynamic>;
   }
 
