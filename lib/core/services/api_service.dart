@@ -33,14 +33,17 @@ class ApiService {
 
   Future<void> _retryOnce(DioException error, ErrorInterceptorHandler handler) async {
     final opts = error.requestOptions;
-    final retries = opts.extra['retries'] ?? 0;
+    final retries = (opts.extra['retries'] as int?) ?? 0;
+    final statusCode = error.response?.statusCode;
+    final isColdStartStatus = statusCode == 404 || statusCode == 502 || statusCode == 503;
     final shouldRetry = (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
-        error.response?.statusCode == 502 ||
-        error.response?.statusCode == 503) && retries < 1;
+        error.type == DioExceptionType.connectionError ||
+        isColdStartStatus) && retries < 2;
     if (shouldRetry) {
       opts.extra['retries'] = retries + 1;
-      await Future.delayed(const Duration(milliseconds: 700));
+      final delayMs = retries == 0 ? 1500 : 2500;
+      await Future.delayed(Duration(milliseconds: delayMs));
       try {
         final res = await _dio.fetch(opts);
         handler.resolve(res);

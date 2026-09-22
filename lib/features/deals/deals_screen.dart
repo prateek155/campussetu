@@ -58,89 +58,122 @@ class DealsScreen extends ConsumerWidget {
                     ),
                   ],
                 )
-              : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: deals.length,
-              itemBuilder: (context, i) {
-                final d = deals[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: NeuCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (d.bannerUrl != null && d.bannerUrl!.isNotEmpty) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: CachedNetworkImage(
-                              imageUrl: d.bannerUrl!,
-                              height: 140,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, _, __) => Container(
-                                height: 140,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.broken_image, color: Colors.grey),
-                              ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    if (width >= 650) {
+                      final cols = width >= 1050 ? 3 : 2;
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(20),
+                            itemCount: deals.length,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: cols,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              mainAxisExtent: 310,
                             ),
+                            itemBuilder: (context, i) =>
+                                _buildDealCard(context, deals[i], isWeb: true),
                           ),
-                          const SizedBox(height: 12),
-                        ],
-                        Text(d.title, style: AppTypography.soraHeading3()),
-                        const SizedBox(height: 6),
-                        Text(d.description, style: AppTypography.interBody(height: 1.5)),
-                        
-                        // Show the user's dealCode here
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final meAsync = ref.watch(currentUserProvider);
-                            return meAsync.when(
-                              data: (me) {
-                                if (me.dealCode == null) return const SizedBox.shrink();
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.cyanDeep.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.cyanDeep.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.qr_code, size: 16, color: AppColors.cyanDeep),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Show Code: ${me.dealCode}',
-                                          style: AppTypography.monoCode(
-                                            color: AppColors.cyanDeep,
-                                            weight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                              loading: () => const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
-                            );
-                          }
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: deals.length,
+                      itemBuilder: (context, i) =>
+                          _buildDealCard(context, deals[i]),
+                    );
+                  },
+                ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.cyanDeep)),
         error: (e, _) => Center(
           child: Text('Error loading deals: $e', style: AppTypography.interBody(color: AppColors.error)),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDealCard(BuildContext context, DealModel d, {bool isWeb = false}) {
+    return NeuCard(
+      padding: const EdgeInsets.all(16),
+      margin: isWeb ? EdgeInsets.zero : const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (d.bannerUrl != null && d.bannerUrl!.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: CachedNetworkImage(
+                imageUrl: d.bannerUrl!,
+                height: isWeb ? 120 : 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorWidget: (context, _, __) => Container(
+                  height: isWeb ? 120 : 140,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            d.title,
+            style: AppTypography.soraHeading3(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            d.description,
+            style: AppTypography.interBody(height: 1.4, color: AppColors.inkSoft),
+            maxLines: isWeb ? 2 : 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          // Show the user's dealCode here
+          Consumer(
+            builder: (context, ref, child) {
+              final meAsync = ref.watch(currentUserProvider);
+              return meAsync.when(
+                data: (me) {
+                  if (me.dealCode == null) return const SizedBox.shrink();
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.cyanDeep.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.cyanDeep.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.qr_code, size: 16, color: AppColors.cyanDeep),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Show Code: ${me.dealCode}',
+                          style: AppTypography.monoCode(
+                            color: AppColors.cyanDeep,
+                            weight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
