@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:campussetu/core/theme/app_colors.dart';
-import 'package:campussetu/core/theme/app_typography.dart';
 
 class HelpChatWidget extends StatefulWidget {
   final bool isWebDocked;

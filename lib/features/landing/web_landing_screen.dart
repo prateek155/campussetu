@@ -5,7 +5,6 @@ import '../../core/router/app_router.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 
 class WebLandingScreen extends StatefulWidget {
   const WebLandingScreen({super.key});

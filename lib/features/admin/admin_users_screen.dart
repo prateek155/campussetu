@@ -20,7 +20,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   static const _green    = Color(0xFF22C55E);
   static const _red      = Color(0xFFEF4444);
   static const _purple   = Color(0xFF8B5CF6);
-  static const _orange   = Color(0xFFF59E0B);
   static const _inkSoft  = Color(0xFF9CA3AF);
 
   final _searchCtrl = TextEditingController();

@@ -39,6 +39,9 @@ import '../../features/quiz/quiz_join_screen.dart';
 import '../../features/quiz/quiz_play_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../features/landing/web_landing_screen.dart';
+import '../../features/tools/tools_home_screen.dart';
+import '../../features/tools/tools_category_screen.dart';
+import '../../features/tools/tool_workspace_screen.dart';
 import '../shell/main_shell.dart';
 
 
@@ -73,6 +76,7 @@ class AppRoutes {
   static const terms = '/terms';
   static const notifications = '/notifications';
   static const pointsTransfer = '/points-transfer';
+  static const tools = '/tools';
   static const invitations = '/connect/invitations';
   static const manageNetwork = '/connect/manage';
   static const connections = '/connect/connections';
@@ -125,6 +129,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/events/add', builder: (_, __) => const AddEventScreen()),
       GoRoute(path: '/travel', builder: (_, __) => const TravelScreen()),
       GoRoute(path: '/travel/add', builder: (_, __) => const AddTravelScreen()),
+      GoRoute(path: AppRoutes.tools, builder: (_, __) => const ToolsHomeScreen()),
+      GoRoute(path: '/tools/pdf', builder: (_, __) => const ToolsCategoryScreen(category: ToolCategory.pdf)),
+      GoRoute(path: '/tools/image', builder: (_, __) => const ToolsCategoryScreen(category: ToolCategory.image)),
+      GoRoute(
+        path: '/tools/workspace',
+        builder: (_, state) => ToolWorkspaceScreen(toolId: state.uri.queryParameters['toolId'] ?? 'image_convert'),
+      ),
 
       // Main app shell with bottom nav
       ShellRoute(

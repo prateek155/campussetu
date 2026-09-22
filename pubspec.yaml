@@ -75,6 +75,11 @@ dependencies:
   open_filex: ^4.5.0
   in_app_update: ^4.2.3
   device_info_plus: ^10.1.0
+  image: ^4.10.1
+  qr_flutter: ^4.1.0
+  barcode_widget: ^2.0.4
+  syncfusion_flutter_pdf: ^34.2.9
+  archive: ^4.3.0
 
 dev_dependencies:
   flutter_test:

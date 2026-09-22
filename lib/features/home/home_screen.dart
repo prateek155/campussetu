@@ -310,6 +310,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
+                            icon: Icons.auto_fix_high_rounded,
+                            iconColor: const Color(0xFF00B4D8),
+                            title: 'Tools',
+                            subtitle: 'PDF & Images',
+                            badge: '12 FREE',
+                            onTap: () => context.push('/tools'),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildCarouselCard(
+                            context,
                             icon: Icons.campaign_rounded,
                             iconColor: Colors.purple,
                             title: 'Whispers',
