@@ -85,8 +85,8 @@ class MainShell extends ConsumerWidget {
           Container(
             height: 68,
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border(bottom: BorderSide(color: AppColors.cardBorder, width: 1)),
+              color: Colors.white,
+              border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
               boxShadow: [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
               ],

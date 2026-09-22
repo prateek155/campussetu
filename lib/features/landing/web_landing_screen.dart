@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
+import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -18,6 +19,12 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _ecosystemKey = GlobalKey();
   bool _isSigningIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ApiService().warmup();
+  }
 
   static const _bg          = Color(0xFF090B14);
   static const _card        = Color(0xFF121526);

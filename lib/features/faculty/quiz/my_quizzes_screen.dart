@@ -183,7 +183,7 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
                           },
                         ),
         ),
-      );
+      ),
     );
   }
 }
