@@ -37,13 +37,16 @@ exports.getFeed = async (req, res) => {
     if (!me.length) return res.status(404).json({ error: 'User not found' });
     const userId = me[0].id;
 
-    const cacheKey = `feed:page:${page}:limit:${limit}:${userId}`;
+    const cacheKey = `feed:v2:page:${page}:limit:${limit}:${userId}`;
     const cached = await cache.getCache(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     const { rows } = await db.query(
       `SELECT p.*,
-         row_to_json(u.*) AS author,
+         jsonb_build_object(
+           'id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'is_verified', u.is_verified, 'is_premium', u.is_premium
+         ) AS author,
          (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likes_count,
          (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count,
          EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $1) AS is_liked
@@ -75,7 +78,7 @@ exports.createPost = async (req, res) => {
     );
 
     // Invalidate all feed pages for all users since a new post appears at the top
-    await cache.delPattern('feed:page:*');
+    await cache.delPattern('feed:v2:page:*');
 
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -113,7 +116,7 @@ exports.toggleLike = async (req, res) => {
     if (liked && authorId !== userId) awardLikeMilestones(req.params.id, authorId).catch(() => {});
 
     // Invalidate feed cache — like counts changed
-    await cache.delPattern('feed:page:*');
+    await cache.delPattern('feed:v2:page:*');
 
     res.json({ liked, likes_count: c[0].n });
   } catch (err) {
@@ -125,7 +128,8 @@ exports.toggleLike = async (req, res) => {
 exports.getComments = async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT c.*, row_to_json(u.*) AS author
+      `SELECT c.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url) AS author
        FROM post_comments c JOIN users u ON u.id = c.author_id
        WHERE c.post_id = $1 ORDER BY c.created_at ASC`,
       [req.params.id]
@@ -153,14 +157,15 @@ exports.addComment = async (req, res) => {
       [req.params.id, me[0].id, content]
     );
     const { rows } = await db.query(
-      `SELECT c.*, row_to_json(u.*) AS author,
+      `SELECT c.*,
+        jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url) AS author,
         (SELECT COUNT(*)::int FROM post_comments WHERE post_id = $2) AS comments_count
        FROM post_comments c JOIN users u ON u.id = c.author_id WHERE c.id = $1`,
       [ins[0].id, req.params.id]
     );
 
     // Invalidate feed cache — comment counts changed
-    await cache.delPattern('feed:page:*');
+    await cache.delPattern('feed:v2:page:*');
 
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -181,7 +186,7 @@ exports.deletePost = async (req, res) => {
     await db.query('UPDATE posts SET is_deleted = true WHERE id = $1', [req.params.id]);
 
     // Invalidate feed cache — post no longer visible
-    await cache.delPattern('feed:page:*');
+    await cache.delPattern('feed:v2:page:*');
 
     res.json({ deleted: true });
   } catch (err) {

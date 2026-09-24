@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 
@@ -33,13 +34,18 @@ class ConvertedImageResult {
 
 class ImageToolsService {
   /// 1. IMAGE CONVERTER
-  /// Converts an image to target format (PNG, JPG, BMP, GIF).
+  /// Converts an image to target format (PNG, JPG, BMP, GIF, SVG).
   static Future<ConvertedImageResult> convertImage(
     Uint8List inputBytes, {
-    required String targetFormat, // 'png', 'jpg', 'bmp', 'gif'
+    required String targetFormat, // 'png', 'jpg', 'bmp', 'gif', 'svg'
     int quality = 90,
   }) async {
-    final decoded = img.decodeImage(inputBytes);
+    Uint8List effectiveBytes = inputBytes;
+    if (_isSvg(inputBytes)) {
+      effectiveBytes = await _renderSvgToPng(inputBytes);
+    }
+
+    final decoded = img.decodeImage(effectiveBytes);
     if (decoded == null) throw Exception('Unable to decode image file');
 
     Uint8List output;
@@ -59,6 +65,16 @@ class ImageToolsService {
       case 'gif':
         output = Uint8List.fromList(img.encodeGif(decoded));
         break;
+      case 'svg':
+        final pngData = Uint8List.fromList(img.encodePng(decoded));
+        final b64 = base64Encode(pngData);
+        final svgXml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+            'width="${decoded.width}" height="${decoded.height}" viewBox="0 0 ${decoded.width} ${decoded.height}">\n'
+            '  <image width="${decoded.width}" height="${decoded.height}" xlink:href="data:image/png;base64,$b64"/>\n'
+            '</svg>';
+        output = Uint8List.fromList(utf8.encode(svgXml));
+        break;
       default:
         output = Uint8List.fromList(img.encodePng(decoded));
         break;
@@ -72,6 +88,25 @@ class ImageToolsService {
       originalSize: inputBytes.lengthInBytes,
       newSize: output.lengthInBytes,
     );
+  }
+
+  static bool _isSvg(Uint8List bytes) {
+    if (bytes.length < 5) return false;
+    final header = String.fromCharCodes(bytes.take(200)).toLowerCase();
+    return header.contains('<svg') || header.contains('<?xml');
+  }
+
+  static Future<Uint8List> _renderSvgToPng(Uint8List svgBytes) async {
+    final svgString = utf8.decode(svgBytes, allowMalformed: true);
+    final pictureInfo = await vg.loadPicture(SvgStringLoader(svgString), null);
+    final width = pictureInfo.size.width.toInt().clamp(1, 4096);
+    final height = pictureInfo.size.height.toInt().clamp(1, 4096);
+    final image = await pictureInfo.picture.toImage(width, height);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    pictureInfo.picture.dispose();
+    image.dispose();
+    if (byteData == null) throw Exception('Unable to rasterize SVG image');
+    return byteData.buffer.asUint8List();
   }
 
   /// 2. COMPRESS IMAGE

@@ -50,7 +50,8 @@ exports.retrieveTshare = async (req, res) => {
   try {
     const { code } = req.params;
     const { rows } = await db.query(
-      `SELECT t.*, row_to_json(u.*) AS uploader
+      `SELECT t.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url) AS uploader
        FROM tshares t JOIN users u ON u.id = t.uploader_id
        WHERE t.code = $1 AND t.expires_at > NOW()`,
       [code.toUpperCase()]

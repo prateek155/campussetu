@@ -1,11 +1,19 @@
 // backend/src/middleware/auth.js
 const admin = require('../config/firebase');
 const cache = require('../config/redis');
+const { activityLogger } = require('./activityLogger');
 
 // In-memory fallback cache when Redis is unavailable
 const _memCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 const CACHE_TTL_SEC = 5 * 60;       // 5 min (for Redis EX)
+
+function continueAuthenticatedRequest(req, res, next, decoded) {
+  req.user = decoded;
+  if (res.locals.activityLoggingAttached) return next();
+  res.locals.activityLoggingAttached = true;
+  return activityLogger(req, res, next);
+}
 
 function getMemCached(token) {
   const e = _memCache.get(token);
@@ -50,12 +58,13 @@ const requireAuth = async (req, res, next) => {
     if (!idToken || idToken.length < 20) return res.status(401).json({ error: 'Invalid token' });
 
     const cached = await getCachedToken(idToken);
-    if (cached) { req.user = cached; return next(); }
+    if (cached) {
+      return continueAuthenticatedRequest(req, res, next, cached);
+    }
 
     const decoded = await admin.auth().verifyIdToken(idToken, true);
     await setCachedToken(idToken, decoded);
-    req.user = decoded;
-    next();
+    return continueAuthenticatedRequest(req, res, next, decoded);
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: ' + err.message });
   }

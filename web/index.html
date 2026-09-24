@@ -41,6 +41,40 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- OCR runtime, model, and WebAssembly core are bundled locally. -->
+  <script src="ocr/assets/tesseract.min.js"></script>
+  <script>
+    let campusSetuOcrWorker;
+
+    async function getCampusSetuOcrWorker() {
+      if (!window.Tesseract) throw new Error('Local OCR runtime is unavailable');
+      if (!campusSetuOcrWorker) {
+        const assets = new URL('ocr/assets/', document.baseURI);
+        campusSetuOcrWorker = window.Tesseract.createWorker('eng', 1, {
+          workerPath: new URL('worker.min.js', assets).toString(),
+          workerBlobURL: false,
+          langPath: new URL('lang', assets).toString(),
+          corePath: new URL('tesseract-core-lstm.wasm.js', assets).toString(),
+        }).catch((error) => {
+          campusSetuOcrWorker = null;
+          throw error;
+        });
+      }
+      return campusSetuOcrWorker;
+    }
+
+    window.addEventListener('campussetu_ocr_request', async function(e) {
+      try {
+        const worker = await getCampusSetuOcrWorker();
+        const res = await worker.recognize(e.detail);
+        const text = (res && res.data && res.data.text) ? res.data.text.trim() : '';
+        window.dispatchEvent(new CustomEvent('campussetu_ocr_response', { detail: text }));
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent('campussetu_ocr_response', { detail: 'ERROR: ' + err }));
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

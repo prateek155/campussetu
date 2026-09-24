@@ -106,7 +106,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> with TickerProviderStat
       if (event == 'answer-result') {
         setState(() {
           _score = data['score'] ?? 0;
-          _totalScore += _score;
+          if (data['alreadySubmitted'] != true) _totalScore += _score;
           _correctIndex = data['correctIndex'];
         });
       }

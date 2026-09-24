@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const cache = require('../config/redis');
+const { submitQuizAnswer } = require('../services/quizAnswer.service');
 
 
 // ── Multer setup for question images ──────────────────────────
@@ -146,7 +147,7 @@ exports.getQuizDetail = async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Quiz not found' });
 
     const { rows: questions } = await db.query(
-      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC',
+      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC, id ASC',
       [req.params.id]
     );
     // Add full URLs
@@ -200,7 +201,7 @@ exports.getResults = async (req, res) => {
     );
 
     const { rows: questions } = await db.query(
-      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC',
+      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC, id ASC',
       [req.params.id]
     );
 
@@ -257,7 +258,7 @@ exports.joinQuiz = async (req, res) => {
     );
 
     const { rows: questions } = await db.query(
-      'SELECT id, question_text, image_url, options, order_index FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC',
+      'SELECT id, question_text, image_url, options, order_index FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index ASC, id ASC',
       [quiz[0].id]
     );
 
@@ -277,36 +278,28 @@ exports.submitAnswer = async (req, res) => {
     const userId = await getUserId(req.user.uid);
     if (!userId) return res.status(404).json({ error: 'User not found' });
 
-    const { quiz_id, question_id, selected_index, time_taken } = req.body;
+    const { quiz_id, question_id, selected_index } = req.body || {};
+    const isUuid = (value) => typeof value === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    if (!isUuid(quiz_id) || !isUuid(question_id)) {
+      return res.status(400).json({ error: 'Valid quiz_id and question_id are required' });
+    }
+    if (!Number.isInteger(selected_index) || selected_index < 0) {
+      return res.status(400).json({ error: 'selected_index must be a non-negative integer' });
+    }
 
-    // Get correct answer
-    const { rows: q } = await db.query('SELECT options FROM quiz_questions WHERE id = $1', [question_id]);
-    if (!q.length) return res.status(404).json({ error: 'Question not found' });
-
-    const options = typeof q[0].options === 'string' ? JSON.parse(q[0].options) : q[0].options;
-    const isCorrect = options[selected_index]?.isCorrect === true;
-    // Score: correct = base 100 + speed bonus (max 50 for instant, 0 for 20s)
-    const timeTaken = Math.min(Math.max(time_taken || 20, 0), 20);
-    const score = isCorrect ? Math.round(100 + (50 * (1 - timeTaken / 20))) : 0;
-
-    // Get current participant record
-    const { rows: p } = await db.query(
-      'SELECT * FROM quiz_participants WHERE quiz_id = $1 AND user_id = $2',
-      [quiz_id, userId]
-    );
-    if (!p.length) return res.status(400).json({ error: 'Join quiz first' });
-
-    const currentAnswers = p[0].answers || [];
-    const newAnswers = [...currentAnswers, { question_id, selected_index, isCorrect, time_taken: timeTaken, score }];
-
-    await db.query(
-      `UPDATE quiz_participants SET answers = $1, total_score = total_score + $2
-       WHERE quiz_id = $3 AND user_id = $4`,
-      [JSON.stringify(newAnswers), score, quiz_id, userId]
-    );
-
-    res.json({ isCorrect, score });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const result = await submitQuizAnswer({
+      quizId: quiz_id,
+      questionId: question_id,
+      userId,
+      selectedIndex: selected_index,
+    });
+    res.json({ isCorrect: result.isCorrect, score: result.score, alreadySubmitted: result.alreadySubmitted });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('Quiz answer submission failed:', err.code || 'unknown error');
+    res.status(500).json({ error: 'Unable to submit quiz answer' });
+  }
 };
 
 // ── STUDENT: Get my result ────────────────────────────────────

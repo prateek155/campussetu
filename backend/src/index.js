@@ -25,7 +25,7 @@ const eventsRouter = require('./routes/events.routes');
 const travelRouter = require('./routes/travel.routes');
 const flatmatesRouter = require('./routes/flatmates.routes');
 const quizRouter = require('./routes/quiz.routes');
-const { activityLogger } = require('./middleware/activityLogger');
+const reportsRouter = require('./routes/reports.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,7 +46,7 @@ app.use(helmet({
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'Idempotency-Key'],
 }));
 app.options('*', cors());
 app.use(morgan('dev'));
@@ -81,6 +81,7 @@ app.use('/api/v1/events', eventsRouter);
 app.use('/api/v1/travel', travelRouter);
 app.use('/api/v1/flatmates', flatmatesRouter);
 app.use('/api/v1/quiz', quizRouter);
+app.use('/api/v1/reports', reportsRouter);
 
 // ── Admin: Faculty request endpoints ──────────────────────
 const { requireAuth, requireAdmin } = require('./middleware/auth');
@@ -88,9 +89,6 @@ const fc = require('./controllers/facultyAuth.controller');
 app.get('/api/v1/admin/faculty-requests', requireAuth, requireAdmin, fc.getFacultyRequests);
 app.post('/api/v1/admin/faculty-requests/:id/approve', requireAuth, requireAdmin, fc.approveFacultyRequest);
 app.post('/api/v1/admin/faculty-requests/:id/reject', requireAuth, requireAdmin, fc.rejectFacultyRequest);
-
-// Activity logger — runs after auth middleware populates req.user
-app.use('/api/v1', activityLogger);
 
 // ── Health check ───────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -157,7 +155,31 @@ app.use((err, req, res, next) => {
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         amount INT NOT NULL, reason TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`);
+      await db.query(`CREATE TABLE IF NOT EXISTS points_transfer_requests (
+        sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        idempotency_key TEXT NOT NULL,
+        receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount INT NOT NULL CHECK (amount > 0),
+        response JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (sender_id, idempotency_key),
+        CHECK (char_length(idempotency_key) BETWEEN 16 AND 128)
+      )`);
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS campus_id TEXT UNIQUE`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS deal_code TEXT`);
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_users_deal_code ON users (deal_code) WHERE deal_code IS NOT NULL`);
+      await db.query(`CREATE TABLE IF NOT EXISTS reports (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_type TEXT NOT NULL CHECK (target_type IN ('post','user','product','note')),
+        target_id UUID NOT NULL,
+        reported_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','resolved')),
+        resolution TEXT,
+        resolved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_points_signup_once ON points_ledger (user_id) WHERE reason = 'signup_bonus'`);
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_points_milestone_once ON points_ledger (user_id, reason) WHERE reason LIKE 'post_like_milestone:%'`);
 
@@ -180,6 +202,13 @@ app.use((err, req, res, next) => {
         discount_code TEXT,
         banner_url TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW())`);
+      await db.query(`CREATE TABLE IF NOT EXISTS deal_redemptions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        deal_id UUID NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (deal_id, user_id)
+      )`);
 
       // Events table
       await db.query(`CREATE TABLE IF NOT EXISTS events (
@@ -215,14 +244,29 @@ app.use((err, req, res, next) => {
       // Faculty registration requests
       await db.query(`CREATE TABLE IF NOT EXISTS faculty_requests (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        firebase_uid TEXT,
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
         college_name TEXT NOT NULL,
         subject TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
         created_at TIMESTAMPTZ DEFAULT NOW()
       )`);
+
+      // Remove the legacy plaintext password column. Approved requests can be
+      // linked to their existing user; old pending requests must be resubmitted.
+      await db.query('ALTER TABLE faculty_requests ADD COLUMN IF NOT EXISTS firebase_uid TEXT');
+      await db.query(`UPDATE faculty_requests fr
+        SET firebase_uid = u.firebase_uid
+        FROM users u
+        WHERE u.role = 'faculty'
+          AND fr.firebase_uid IS NULL
+          AND LOWER(fr.email) = LOWER(u.email)`);
+      await db.query(`UPDATE faculty_requests SET status = 'rejected'
+        WHERE status = 'pending' AND firebase_uid IS NULL`);
+      await db.query('ALTER TABLE faculty_requests DROP COLUMN IF EXISTS password');
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_faculty_requests_firebase_uid
+        ON faculty_requests (firebase_uid) WHERE firebase_uid IS NOT NULL`);
 
       // Quizzes
       await db.query(`CREATE TABLE IF NOT EXISTS quizzes (
@@ -232,9 +276,11 @@ app.use((err, req, res, next) => {
         pin TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','waiting','live','ended')),
         current_question INT DEFAULT 0,
+        question_started_at TIMESTAMPTZ,
         ended_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )`);
+      await db.query('ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS question_started_at TIMESTAMPTZ');
 
       // Quiz questions
       await db.query(`CREATE TABLE IF NOT EXISTS quiz_questions (

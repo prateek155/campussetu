@@ -157,8 +157,8 @@ class ToolsHomeScreen extends ConsumerWidget {
                 // ── Hero Card 1: PDF Tools ──────────────────────
                 _HeroToolPackCard(
                   title: 'PDF Tools',
-                  subtitle: 'PDF to Word, Watermark, Word to PDF, Compress, Reorder & Delete',
-                  badgeText: '7 Tools',
+                  subtitle: 'PDF to Word, PPT to PDF, CSV to Excel/PDF, Compress, Reorder & PPTX',
+                  badgeText: '12 Tools',
                   isDark: isDark,
                   gradientColors: isDark
                       ? const [Color(0xFF1E2640), Color(0xFF162A4A), Color(0xFF1C2237)]
@@ -173,8 +173,8 @@ class ToolsHomeScreen extends ConsumerWidget {
                 // ── Hero Card 2: Image Tools ────────────────────
                 _HeroToolPackCard(
                   title: 'Image Tools',
-                  subtitle: 'Convert, Compress, Erase Watermark, QR & Barcode Generator',
-                  badgeText: '5 Tools',
+                  subtitle: 'Convert (SVG & BMP), Compress, Erase Watermark, QR, Barcode & OCR to PDF/Word',
+                  badgeText: '6 Tools',
                   isDark: isDark,
                   gradientColors: isDark
                       ? const [Color(0xFF193233), Color(0xFF132B2B), Color(0xFF182329)]

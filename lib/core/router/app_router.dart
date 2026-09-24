@@ -42,6 +42,7 @@ import '../../features/landing/web_landing_screen.dart';
 import '../../features/tools/tools_home_screen.dart';
 import '../../features/tools/tools_category_screen.dart';
 import '../../features/tools/tool_workspace_screen.dart';
+import '../../features/ambassador/screens/campus_ambassador_screen.dart';
 import '../shell/main_shell.dart';
 
 
@@ -80,6 +81,7 @@ class AppRoutes {
   static const invitations = '/connect/invitations';
   static const manageNetwork = '/connect/manage';
   static const connections = '/connect/connections';
+  static const ambassador = '/ambassador';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -136,6 +138,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/tools/workspace',
         builder: (_, state) => ToolWorkspaceScreen(toolId: state.uri.queryParameters['toolId'] ?? 'image_convert'),
       ),
+      GoRoute(path: AppRoutes.ambassador, builder: (_, __) => const CampusAmbassadorScreen()),
 
       // Main app shell with bottom nav
       ShellRoute(

@@ -76,6 +76,7 @@ dependencies:
   in_app_update: ^4.2.3
   device_info_plus: ^10.1.0
   image: ^4.10.1
+  google_mlkit_text_recognition: ^0.17.1
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.4
   syncfusion_flutter_pdf: ^34.2.9

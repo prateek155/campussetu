@@ -21,7 +21,9 @@ exports.getProducts = async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
 
     const { rows } = await db.query(
-      `SELECT p.*, row_to_json(u.*) AS seller
+      `SELECT p.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'is_verified', u.is_verified) AS seller
        FROM products p JOIN users u ON u.id = p.seller_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY p.created_at DESC
@@ -56,7 +58,10 @@ exports.createProduct = async (req, res) => {
 exports.getProduct = async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT p.*, row_to_json(u.*) AS seller FROM products p JOIN users u ON u.id = p.seller_id WHERE p.id = $1',
+      `SELECT p.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'is_verified', u.is_verified) AS seller
+       FROM products p JOIN users u ON u.id = p.seller_id WHERE p.id = $1`,
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Product not found' });

@@ -26,7 +26,7 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
-router.get('/', c.getFlatmates);
+router.get('/', requireAuth, c.getFlatmates);
 router.post('/', requireAuth, upload.array('photos', 2), c.createFlatmate);
 router.delete('/:id', requireAuth, c.deleteFlatmate);
 

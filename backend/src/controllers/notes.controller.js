@@ -22,7 +22,9 @@ exports.getNotes = async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
 
     const { rows } = await db.query(
-      `SELECT n.*, row_to_json(u.*) AS uploader
+      `SELECT n.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'is_verified', u.is_verified) AS uploader
        FROM notes n JOIN users u ON u.id = n.uploader_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY n.download_count DESC, n.created_at DESC

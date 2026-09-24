@@ -147,7 +147,7 @@ exports.addEvent = addEvent;
 
 exports.activityLogger = (req, res, next) => {
   res.on('finish', () => {
-    const path = req.path;
+    const path = (req.originalUrl || req.path).split('?')[0];
     const uid = req.user?.uid;
     const method = req.method;
 

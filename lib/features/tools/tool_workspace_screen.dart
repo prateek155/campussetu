@@ -1,4 +1,4 @@
-// lib/features/tools/tool_workspace_screen.dart
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import 'services/pdf_tools_service.dart';
 import 'services/image_tools_service.dart';
+import 'services/ocr_service.dart';
 import 'tools_category_screen.dart';
 import 'utils/file_saver.dart';
 
@@ -78,6 +79,23 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   final TextEditingController _wordTitleCtrl = TextEditingController(text: 'CampusSetu Document');
   final TextEditingController _wordTextCtrl = TextEditingController();
 
+  // TXT to Word & PDF state
+  final TextEditingController _txtInputCtrl = TextEditingController();
+
+  // CSV to Excel & PDF state
+  List<List<String>> _csvParsedRows = [];
+  String _csvRawText = '';
+
+  // PPT / PPTX to PDF state
+  Uint8List? _convertedPptPdfBytes;
+
+  // PDF to PPTX state
+  Uint8List? _convertedPptxBytes;
+
+  // Image OCR state
+  final TextEditingController _ocrTextCtrl = TextEditingController();
+  bool _ocrDone = false;
+
   // Image to PDF state
   final List<Uint8List> _imagesForPdf = [];
 
@@ -93,6 +111,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
     _barcodeCtrl.dispose();
     _wordTitleCtrl.dispose();
     _wordTextCtrl.dispose();
+    _txtInputCtrl.dispose();
+    _ocrTextCtrl.dispose();
     super.dispose();
   }
 
@@ -133,6 +153,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       _selectedFileBytes = bytes;
       _pdfToWordResult = null;
       _pagesToDelete.clear();
+      _convertedPptPdfBytes = null;
+      _convertedPptxBytes = null;
+
+      if (widget.toolId == 'csv_to_excel_pdf') {
+        _csvRawText = utf8.decode(bytes, allowMalformed: true);
+        _csvParsedRows = PdfToolsService.parseCsv(_csvRawText);
+      } else if (widget.toolId == 'txt_to_word_pdf') {
+        _txtInputCtrl.text = utf8.decode(bytes, allowMalformed: true);
+      } else if (widget.toolId == 'image_ocr_to_pdf_word') {
+        _ocrDone = false;
+        _ocrTextCtrl.clear();
+      }
 
       if (widget.toolId.contains('pdf') || widget.toolId == 'delete_pages' || widget.toolId == 'organize_pdf') {
         _pdfTotalPages = PdfToolsService.getPageCount(bytes);
@@ -385,6 +417,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         return _buildQrGenerator(isDark, textColor, textMuted);
       case 'barcode_generator':
         return _buildBarcodeGenerator(isDark, textColor, textMuted);
+      case 'image_ocr_to_pdf_word':
+        return _buildImageOcrToPdfWord(isDark, textColor, textMuted);
       case 'pdf_to_word':
         return _buildPdfToWord(isDark, textColor, textMuted);
       case 'pdf_watermark':
@@ -399,6 +433,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         return _buildDeletePdfPages(isDark, textColor, textMuted);
       case 'organize_pdf':
         return _buildOrganizePdf(isDark, textColor, textMuted);
+      case 'ppt_to_pdf':
+      case 'pptx_to_pdf':
+        return _buildPptToPdf(isDark, textColor, textMuted);
+      case 'csv_to_excel_pdf':
+        return _buildCsvToExcelPdf(isDark, textColor, textMuted);
+      case 'txt_to_word_pdf':
+        return _buildTxtToWordPdf(isDark, textColor, textMuted);
+      case 'pdf_to_pptx':
+        return _buildPdfToPptx(isDark, textColor, textMuted);
       default:
         return _buildDefaultFilePicker('+ Select File');
     }
@@ -410,17 +453,24 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       children: [
         _buildPrimarySelectButton(
           label: _selectedFileName == null ? '+ Select Image' : 'Change Image',
-          onTap: () => _pickSingleFile(isImage: true),
+          onTap: () => _pickSingleFile(extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'svg']),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Supports PNG, JPG, WEBP, BMP, GIF, and SVG', style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.memory(_selectedFileBytes!, width: 70, height: 70, fit: BoxFit.cover),
+                child: (_selectedFileName?.toLowerCase().endsWith('.svg') == true)
+                    ? Container(
+                        width: 70,
+                        height: 70,
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.15),
+                        child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF60A5FA), size: 30),
+                      )
+                    : Image.memory(_selectedFileBytes!, width: 70, height: 70, fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -442,7 +492,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
-            children: ['png', 'jpg', 'webp', 'bmp', 'gif'].map((fmt) {
+            children: ['png', 'jpg', 'webp', 'bmp', 'gif', 'svg'].map((fmt) {
               final isSel = _targetFormat == fmt;
               return ChoiceChip(
                 label: Text(fmt.toUpperCase()),
@@ -483,6 +533,622 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 }
               },
             ),
+        ],
+      ],
+    );
+  }
+
+  // 1A. IMAGE TO PDF & WORD (OCR EXTRACTOR)
+  Widget _buildImageOcrToPdfWord(bool isDark, Color textColor, Color textMuted) {
+    final baseName = (_selectedFileName ?? 'document').split('.').first;
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select Image for OCR' : 'Change Image',
+          onTap: () => _pickSingleFile(extensions: ['jpg', 'jpeg', 'png', 'webp']),
+        ),
+        const SizedBox(height: 6),
+        Text('Extracts text from photos, scans, receipts or notes', style: TextStyle(fontSize: 12, color: textMuted)),
+        if (_selectedFileBytes != null) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(_selectedFileBytes!, width: 64, height: 64, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_selectedFileName ?? 'image', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (_isProcessing)
+            Column(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 10),
+                Text('Extracting text with OCR...', style: TextStyle(fontSize: 12, color: textMuted)),
+              ],
+            )
+          else if (!_ocrDone)
+            _buildActionExecuteButton(
+              label: 'Extract Text (OCR)',
+              icon: Icons.document_scanner_rounded,
+              onTap: () async {
+                setState(() => _isProcessing = true);
+                try {
+                  final text = await performImageOcr(
+                    _selectedFileBytes!,
+                    fileName: _selectedFileName,
+                  );
+                  setState(() {
+                    _ocrTextCtrl.text = text;
+                    _ocrDone = true;
+                  });
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              },
+            )
+          else ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Extracted Text (Editable):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                  TextButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: _ocrTextCtrl.text));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Text copied to clipboard!')));
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    label: const Text('Copy', style: TextStyle(fontSize: 12, color: Color(0xFF38BDF8))),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+              ),
+              child: TextField(
+                controller: _ocrTextCtrl,
+                maxLines: 7,
+                style: TextStyle(color: textColor, fontSize: 13, height: 1.4),
+                decoration: InputDecoration(
+                  hintText: 'Extracted text will appear here...',
+                  hintStyle: TextStyle(color: textMuted, fontSize: 13),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionExecuteButton(
+                    label: 'Export PDF',
+                    icon: Icons.picture_as_pdf_rounded,
+                    onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final pdf = OcrService.exportToPdf(_ocrTextCtrl.text, title: baseName);
+                        final outName = '${baseName}_ocr.pdf';
+                        await saveAndDownloadFile(pdf, outName);
+                        _recordRecentFile(outName, pdf, true);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('OCR PDF downloaded!'),
+                            backgroundColor: AppColors.success,
+                          ));
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionExecuteButton(
+                    label: 'Export Word (.docx)',
+                    icon: Icons.description_rounded,
+                    onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final docx = OcrService.exportToDocx(_ocrTextCtrl.text);
+                        final outName = '${baseName}_ocr.docx';
+                        await saveAndDownloadFile(docx, outName);
+                        _recordRecentFile(outName, docx, false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('OCR Word document downloaded!'),
+                            backgroundColor: AppColors.success,
+                          ));
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  // PPT / PPTX TO PDF
+  Widget _buildPptToPdf(bool isDark, Color textColor, Color textMuted) {
+    final baseName = (_selectedFileName ?? 'presentation').replaceAll(RegExp(r'\.(pptx|ppt)$', caseSensitive: false), '');
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select PowerPoint File' : 'Change Presentation',
+          onTap: () => _pickSingleFile(extensions: ['pptx', 'ppt']),
+        ),
+        const SizedBox(height: 6),
+        Text('Supports .pptx and .ppt presentations', style: TextStyle(fontSize: 12, color: textMuted)),
+        if (_selectedFileBytes != null) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB45309).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.slideshow_rounded, color: Color(0xFFFBBF24), size: 30),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_selectedFileName ?? 'presentation.pptx', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else if (_convertedPptPdfBytes == null)
+            _buildActionExecuteButton(
+              label: 'Extract Slides & Convert to PDF',
+              icon: Icons.picture_as_pdf_rounded,
+              onTap: () async {
+                setState(() => _isProcessing = true);
+                try {
+                  final pdf = await PdfToolsService.pptxToPdf(_selectedFileBytes!);
+                  setState(() => _convertedPptPdfBytes = pdf);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              },
+            )
+          else ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Presentation converted to landscape PDF slides!',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildActionExecuteButton(
+              label: 'Download PDF (${_formatSize(_convertedPptPdfBytes!.lengthInBytes)})',
+              icon: Icons.download_rounded,
+              onTap: () async {
+                final outName = '${baseName}_slides.pdf';
+                await saveAndDownloadFile(_convertedPptPdfBytes!, outName);
+                _recordRecentFile(outName, _convertedPptPdfBytes!, true);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Presentation PDF downloaded!'),
+                    backgroundColor: AppColors.success,
+                  ));
+                }
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  // CSV TO EXCEL & PDF
+  Widget _buildCsvToExcelPdf(bool isDark, Color textColor, Color textMuted) {
+    final baseName = (_selectedFileName ?? 'data').replaceAll(RegExp(r'\.csv$', caseSensitive: false), '');
+    final totalRows = _csvParsedRows.length;
+    final totalCols = _csvParsedRows.isNotEmpty ? _csvParsedRows.first.length : 0;
+
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select CSV File' : 'Change CSV File',
+          onTap: () => _pickSingleFile(extensions: ['csv', 'txt']),
+        ),
+        const SizedBox(height: 6),
+        Text('Upload comma, semicolon, or tab-delimited CSV', style: TextStyle(fontSize: 12, color: textMuted)),
+        if (_selectedFileBytes != null) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF065F46).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.table_chart_rounded, color: Color(0xFF34D399), size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_selectedFileName ?? 'data.csv', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Rows: $totalRows • Columns: $totalCols • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_csvParsedRows.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 180),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    headingRowHeight: 34,
+                    dataRowMinHeight: 28,
+                    dataRowMaxHeight: 34,
+                    columnSpacing: 18,
+                    columns: List.generate(
+                      totalCols,
+                      (colIdx) => DataColumn(
+                        label: Text(
+                          colIdx < _csvParsedRows.first.length ? _csvParsedRows.first[colIdx] : 'Col ${colIdx + 1}',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textColor),
+                        ),
+                      ),
+                    ),
+                    rows: _csvParsedRows.skip(1).take(5).map((row) {
+                      return DataRow(
+                        cells: List.generate(
+                          totalCols,
+                          (c) => DataCell(
+                            Text(c < row.length ? row[c] : '', style: TextStyle(fontSize: 11, color: textMuted)),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionExecuteButton(
+                    label: 'Excel (.xlsx)',
+                    icon: Icons.table_view_rounded,
+                    onTap: () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final xlsxBytes = PdfToolsService.csvToExcelXlsx(_csvRawText);
+                        final outName = '$baseName.xlsx';
+                        await saveAndDownloadFile(xlsxBytes, outName);
+                        _recordRecentFile(outName, xlsxBytes, false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Excel spreadsheet downloaded!'),
+                            backgroundColor: AppColors.success,
+                          ));
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionExecuteButton(
+                    label: 'PDF Table',
+                    icon: Icons.picture_as_pdf_rounded,
+                    onTap: () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final pdfBytes = PdfToolsService.csvToPdf(_csvRawText, title: baseName);
+                        final outName = '${baseName}_table.pdf';
+                        await saveAndDownloadFile(pdfBytes, outName);
+                        _recordRecentFile(outName, pdfBytes, true);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('PDF table document downloaded!'),
+                            backgroundColor: AppColors.success,
+                          ));
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ],
+    );
+  }
+
+  // TXT TO WORD & PDF
+  Widget _buildTxtToWordPdf(bool isDark, Color textColor, Color textMuted) {
+    final baseName = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.txt$', caseSensitive: false), '');
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select .txt File' : 'Change .txt File',
+          onTap: () => _pickSingleFile(extensions: ['txt', 'text']),
+        ),
+        const SizedBox(height: 6),
+        Text('or type / paste your text below', style: TextStyle(fontSize: 12, color: textMuted)),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _txtInputCtrl,
+                maxLines: 7,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(color: textColor, fontSize: 13, height: 1.4),
+                decoration: InputDecoration(
+                  hintText: 'Paste or enter text here to convert into Word or PDF...',
+                  hintStyle: TextStyle(color: textMuted, fontSize: 13),
+                  border: InputBorder.none,
+                ),
+              ),
+              const Divider(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${_txtInputCtrl.text.length} chars • ${_txtInputCtrl.text.trim().isEmpty ? 0 : _txtInputCtrl.text.trim().split(RegExp(r'\s+')).length} words',
+                    style: TextStyle(fontSize: 11, color: textMuted),
+                  ),
+                  if (_txtInputCtrl.text.isNotEmpty)
+                    InkWell(
+                      onTap: () => setState(() => _txtInputCtrl.clear()),
+                      child: Text('Clear', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (_isProcessing)
+          const CircularProgressIndicator()
+        else
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionExecuteButton(
+                  label: 'Word (.docx)',
+                  icon: Icons.description_rounded,
+                  onTap: _txtInputCtrl.text.trim().isEmpty ? null : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      final docx = PdfToolsService.txtToDocx(_txtInputCtrl.text);
+                      final outName = '$baseName.docx';
+                      await saveAndDownloadFile(docx, outName);
+                      _recordRecentFile(outName, docx, false);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Word document downloaded!'),
+                          backgroundColor: AppColors.success,
+                        ));
+                      }
+                    } catch (e) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionExecuteButton(
+                  label: 'PDF Document',
+                  icon: Icons.picture_as_pdf_rounded,
+                  onTap: _txtInputCtrl.text.trim().isEmpty ? null : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      final pdf = PdfToolsService.txtToPdf(_txtInputCtrl.text, title: baseName);
+                      final outName = '$baseName.pdf';
+                      await saveAndDownloadFile(pdf, outName);
+                      _recordRecentFile(outName, pdf, true);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('PDF document downloaded!'),
+                          backgroundColor: AppColors.success,
+                        ));
+                      }
+                    } catch (e) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  // PDF TO POWERPOINT (.pptx)
+  Widget _buildPdfToPptx(bool isDark, Color textColor, Color textMuted) {
+    final baseName = (_selectedFileName ?? 'presentation').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF File',
+          onTap: () => _pickSingleFile(extensions: ['pdf']),
+        ),
+        const SizedBox(height: 6),
+        Text('Convert PDF pages into editable PowerPoint slides', style: TextStyle(fontSize: 12, color: textMuted)),
+        if (_selectedFileBytes != null) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C2D12).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.co_present_rounded, color: Color(0xFFFB923C), size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                    Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else if (_convertedPptxBytes == null)
+            _buildActionExecuteButton(
+              label: 'Generate PowerPoint Presentation (.pptx)',
+              icon: Icons.slideshow_rounded,
+              onTap: () async {
+                setState(() => _isProcessing = true);
+                try {
+                  final pptx = await PdfToolsService.pdfToPptx(_selectedFileBytes!, title: baseName);
+                  setState(() => _convertedPptxBytes = pptx);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              },
+            )
+          else ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'PowerPoint (.pptx) created with $_pdfTotalPages slides!',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildActionExecuteButton(
+              label: 'Download PowerPoint (.pptx)',
+              icon: Icons.download_rounded,
+              onTap: () async {
+                final outName = '${baseName}_presentation.pptx';
+                await saveAndDownloadFile(_convertedPptxBytes!, outName);
+                _recordRecentFile(outName, _convertedPptxBytes!, false);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('PowerPoint file downloaded!'),
+                    backgroundColor: AppColors.success,
+                  ));
+                }
+              },
+            ),
+          ],
         ],
       ],
     );

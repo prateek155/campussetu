@@ -65,7 +65,8 @@ exports.getTasks = async (req, res) => {
     const { rows } = await db.query(
       `SELECT t.*,
         (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count,
-        row_to_json(u.*) AS poster
+        jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+          'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS poster
        FROM helping_tasks t JOIN users u ON u.id = t.poster_id
        ${conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''}
        ORDER BY t.created_at DESC LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
@@ -124,19 +125,29 @@ exports.getTask = async (req, res) => {
   try {
     await sweepExpired();
     const { rows } = await db.query(
-      `SELECT t.*, row_to_json(u.*) AS poster,
+      `SELECT t.*,
+        jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+          'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS poster,
         (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count
        FROM helping_tasks t JOIN users u ON u.id = t.poster_id WHERE t.id = $1`, [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Task not found' });
     rows[0].image_url = fullImageUrl(req, rows[0].image_url);
-    const { rows: apps } = await db.query(
-      `SELECT a.*, row_to_json(u.*) AS applicant FROM helping_applications a
-       JOIN users u ON u.id = a.applicant_id WHERE a.task_id = $1 ORDER BY a.created_at ASC`, [req.params.id]
-    );
     const uid = await meId(req.user.uid);
+    const isPoster = rows[0].poster_id === uid;
+    const { rows: apps } = await db.query(
+      `SELECT a.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'city', u.city, 'campus_id', u.campus_id,
+           'skills', u.skills, 'is_verified', u.is_verified) AS applicant
+       FROM helping_applications a
+       JOIN users u ON u.id = a.applicant_id
+       WHERE a.task_id = $1 AND ($3::boolean OR a.applicant_id = $2)
+       ORDER BY a.created_at ASC`,
+      [req.params.id, uid, isPoster]
+    );
     const mine = apps.find((a) => a.applicant_id === uid);
-    res.json({ ...rows[0], applications: apps, my_application: mine || null, is_poster: rows[0].poster_id === uid });
+    res.json({ ...rows[0], applications: isPoster ? apps : [], my_application: mine || null, is_poster: isPoster });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

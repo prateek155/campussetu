@@ -16,6 +16,7 @@ import '../../core/router/app_router.dart';
 import 'widgets/post_card.dart';
 import 'package:campussetu/features/home/help_chat_widget.dart';
 import 'widgets/create_post_sheet.dart';
+import '../ambassador/services/campus_ambassador_service.dart';
 
 final homeCountsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res = await ApiService().get('/users/home-counts');
@@ -32,6 +33,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final Map<String, PostModel> _likeOverrides = {};
   final Set<String> _liking = {};
+  bool _dismissedAmbassadorBanner = false;
 
   Future<void> _refresh() async {
     _likeOverrides.clear();
@@ -151,6 +153,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final feedAsync = ref.watch(feedProvider);
     final countsAsync = ref.watch(homeCountsProvider);
     final counts = countsAsync.valueOrNull ?? {};
+    final isAmbassadorOpen = ref.watch(ambassadorProgramStatusProvider).value ?? true;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -263,94 +267,132 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SizedBox(
-                      height: 110,
+                      height: 112,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
                         children: [
+                          if (isAmbassadorOpen) ...[
+                            _buildCarouselCard(
+                              context,
+                              icon: Icons.campaign_rounded,
+                              iconColor: const Color(0xFFF59E0B),
+                              title: 'Ambassador',
+                              subtitle: 'Lead your campus',
+                              badge: 'APPLY NOW',
+                              badgeColor: const Color(0xFFD97706),
+                              lightGradient: const [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                              darkGradient: const [Color(0xFF2E2008), Color(0xFF1E1705)],
+                              onTap: () => context.push(AppRoutes.ambassador),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          _buildCarouselCard(
+                            context,
+                            icon: Icons.auto_fix_high_rounded,
+                            iconColor: const Color(0xFF0284C7),
+                            title: 'Tools',
+                            subtitle: 'PDF & Images',
+                            badge: '18 FREE',
+                            badgeColor: const Color(0xFF0284C7),
+                            lightGradient: const [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+                            darkGradient: const [Color(0xFF0C2B40), Color(0xFF071C2B)],
+                            onTap: () => context.push(AppRoutes.tools),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildCarouselCard(
+                            context,
+                            icon: Icons.directions_car_rounded,
+                            iconColor: const Color(0xFF0D9488),
+                            title: 'Travel',
+                            subtitle: 'Carpooling',
+                            count: (counts['travels'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFCCFBF1), Color(0xFF99F6E4)],
+                            darkGradient: const [Color(0xFF0D332D), Color(0xFF07211D)],
+                            onTap: () => context.push('/travel'),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildCarouselCard(
+                            context,
+                            icon: Icons.event_rounded,
+                            iconColor: const Color(0xFF4F46E5),
+                            title: 'Events',
+                            subtitle: 'Campus events',
+                            count: (counts['events'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFE0E7FF), Color(0xFFC7D2FE)],
+                            darkGradient: const [Color(0xFF1E2248), Color(0xFF141733)],
+                            onTap: () => context.push('/events'),
+                          ),
+                          const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
                             icon: Icons.handshake_outlined,
-                            iconColor: AppColors.warning,
+                            iconColor: const Color(0xFFEA580C),
                             title: 'Helping Hand',
                             subtitle: 'Earn points',
                             count: (counts['tasks'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFFFEDD5), Color(0xFFFED7AA)],
+                            darkGradient: const [Color(0xFF351908), Color(0xFF220F04)],
                             onTap: () => context.push(AppRoutes.helping),
                           ),
                           const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
                             icon: Icons.local_offer_outlined,
-                            iconColor: AppColors.success,
+                            iconColor: const Color(0xFF16A34A),
                             title: 'Deals',
                             subtitle: 'Student offers',
                             count: (counts['deals'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFDCFCE7), Color(0xFFBBF7D0)],
+                            darkGradient: const [Color(0xFF0E331A), Color(0xFF072210)],
                             onTap: () => context.push(AppRoutes.deals),
                           ),
                           const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
-                            icon: Icons.event,
-                            iconColor: Colors.indigo,
-                            title: 'Events',
-                            subtitle: 'Campus events',
-                            count: (counts['events'] ?? 0).toString(),
-                            onTap: () => context.push('/events'),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.directions_car,
-                            iconColor: Colors.teal,
-                            title: 'Travel',
-                            subtitle: 'Carpooling',
-                            count: (counts['travels'] ?? 0).toString(),
-                            onTap: () => context.push('/travel'),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.auto_fix_high_rounded,
-                            iconColor: const Color(0xFF00B4D8),
-                            title: 'Tools',
-                            subtitle: 'PDF & Images',
-                            badge: '12 FREE',
-                            onTap: () => context.push('/tools'),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.campaign_rounded,
-                            iconColor: Colors.purple,
+                            icon: Icons.record_voice_over_rounded,
+                            iconColor: const Color(0xFF9333EA),
                             title: 'Whispers',
                             subtitle: 'Anonymous',
                             badge: 'PRO',
+                            badgeColor: const Color(0xFF9333EA),
+                            lightGradient: const [Color(0xFFF3E8FF), Color(0xFFE9D5FF)],
+                            darkGradient: const [Color(0xFF2C1844), Color(0xFF1D0E2E)],
                             onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Whispers feature unlocking soon!'))),
                           ),
                           const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
                             icon: Icons.home_work_outlined,
-                            iconColor: AppColors.info,
+                            iconColor: const Color(0xFFE11D48),
                             title: 'Flatmates',
                             subtitle: 'Find rooms',
                             count: (counts['flatmates'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFFFE4E6), Color(0xFFFECDD3)],
+                            darkGradient: const [Color(0xFF381018), Color(0xFF24080F)],
                             onTap: () => context.push(AppRoutes.flatmates),
                           ),
                           const SizedBox(width: 12),
                           _buildCarouselCard(
                             context,
                             icon: Icons.quiz_rounded,
-                            iconColor: const Color(0xFF6C63FF),
+                            iconColor: const Color(0xFF7C3AED),
                             title: 'Learning',
                             subtitle: 'Live Quizzes',
                             count: (counts['live_quizzes'] ?? 0).toString(),
+                            lightGradient: const [Color(0xFFEDE9FE), Color(0xFFDDD6FE)],
+                            darkGradient: const [Color(0xFF241C48), Color(0xFF161033)],
                             onTap: () => context.push('/quiz'),
                           ),
                         ],
                       ),
                     ),
                   ),
+                  if (isAmbassadorOpen && !_dismissedAmbassadorBanner)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 8),
+                      child: _buildAmbassadorPromoBanner(context, isDark: isDark),
+                    ),
                 ],
               ),
             ),
@@ -409,17 +451,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCarouselCard(BuildContext context, {required IconData icon, required Color iconColor, required String title, required String subtitle, String? badge, String? count, required VoidCallback onTap}) {
+  Widget _buildCarouselCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    String? badge,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    String? count,
+    required List<Color> lightGradient,
+    required List<Color> darkGradient,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gradient = isDark ? darkGradient : lightGradient;
+    final borderColor = iconColor.withValues(alpha: isDark ? 0.35 : 0.28);
+    final shadowColor = iconColor.withValues(alpha: isDark ? 0.20 : 0.12);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 140,
+        width: 142,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.bg,
+          gradient: LinearGradient(
+            colors: gradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: AppColors.neuRaisedShadows,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          border: Border.all(color: borderColor, width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,43 +500,225 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    color: iconColor.withValues(alpha: isDark ? 0.25 : 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: iconColor.withValues(alpha: 0.3)),
                   ),
                   child: Icon(icon, color: iconColor, size: 20),
                 ),
                 if (count != null) ...[
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
+                      color: iconColor.withValues(alpha: isDark ? 0.25 : 0.18),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       count,
-                      style: AppTypography.interLabel(color: AppColors.primary).copyWith(fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: iconColor,
+                      ),
                     ),
                   ),
-                ]
+                ] else if (badge != null) ...[
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor ?? iconColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: badgeTextColor ?? Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const Spacer(),
-            Row(
-              children: [
-                Expanded(child: Text(title, style: AppTypography.interLabel(), overflow: TextOverflow.ellipsis)),
-                if (badge != null)
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.warning, borderRadius: BorderRadius.circular(4)),
-                    child: Text(badge, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black)),
-                  )
-              ],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            Text(subtitle, style: AppTypography.interCaption(color: AppColors.inkSoft)),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmbassadorPromoBanner(BuildContext context, {required bool isDark}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF2E2008), const Color(0xFF1B1304)]
+              : [const Color(0xFFFEF3C7), const Color(0xFFFDE68A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.campaign_rounded,
+                  color: Color(0xFFD97706),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'CAMPUS AMBASSADOR 2026',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() => _dismissedAmbassadorBanner = true),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: isDark ? Colors.white60 : Colors.black45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Lead Your Campus, Earn Perks & Grow 🚀',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Represent CampusSetu in your university. Get Certificate, Stipends, Goodies & Direct Mentorship.',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF475569),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _perkChip('🏆 Certificate', isDark),
+                    _perkChip('💰 Stipend & Swag', isDark),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => context.push(AppRoutes.ambassador),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Apply Now'),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 14),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _perkChip(String label, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
         ),
       ),
     );

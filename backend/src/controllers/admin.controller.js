@@ -59,7 +59,8 @@ exports.getStats = async (req, res) => {
 exports.getReports = async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT r.*, row_to_json(u.*) AS reporter
+      `SELECT r.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'email', u.email, 'photo_url', u.photo_url) AS reporter
        FROM reports r JOIN users u ON u.id = r.reporter_id
        WHERE r.status = 'pending'
        ORDER BY r.created_at DESC LIMIT 50`
@@ -74,22 +75,46 @@ exports.getReports = async (req, res) => {
 exports.resolveReport = async (req, res) => {
   try {
     const { action } = req.body; // 'dismiss' | 'delete_content' | 'ban_user'
-    const { rows: report } = await db.query(
-      `UPDATE reports SET status = 'resolved', resolution = $1, resolved_at = NOW()
-       WHERE id = $2 RETURNING *`,
-      [action, req.params.id]
-    );
-    if (!report.length) return res.status(404).json({ error: 'Report not found' });
+    if (!['dismiss', 'delete_content', 'ban_user'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid report resolution action' });
+    }
 
-    if (action === 'delete_content' && report[0].target_type === 'post') {
-      await db.query('UPDATE posts SET is_deleted = true WHERE id = $1', [report[0].target_id]);
+    const { rows: pendingReports } = await db.query(
+      'SELECT * FROM reports WHERE id = $1 AND status = \'pending\'',
+      [req.params.id]
+    );
+    const report = pendingReports[0];
+    if (!report) return res.status(404).json({ error: 'Pending report not found' });
+
+    if (action === 'delete_content') {
+      if (report.target_type !== 'post') {
+        return res.status(400).json({ error: 'Only post reports can be resolved by deleting content' });
+      }
+      await db.query('UPDATE posts SET is_deleted = true WHERE id = $1', [report.target_id]);
     }
     if (action === 'ban_user') {
-      await db.query('UPDATE users SET is_banned = true WHERE id = $1', [report[0].reported_user_id]);
-      await admin.auth().updateUser(report[0].firebase_uid, { disabled: true });
+      const reportedUserId = report.reported_user_id ||
+        (report.target_type === 'user' ? report.target_id : null);
+      if (!reportedUserId) {
+        return res.status(400).json({ error: 'This report does not identify a user to ban' });
+      }
+      const { rows: users } = await db.query(
+        'UPDATE users SET is_banned = true WHERE id = $1 RETURNING firebase_uid',
+        [reportedUserId]
+      );
+      if (!users.length) return res.status(404).json({ error: 'Reported user not found' });
+      if (users[0].firebase_uid) {
+        await admin.auth().updateUser(users[0].firebase_uid, { disabled: true });
+      }
     }
 
-    res.json(report[0]);
+    const { rows: resolvedReports } = await db.query(
+      `UPDATE reports SET status = 'resolved', resolution = $1, resolved_at = NOW()
+       WHERE id = $2 AND status = 'pending' RETURNING *`,
+      [action, req.params.id]
+    );
+    if (!resolvedReports.length) return res.status(409).json({ error: 'Report was already resolved' });
+    res.json(resolvedReports[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -99,7 +124,8 @@ exports.resolveReport = async (req, res) => {
 exports.getPendingJobs = async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT j.*, row_to_json(u.*) AS posted_by
+      `SELECT j.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'email', u.email, 'photo_url', u.photo_url) AS posted_by
        FROM jobs j JOIN users u ON u.id = j.poster_id
        WHERE j.is_approved = false ORDER BY j.created_at DESC`
     );
@@ -352,7 +378,16 @@ exports.dismissSuspicious = (req, res) => {
 // ── POST /admin/broadcast ─────────────────────────────────
 exports.broadcast = async (req, res) => {
   try {
-    const { title, body, topic = 'all_students' } = req.body;
+    const title = typeof req.body.title === 'string' && req.body.title.trim()
+      ? req.body.title.trim()
+      : 'CampusSetu';
+    const body = typeof req.body.body === 'string' && req.body.body.trim()
+      ? req.body.body.trim()
+      : (typeof req.body.message === 'string' ? req.body.message.trim() : '');
+    const topic = typeof req.body.topic === 'string' && req.body.topic.trim()
+      ? req.body.topic.trim()
+      : 'all_students';
+    if (!body) return res.status(400).json({ error: 'Broadcast message is required' });
     const message = {
       notification: { title, body },
       topic,
@@ -366,19 +401,33 @@ exports.broadcast = async (req, res) => {
 exports.redeemDeal = async (req, res) => {
   try {
     const { deal_id, deal_code } = req.body;
-    if (!deal_id || !deal_code) return res.status(400).json({ error: 'Deal ID and Deal Code are required' });
+    const normalizedCode = typeof deal_code === 'string' ? deal_code.trim().toUpperCase() : '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(deal_id || '')) || !normalizedCode) {
+      return res.status(400).json({ error: 'A valid Deal ID and Deal Code are required' });
+    }
+
+    const { rows: deals } = await db.query('SELECT id FROM deals WHERE id = $1', [deal_id]);
+    if (!deals.length) return res.status(404).json({ error: 'Deal not found' });
 
     // Find the user by deal_code
-    const { rows: users } = await db.query('SELECT id, name FROM users WHERE deal_code = ', [deal_code.toUpperCase()]);
+    const { rows: users } = await db.query(
+      'SELECT id, name FROM users WHERE UPPER(deal_code) = $1',
+      [normalizedCode]
+    );
     if (!users.length) return res.status(404).json({ error: 'Invalid Deal Code' });
     const user = users[0];
 
-    // Check if already redeemed
-    const { rows: redemptions } = await db.query('SELECT id FROM deal_redemptions WHERE deal_id =  AND user_id = ', [deal_id, user.id]);
-    if (redemptions.length) return res.status(400).json({ error: 'Deal already redeemed by this user' });
-
-    // Redeem
-    await db.query('INSERT INTO deal_redemptions (deal_id, user_id) VALUES (, )', [deal_id, user.id]);
+    // The unique constraint and ON CONFLICT make concurrent redemption attempts safe.
+    const { rows: redemptions } = await db.query(
+      `INSERT INTO deal_redemptions (deal_id, user_id)
+       VALUES ($1, $2)
+       ON CONFLICT (deal_id, user_id) DO NOTHING
+       RETURNING id`,
+      [deal_id, user.id]
+    );
+    if (!redemptions.length) {
+      return res.status(409).json({ error: 'Deal already redeemed by this user' });
+    }
     
     res.json({ success: true, message: 'Deal successfully redeemed!', user: { name: user.name } });
   } catch (err) {

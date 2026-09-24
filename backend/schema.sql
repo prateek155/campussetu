@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   skills           TEXT[]      DEFAULT '{}',
   profile_complete BOOLEAN     DEFAULT false,
   campus_id        TEXT UNIQUE,
+  deal_code        TEXT,
   is_verified      BOOLEAN     DEFAULT false,
   is_premium       BOOLEAN     DEFAULT false,
   is_banned        BOOLEAN     DEFAULT false,
@@ -34,6 +35,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deal_code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_deal_code ON users (deal_code) WHERE deal_code IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users (firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_users_state_city   ON users (state, city);
@@ -163,11 +167,11 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products (category, status);
 CREATE TABLE IF NOT EXISTS reports (
   id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   reporter_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  target_type       TEXT CHECK (target_type IN ('post','user','product','note')),
-  target_id         UUID,
+  target_type       TEXT NOT NULL CHECK (target_type IN ('post','user','product','note')),
+  target_id         UUID NOT NULL,
   reported_user_id  UUID REFERENCES users(id) ON DELETE CASCADE,
   reason            TEXT NOT NULL,
-  status            TEXT DEFAULT 'pending' CHECK (status IN ('pending','resolved')),
+  status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','resolved')),
   resolution        TEXT,
   resolved_at       TIMESTAMPTZ,
   created_at        TIMESTAMPTZ DEFAULT NOW()
@@ -185,6 +189,17 @@ CREATE TABLE IF NOT EXISTS points_ledger (
 );
 
 CREATE INDEX IF NOT EXISTS idx_points_user ON points_ledger (user_id);
+
+CREATE TABLE IF NOT EXISTS points_transfer_requests (
+  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  idempotency_key TEXT NOT NULL,
+  receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount INT NOT NULL CHECK (amount > 0),
+  response JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (sender_id, idempotency_key),
+  CHECK (char_length(idempotency_key) BETWEEN 16 AND 128)
+);
 
 -- ─────────────────────────────────────────────────────────
 -- STARTUPS
@@ -283,6 +298,14 @@ CREATE TABLE IF NOT EXISTS deals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS deal_redemptions (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deal_id      UUID NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  redeemed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (deal_id, user_id)
+);
+
 -- ─────────────────────────────────────────────────────────
 -- EVENTS
 -- ─────────────────────────────────────────────────────────
@@ -334,14 +357,28 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS subject TEXT;
 
 CREATE TABLE IF NOT EXISTS faculty_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  firebase_uid TEXT,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  password TEXT NOT NULL,
   college_name TEXT NOT NULL,
   subject TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrate legacy requests without retaining their plaintext passwords.
+ALTER TABLE faculty_requests ADD COLUMN IF NOT EXISTS firebase_uid TEXT;
+UPDATE faculty_requests fr
+SET firebase_uid = u.firebase_uid
+FROM users u
+WHERE u.role = 'faculty'
+  AND fr.firebase_uid IS NULL
+  AND LOWER(fr.email) = LOWER(u.email);
+UPDATE faculty_requests SET status = 'rejected'
+WHERE status = 'pending' AND firebase_uid IS NULL;
+ALTER TABLE faculty_requests DROP COLUMN IF EXISTS password;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_faculty_requests_firebase_uid
+  ON faculty_requests (firebase_uid) WHERE firebase_uid IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS quizzes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -350,9 +387,11 @@ CREATE TABLE IF NOT EXISTS quizzes (
   pin TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','waiting','live','ended')),
   current_question INT DEFAULT 0,
+  question_started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS question_started_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS quiz_questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

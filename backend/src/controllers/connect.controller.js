@@ -62,7 +62,13 @@ exports.getMyConnections = async (req, res) => {
 
     const { rows } = await db.query(
       `SELECT c.*,
-         CASE WHEN c.requester_id = $1 THEN row_to_json(r.*) ELSE row_to_json(q.*) END AS other_user
+         CASE WHEN c.requester_id = $1 THEN
+           jsonb_build_object('id', r.id, 'name', r.name, 'photo_url', r.photo_url,
+             'college', r.college, 'city', r.city, 'state', r.state, 'campus_id', r.campus_id, 'is_verified', r.is_verified)
+         ELSE
+           jsonb_build_object('id', q.id, 'name', q.name, 'photo_url', q.photo_url,
+             'college', q.college, 'city', q.city, 'state', q.state, 'campus_id', q.campus_id, 'is_verified', q.is_verified)
+         END AS other_user
        FROM connections c
        JOIN users q ON q.id = c.requester_id
        JOIN users r ON r.id = c.receiver_id
@@ -83,7 +89,9 @@ exports.getPendingRequests = async (req, res) => {
     if (!me.length) return res.status(404).json({ error: 'User not found' });
 
     const { rows } = await db.query(
-      `SELECT c.*, row_to_json(u.*) AS requester
+      `SELECT c.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS requester
        FROM connections c
        JOIN users u ON u.id = c.requester_id
        WHERE c.receiver_id = $1 AND c.status = 'pending'
@@ -103,7 +111,9 @@ exports.getSentRequests = async (req, res) => {
     if (!me.length) return res.status(404).json({ error: 'User not found' });
 
     const { rows } = await db.query(
-      `SELECT c.*, row_to_json(u.*) AS receiver
+      `SELECT c.*,
+         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
+           'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS receiver
        FROM connections c
        JOIN users u ON u.id = c.receiver_id
        WHERE c.requester_id = $1 AND c.status = 'pending'

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -25,6 +26,7 @@ class _TransferPointsScreenState extends ConsumerState<TransferPointsScreen> {
   bool _lookingUp = false;
   bool _sending = false;
   String? _lookupError;
+  final Map<String, String> _pendingTransferKeys = {};
 
   @override
   void initState() {
@@ -77,23 +79,23 @@ class _TransferPointsScreenState extends ConsumerState<TransferPointsScreen> {
       ),
     );
     if (ok != true || _sending) return;
+    final toCampusId = (_receiver!['campus_id'] ?? '').toString();
+    final fingerprint = '$toCampusId:$amount';
+    final idempotencyKey = _pendingTransferKeys.putIfAbsent(fingerprint, () => const Uuid().v4());
     final preBal = ref.read(currentUserProvider).value?.points;
     setState(() => _sending = true);
     try {
       await _ensureToken();
-      final res = await ApiService().transferPoints(toCampusId: (_receiver!['campus_id'] ?? '').toString(), amount: amount);
-      final meJson = await ApiService().getMe();
-      final meData = meJson.containsKey('data') ? meJson['data'] : meJson;
-      final serverBal = int.tryParse('${(meData as Map)['points'] ?? ''}');
+      final res = await ApiService().transferPoints(
+        toCampusId: toCampusId,
+        amount: amount,
+        idempotencyKey: idempotencyKey,
+      );
+      _pendingTransferKeys.remove(fingerprint);
       ref.invalidate(currentUserProvider);
       ref.invalidate(profileProvider(null));
       if (!mounted) return;
-      // Verify transfer: new balance should be less than old balance
-      if (serverBal != null && preBal != null && serverBal >= preBal) {
-        _err('Transfer verify nahi hua (balance unchanged). Please retry.');
-        return;
-      }
-      final showBal = serverBal ?? res['new_balance'];
+      final showBal = res['new_balance'] ?? (preBal != null ? preBal - amount : 'updated');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✓ $amount points sent to ${res['to']} • Balance: $showBal'), backgroundColor: AppColors.success));
       context.pop();
     } catch (e) {

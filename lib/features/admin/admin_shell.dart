@@ -6,6 +6,7 @@ import 'admin_users_screen.dart';
 import 'admin_content_screen.dart';
 import 'admin_pulse_screen.dart';
 import 'admin_faculty_screen.dart';
+import 'admin_ambassadors_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -28,6 +29,7 @@ class _AdminShellState extends State<AdminShell> {
     final navDefinitions = [
       (Icons.dashboard_outlined, Icons.dashboard_rounded, 'Overview', const Color(0xFF3FD8F5)),
       (Icons.people_outline, Icons.people_rounded, 'Users', const Color(0xFF3FD8F5)),
+      (Icons.campaign_outlined, Icons.campaign_rounded, 'Ambassadors', const Color(0xFFF59E0B)),
       (Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Content', const Color(0xFF3FD8F5)),
       (Icons.radar_outlined, Icons.radar, 'Pulse', const Color(0xFF22C55E)),
       (Icons.school_outlined, Icons.school_rounded, 'Faculty', const Color(0xFF6C63FF)),
@@ -61,9 +63,9 @@ class _AdminShellState extends State<AdminShell> {
                           child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
                         ),
                         const SizedBox(width: 10),
-                        Column(
+                        const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text('CampusSetu', style: TextStyle(color: Color(0xFFE9EBEE), fontWeight: FontWeight.w800, fontSize: 16)),
                             Text('ADMIN CONSOLE', style: TextStyle(color: Color(0xFF3FD8F5), fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
                           ],
@@ -131,8 +133,8 @@ class _AdminShellState extends State<AdminShell> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: _border),
                       ),
-                      child: Row(
-                        children: const [
+                      child: const Row(
+                        children: [
                           Icon(Icons.verified_user_rounded, color: Color(0xFF22C55E), size: 16),
                           SizedBox(width: 8),
                           Text('Super Admin Active', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11)),
@@ -151,6 +153,7 @@ class _AdminShellState extends State<AdminShell> {
                 children: const [
                   AdminDashboardScreen(),
                   AdminUsersScreen(),
+                  AdminAmbassadorsScreen(),
                   AdminContentScreen(),
                   AdminPulseScreen(),
                   AdminFacultyScreen(),
@@ -169,6 +172,7 @@ class _AdminShellState extends State<AdminShell> {
         children: const [
           AdminDashboardScreen(),
           AdminUsersScreen(),
+          AdminAmbassadorsScreen(),
           AdminContentScreen(),
           AdminPulseScreen(),
           AdminFacultyScreen(),
@@ -202,10 +206,19 @@ class _AdminShellState extends State<AdminShell> {
                   onTap: (i) => setState(() => _tab = i),
                 ),
                 _NavItem(
+                  icon: Icons.campaign_outlined,
+                  activeIcon: Icons.campaign_rounded,
+                  label: 'Ambassadors',
+                  index: 2,
+                  current: _tab,
+                  onTap: (i) => setState(() => _tab = i),
+                  accentColor: const Color(0xFFF59E0B),
+                ),
+                _NavItem(
                   icon: Icons.inventory_2_outlined,
                   activeIcon: Icons.inventory_2_rounded,
                   label: 'Content',
-                  index: 2,
+                  index: 3,
                   current: _tab,
                   onTap: (i) => setState(() => _tab = i),
                 ),
@@ -213,7 +226,7 @@ class _AdminShellState extends State<AdminShell> {
                   icon: Icons.radar_outlined,
                   activeIcon: Icons.radar,
                   label: 'Pulse',
-                  index: 3,
+                  index: 4,
                   current: _tab,
                   onTap: (i) => setState(() => _tab = i),
                   accentColor: const Color(0xFF22C55E),
@@ -222,7 +235,7 @@ class _AdminShellState extends State<AdminShell> {
                   icon: Icons.school_outlined,
                   activeIcon: Icons.school_rounded,
                   label: 'Faculty',
-                  index: 4,
+                  index: 5,
                   current: _tab,
                   onTap: (i) => setState(() => _tab = i),
                   accentColor: const Color(0xFF6C63FF),

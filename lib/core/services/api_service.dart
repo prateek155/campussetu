@@ -36,7 +36,14 @@ class ApiService {
     final retries = (opts.extra['retries'] as int?) ?? 0;
     final statusCode = error.response?.statusCode;
     final isColdStartStatus = statusCode == 404 || statusCode == 502 || statusCode == 503;
-    final shouldRetry = (error.type == DioExceptionType.connectionTimeout ||
+    final method = opts.method.toUpperCase();
+    final hasIdempotencyKey = opts.headers.keys.any(
+      (key) => key.toLowerCase() == 'idempotency-key' &&
+          opts.headers[key]?.toString().trim().isNotEmpty == true,
+    );
+    final operationCanBeRetried = method == 'GET' ||
+        (hasIdempotencyKey && opts.extra['idempotentRetry'] == true);
+    final shouldRetry = operationCanBeRetried && (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
         error.type == DioExceptionType.connectionError ||
         isColdStartStatus) && retries < 2;
@@ -326,11 +333,18 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> transferPoints({required String toCampusId, required int amount}) async {
+  Future<Map<String, dynamic>> transferPoints({
+    required String toCampusId,
+    required int amount,
+    required String idempotencyKey,
+  }) async {
     final res = await _dio.post(
       '/users/transfer',
       data: {'to_campus_id': toCampusId, 'amount': amount},
-      options: Options(extra: {'retries': 1}),
+      options: Options(
+        headers: {'Idempotency-Key': idempotencyKey},
+        extra: {'retries': 1, 'idempotentRetry': true},
+      ),
     );
     return res.data as Map<String, dynamic>;
   }
@@ -412,7 +426,10 @@ class ApiService {
   }
 
   Future<void> broadcast(String message) async {
-    await _dio.post('/admin/broadcast', data: {'message': message});
+    await _dio.post('/admin/broadcast', data: {
+      'title': 'CampusSetu',
+      'body': message,
+    });
   }
 
   // ── Admin User Management ────────────────────────────────────

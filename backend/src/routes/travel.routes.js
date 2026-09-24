@@ -4,7 +4,7 @@ const router = express.Router();
 const travelController = require('../controllers/travel.controller');
 const { requireAuth } = require('../middleware/auth');
 
-router.get('/', travelController.getRides);
+router.get('/', requireAuth, travelController.getRides);
 router.post('/', requireAuth, travelController.createRide);
 
 module.exports = router;
