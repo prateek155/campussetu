@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
+import '../faculty_portal_shell.dart';
 
 class FacultyRegisterScreen extends StatefulWidget {
   const FacultyRegisterScreen({super.key});
@@ -73,7 +74,7 @@ class _FacultyRegisterScreenState extends State<FacultyRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FF),
+      backgroundColor: facultyBg,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -90,12 +91,12 @@ class _FacultyRegisterScreenState extends State<FacultyRegisterScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Logo & Title
-                      const Icon(Icons.school, size: 56, color: Color(0xFF6C63FF)),
+                      const Icon(Icons.school, size: 56, color: facultyAccent),
                       const SizedBox(height: 12),
                       const Text(
                         'Faculty Registration',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF6C63FF)),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: facultyAccent),
                       ),
                       const SizedBox(height: 4),
                       const Text(
@@ -177,7 +178,7 @@ class _FacultyRegisterScreenState extends State<FacultyRegisterScreen> {
                           const Text('Already approved? '),
                           TextButton(
                             onPressed: () => context.go('/faculty/login'),
-                            child: const Text('Login here', style: TextStyle(color: Color(0xFF6C63FF))),
+                            child: const Text('Login here', style: TextStyle(color: facultyAccent)),
                           ),
                         ],
                       ),

@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
+import '../faculty_api.dart';
+import '../faculty_portal_shell.dart';
 
 class FacultyLoginScreen extends StatefulWidget {
   const FacultyLoginScreen({super.key});
@@ -31,23 +32,16 @@ class _FacultyLoginScreenState extends State<FacultyLoginScreen> {
     setState(() => _loading = true);
     try {
       // Step 1: Firebase email/password login
-      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailC.text.trim(),
         password: _passC.text,
       );
 
       // Step 2: Verify faculty role in backend
-      final idToken = await cred.user!.getIdToken();
-      final dio = Dio(BaseOptions(
-        baseUrl: dotenv.env['API_BASE_URL'] ?? '',
-        headers: {'Authorization': 'Bearer $idToken'},
-      ));
-
-      await dio.post('/quiz/faculty/login-check');
+      await FacultyApi.post('/quiz/faculty/login-check');
 
       if (!mounted) return;
-      // Navigate to quizzes
-      context.go('/faculty/quizzes');
+      context.go('/faculty/dashboard');
     } on FirebaseAuthException catch (e) {
       String msg = 'Login failed. Please check your credentials.';
       if (e.code == 'user-not-found') msg = 'No account found with this email.';
@@ -57,8 +51,11 @@ class _FacultyLoginScreenState extends State<FacultyLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
-    } on DioException catch (e) {
-      final msg = e.response?.data?['error'] ?? 'Access denied. Your account may not be approved yet.';
+    } catch (e) {
+      final response = e is DioException ? e.response?.data : null;
+      final msg = response is Map && response['error'] != null
+          ? response['error'].toString()
+          : 'Could not verify this faculty account. Check your connection and try again.';
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,7 +69,7 @@ class _FacultyLoginScreenState extends State<FacultyLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FF),
+      backgroundColor: facultyBg,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -89,12 +86,12 @@ class _FacultyLoginScreenState extends State<FacultyLoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Logo
-                      const Icon(Icons.school_rounded, size: 64, color: Color(0xFF6C63FF)),
+                      const Icon(Icons.school_rounded, size: 64, color: facultyAccent),
                       const SizedBox(height: 12),
                       const Text(
-                        'CampuSetu',
+                        'CampusSetu',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF6C63FF)),
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: facultyAccent),
                       ),
                       const Text(
                         'Faculty Portal',
@@ -160,8 +157,8 @@ class _FacultyLoginScreenState extends State<FacultyLoginScreen> {
                       OutlinedButton(
                         onPressed: () => context.go('/faculty/register'),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF6C63FF)),
-                          foregroundColor: const Color(0xFF6C63FF),
+                          side: const BorderSide(color: facultyAccent),
+                          foregroundColor: facultyAccent,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),

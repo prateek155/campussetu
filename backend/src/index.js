@@ -275,12 +275,18 @@ app.use((err, req, res, next) => {
         title TEXT NOT NULL,
         pin TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','waiting','live','ended')),
+        mode TEXT NOT NULL DEFAULT 'live' CHECK (mode IN ('live','paper')),
+        duration_minutes INT NOT NULL DEFAULT 60 CHECK (duration_minutes > 0),
+        settings JSONB NOT NULL DEFAULT '{}'::jsonb,
         current_question INT DEFAULT 0,
         question_started_at TIMESTAMPTZ,
         ended_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )`);
       await db.query('ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS question_started_at TIMESTAMPTZ');
+      await db.query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'live'");
+      await db.query('ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS duration_minutes INT NOT NULL DEFAULT 60');
+      await db.query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb");
 
       // Quiz questions
       await db.query(`CREATE TABLE IF NOT EXISTS quiz_questions (
@@ -289,9 +295,11 @@ app.use((err, req, res, next) => {
         question_text TEXT NOT NULL,
         image_url TEXT,
         options JSONB NOT NULL,
+        marks INT NOT NULL DEFAULT 1 CHECK (marks > 0),
         order_index INT NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )`);
+      await db.query('ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS marks INT NOT NULL DEFAULT 1');
 
       // Quiz participants + scores
       await db.query(`CREATE TABLE IF NOT EXISTS quiz_participants (
@@ -304,11 +312,40 @@ app.use((err, req, res, next) => {
         UNIQUE(quiz_id, user_id)
       )`);
 
+      await db.query(`CREATE TABLE IF NOT EXISTS quiz_submissions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+        total_score INT NOT NULL DEFAULT 0,
+        submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (quiz_id, user_id)
+      )`);
+      await db.query(`CREATE TABLE IF NOT EXISTS quiz_test_attempts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+        UNIQUE (quiz_id, user_id)
+      )`);
+      await db.query("ALTER TABLE quiz_test_attempts ADD COLUMN IF NOT EXISTS answers JSONB NOT NULL DEFAULT '{}'::jsonb");
+      await db.query(`CREATE TABLE IF NOT EXISTS quiz_test_events (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL CHECK (event_type IN ('tab_switch')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
+
       // Indexes
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quizzes_status ON quizzes (status, created_at DESC)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quizzes_faculty ON quizzes (faculty_id)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz ON quiz_questions (quiz_id, order_index)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_participants_quiz ON quiz_participants (quiz_id, total_score DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions (quiz_id, total_score DESC, submitted_at ASC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_attempts_quiz ON quiz_test_attempts (quiz_id, started_at)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_events_attempt ON quiz_test_events (quiz_id, user_id, created_at DESC)`);
 
       console.log('✅  DB tables ensured');
       return;

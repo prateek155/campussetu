@@ -60,6 +60,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
     final quiz = _data!['quiz'] as Map<String, dynamic>;
     final participants = _data!['participants'] as List<dynamic>;
     final questions = _data!['questions'] as List<dynamic>;
+    final hardestQuestions = _hardestQuestions(participants, questions);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,6 +117,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                       DataColumn(label: Text('Student Name')),
                       DataColumn(label: Text('Total Score')),
                       DataColumn(label: Text('Correct Answers')),
+                      DataColumn(label: Text('Tab-switch flags')),
                     ],
                     rows: participants.asMap().entries.map((entry) {
                       final p = entry.value;
@@ -134,12 +136,46 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                           DataCell(Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
                           DataCell(Text('${p['total_score'] ?? 0} pts', style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataCell(Text('$correct / ${questions.length}')),
+                          DataCell(Text('${p['violation_count'] ?? 0}')),
                         ],
                       );
                     }).toList(),
                   ),
                 ),
               ),
+              if (hardestQuestions.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const Text('Hardest questions · most missed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(children: [
+                      for (final item in hardestQuestions.take(5))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Expanded(child: Text(item['question'].toString(), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                              const SizedBox(width: 12),
+                              Text('${((item['rate'] as num) * 100).round()}% missed', style: const TextStyle(color: Color(0xFFDC5571), fontWeight: FontWeight.w700)),
+                            ]),
+                            const SizedBox(height: 7),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: (item['rate'] as num).toDouble(),
+                                minHeight: 7,
+                                color: const Color(0xFFDC5571),
+                                backgroundColor: Colors.grey.withValues(alpha: 0.18),
+                              ),
+                            ),
+                          ]),
+                        ),
+                    ]),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -163,6 +199,37 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
         ),
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _hardestQuestions(List<dynamic> participants, List<dynamic> questions) {
+    final summaries = <Map<String, dynamic>>[];
+    for (final rawQuestion in questions) {
+      if (rawQuestion is! Map) continue;
+      final questionId = rawQuestion['id'].toString();
+      var attempted = 0;
+      var missed = 0;
+      for (final rawParticipant in participants) {
+        if (rawParticipant is! Map || rawParticipant['answers'] is! List) continue;
+        for (final rawAnswer in rawParticipant['answers'] as List) {
+          if (rawAnswer is! Map) continue;
+          final answerId = rawAnswer['question_id'] ?? rawAnswer['questionId'];
+          if (answerId?.toString() != questionId) continue;
+          attempted++;
+          if (rawAnswer['isCorrect'] != true) missed++;
+          break;
+        }
+      }
+      if (attempted > 0) {
+        summaries.add({
+          'question': (rawQuestion['question_text'] ?? 'Question').toString(),
+          'attempted': attempted,
+          'missed': missed,
+          'rate': missed / attempted,
+        });
+      }
+    }
+    summaries.sort((a, b) => (b['rate'] as double).compareTo(a['rate'] as double));
+    return summaries;
   }
 
   Widget _podiumCard(Map<String, dynamic> p, int rank, double height) {

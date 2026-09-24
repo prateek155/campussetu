@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
+import '../faculty_portal_shell.dart';
 
 class CreateQuizScreen extends StatefulWidget {
   const CreateQuizScreen({super.key});
@@ -25,6 +26,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   @override
   void dispose() {
     _titleC.dispose();
+    for (final question in _questions) { question.dispose(); }
     super.dispose();
   }
 
@@ -33,7 +35,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   }
 
   void _removeQuestion(int index) {
-    setState(() => _questions.removeAt(index));
+    setState(() => _questions.removeAt(index).dispose());
   }
 
   Future<void> _submit() async {
@@ -60,6 +62,12 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
       if (!q.options.any((o) => o.isCorrect)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Question ${i + 1}: Mark at least one correct answer')),
+        );
+        return;
+      }
+      if (q.options.any((o) => o.textC.text.trim().isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Question ${i + 1}: Fill in all four options')),
         );
         return;
       }
@@ -120,7 +128,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF),
+                  color: facultyAccent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -145,6 +153,11 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create quiz: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -221,8 +234,8 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                   label: const Text('Add Question'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFF6C63FF)),
-                    foregroundColor: const Color(0xFF6C63FF),
+                    side: const BorderSide(color: facultyAccent),
+                    foregroundColor: facultyAccent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
@@ -280,7 +293,7 @@ class _QuestionCardState extends State<_QuestionCard> {
               children: [
                 Container(
                   width: 32, height: 32,
-                  decoration: const BoxDecoration(color: Color(0xFF6C63FF), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(color: facultyAccent, shape: BoxShape.circle),
                   child: Center(child: Text('${widget.index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                 ),
                 const SizedBox(width: 12),
@@ -392,6 +405,8 @@ class _QuestionCardState extends State<_QuestionCard> {
 class _OptionData {
   final textC = TextEditingController();
   bool isCorrect = false;
+
+  void dispose() => textC.dispose();
 }
 
 class _QuestionData {
@@ -399,5 +414,11 @@ class _QuestionData {
   File? imageFile;
   Uint8List? imageBytes;
   final List<_OptionData> options = List.generate(4, (_) => _OptionData());
-}
 
+  void dispose() {
+    questionC.dispose();
+    for (final option in options) {
+      option.dispose();
+    }
+  }
+}

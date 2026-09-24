@@ -13,7 +13,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/update_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/dark_tile.dart';
+import '../../core/widgets/bento_grid.dart';
 import '../../core/widgets/neu_card.dart';
 import '../../core/widgets/neu_chip.dart';
 import '../../core/widgets/neu_dropdown.dart';
@@ -27,6 +27,8 @@ import 'widgets/campus_id_card.dart';
 class ProfileScreen extends ConsumerWidget {
   final String? userId;
   const ProfileScreen({super.key, this.userId});
+
+  static const _heroColor = Color(0xFF0E7490);
 
   void _openEdit(BuildContext context, WidgetRef ref, UserModel user) {
     showModalBottomSheet(
@@ -48,6 +50,225 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  String _join(List<String?> parts, [String sep = ' · ']) =>
+      parts.where((p) => p != null && p.trim().isNotEmpty).map((p) => p!.trim()).join(sep);
+
+  // ── Bento block 1: hero + points + stats ─────────────────────────────
+  List<BentoTile> _topTiles(BuildContext context, WidgetRef ref, UserModel user, bool isOwn) {
+    final courseLine = _join([user.course, user.branch]);
+    final collegeLine = _join([user.college, user.yearOfStudy != null ? 'Year ${user.yearOfStudy}' : null]);
+    final locLine = _join([user.city, user.state], ', ');
+
+    return [
+      BentoTile(
+        id: 'hero',
+        kind: BentoKind.custom,
+        w: 4,
+        h: 2,
+        color: _heroColor,
+        fill: _heroColor,
+        builder: (_) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: isOwn ? () => _openEdit(context, ref, user) : null,
+                    child: Stack(alignment: Alignment.bottomRight, children: [
+                      EnergyRing(
+                        progress: user.profileCompletionScore,
+                        size: 86,
+                        centerChild: UserAvatar(name: user.name, imageUrl: user.photoUrl, size: 64, isVerified: user.isVerified),
+                      ),
+                      if (isOwn)
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: _heroColor, width: 2)),
+                          child: const Icon(Icons.camera_alt_rounded, size: 12, color: _heroColor),
+                        ),
+                    ]),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(children: [
+                          Flexible(
+                            child: Text(
+                              user.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.soraDisplay(size: 20, weight: FontWeight.w700, color: Colors.white),
+                            ),
+                          ),
+                          if (user.isVerified) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified_rounded, color: Colors.white, size: 17),
+                          ],
+                          if (user.isPremium) ...[
+                            const SizedBox(width: 6),
+                            const PremiumBadge(isSmall: true),
+                          ],
+                        ]),
+                        const SizedBox(height: 4),
+                        if (courseLine.isNotEmpty)
+                          Text(courseLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.interBody(size: 12.5, color: Colors.white.withValues(alpha: 0.92))),
+                        if (collegeLine.isNotEmpty)
+                          Text(collegeLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.interBody(size: 12, color: Colors.white.withValues(alpha: 0.8))),
+                        if (locLine.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(children: [
+                              Icon(Icons.location_on_outlined, size: 13, color: Colors.white.withValues(alpha: 0.8)),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(locLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.interBody(size: 11.5, color: Colors.white.withValues(alpha: 0.8)))),
+                            ]),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              if (isOwn)
+                GestureDetector(
+                  onTap: () => _openEdit(context, ref, user),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.edit_outlined, size: 15, color: _heroColor),
+                      const SizedBox(width: 6),
+                      Text('Edit profile', style: AppTypography.interBody(size: 13, weight: FontWeight.w700, color: _heroColor)),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      BentoTile(
+        id: 'points',
+        kind: BentoKind.feature,
+        w: 2,
+        h: 2,
+        icon: Icons.emoji_events_rounded,
+        color: AppColors.gold,
+        title: 'Points',
+        subtitle: 'Earn with Helping Hand',
+        count: '${user.points}',
+        bigLabel: 'points',
+        onTap: isOwn ? () => context.push(AppRoutes.helping) : null,
+      ),
+      BentoTile(
+        id: 'connections',
+        kind: BentoKind.wide,
+        w: 2,
+        h: 1,
+        icon: Icons.people_rounded,
+        color: const Color(0xFF4A3FE0),
+        title: 'Connections',
+        subtitle: 'Your network',
+        count: '${user.connectionsCount}',
+        onTap: isOwn ? () => context.push(AppRoutes.connections) : null,
+      ),
+      BentoTile(
+        id: 'projects',
+        kind: BentoKind.wide,
+        w: 2,
+        h: 1,
+        icon: Icons.folder_special_rounded,
+        color: const Color(0xFF0B8A7E),
+        title: 'Projects',
+        subtitle: 'Built so far',
+        count: '${user.projectsCount}',
+      ),
+    ];
+  }
+
+  // ── Bento block 2: shortcuts ─────────────────────────────────────────
+  List<BentoTile> _actionTiles(BuildContext context, UserModel user, bool isOwn) {
+    return [
+      BentoTile(
+        id: 'tshare',
+        kind: BentoKind.dark,
+        w: 4,
+        h: 1,
+        icon: Icons.share_outlined,
+        color: AppColors.cyan,
+        title: 'Tshare Profile',
+        subtitle: 'Share or retrieve code',
+        onTap: () => context.go(AppRoutes.tshare),
+      ),
+      BentoTile(
+        id: 'resume',
+        kind: BentoKind.wide,
+        w: 2,
+        h: 1,
+        icon: Icons.article_outlined,
+        color: const Color(0xFFD9560B),
+        title: 'Resume',
+        subtitle: 'Build & export',
+        onTap: () => context.push(AppRoutes.resume),
+      ),
+      BentoTile(
+        id: 'settings',
+        kind: BentoKind.wide,
+        w: 2,
+        h: 1,
+        icon: Icons.settings_outlined,
+        color: const Color(0xFF1F5FD8),
+        title: 'Settings',
+        subtitle: 'Account & privacy',
+        onTap: () => _openSettings(context),
+      ),
+      if (isOwn && user.isAdmin) ...[
+        BentoTile(
+          id: 'admin_deal',
+          kind: BentoKind.wide,
+          w: 2,
+          h: 1,
+          icon: Icons.local_offer,
+          color: AppColors.gold,
+          title: 'Add Deal',
+          subtitle: 'Admin',
+          onTap: () => context.push('/admin/add-deal'),
+        ),
+        BentoTile(
+          id: 'admin_event',
+          kind: BentoKind.wide,
+          w: 2,
+          h: 1,
+          icon: Icons.event,
+          color: Colors.indigo,
+          title: 'Add Event',
+          subtitle: 'Admin',
+          onTap: () => context.push('/admin/add-event'),
+        ),
+      ],
+      if (isOwn)
+        BentoTile(
+          id: 'signout',
+          kind: BentoKind.wide,
+          w: 4,
+          h: 1,
+          icon: Icons.logout_rounded,
+          color: AppColors.error,
+          title: 'Sign Out',
+          subtitle: 'Log out of this device',
+          onTap: () async {
+            await AuthService().signOut();
+            if (context.mounted) context.go(AppRoutes.welcome);
+          },
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncUser = ref.watch(profileProvider(userId));
@@ -58,11 +279,13 @@ class ProfileScreen extends ConsumerWidget {
       body: asyncUser.when(
         data: (user) => CustomScrollView(slivers: [
           SliverAppBar(
-            expandedHeight: 170,
             pinned: true,
-            backgroundColor: AppColors.bg,
             elevation: 0,
             scrolledUnderElevation: 0,
+            backgroundColor: AppColors.bg,
+            toolbarHeight: 64,
+            titleSpacing: 20,
+            title: Text('Profile', style: AppTypography.soraHeading2()),
             actions: [
               if (isOwn)
                 NeuCard(
@@ -72,68 +295,26 @@ class ProfileScreen extends ConsumerWidget {
                   child: Icon(Icons.edit_outlined, size: 18, color: AppColors.ink),
                 ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 44, 20, 0),
-                child: Column(children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    GestureDetector(
-                      onTap: () => isOwn ? _openEdit(context, ref, user) : null,
-                      child: Stack(alignment: Alignment.bottomRight, children: [
-                        EnergyRing(progress: user.profileCompletionScore, size: 86, centerChild: UserAvatar(name: user.name, imageUrl: user.photoUrl, size: 64, isVerified: user.isVerified)),
-                        if (isOwn) Container(padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: AppColors.cyanDeep, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 2)), child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white)),
-                      ]),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [Expanded(child: Text(user.name, style: AppTypography.soraHeading2(), maxLines: 1, overflow: TextOverflow.ellipsis)), const SizedBox(width: 12), if (user.isVerified) ...[const Icon(Icons.verified_rounded, color: AppColors.cyanDeep, size: 18), const SizedBox(width: 6)], if (user.isPremium) ...[const PremiumBadge(isSmall: true), const SizedBox(width: 6)]]),
-                      Text('${user.course ?? ''} · ${user.branch ?? ''}', style: AppTypography.interBodySmall(), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text('${user.college ?? ''} · Year ${user.yearOfStudy ?? '-'}', style: AppTypography.interCaption(), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
-                      Row(children: [Icon(Icons.location_on_outlined, size: 13, color: AppColors.inkSoft), const SizedBox(width: 4), Expanded(child: Text('${user.city ?? ''}, ${user.state ?? ''}', style: AppTypography.interCaption(), maxLines: 1, overflow: TextOverflow.ellipsis))]),
-                    ])),
-                  ]),
-                ]),
-              ),
-            ),
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [_StatCard(label: 'Connections', value: '${user.connectionsCount}', icon: Icons.people_rounded), const SizedBox(width: 10), _StatCard(label: 'Projects', value: '${user.projectsCount}', icon: Icons.folder_special_rounded), const SizedBox(width: 10), _StatCard(label: 'Points', value: '${user.points}', icon: Icons.emoji_events_rounded, color: AppColors.gold)]).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
+                BentoGrid(tiles: _topTiles(context, ref, user, isOwn)).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
                 const SizedBox(height: 16),
                 CampusIdCard(user: user, isOwn: isOwn).animate(delay: 80.ms).fadeIn(duration: 400.ms),
-                const SizedBox(height: 20),
-                if (user.bio != null && user.bio!.isNotEmpty) ...[
-                  Text('About', style: AppTypography.soraHeading3()),
-                  const SizedBox(height: 8),
-                  NeuCard(padding: const EdgeInsets.all(16), child: Text(user.bio!, style: AppTypography.interBody(height: 1.6))).animate(delay: 100.ms).fadeIn(duration: 400.ms),
-                  const SizedBox(height: 20),
-                ],
-                if (user.skills.isNotEmpty) ...[
-                  Text('Skills', style: AppTypography.soraHeading3()),
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 8, runSpacing: 8, children: user.skills.map((s) => NeuChip(label: s)).toList()).animate(delay: 150.ms).fadeIn(duration: 400.ms),
-                  const SizedBox(height: 20),
-                ],
-                DarkTile(padding: const EdgeInsets.all(18), onTap: () => context.go(AppRoutes.tshare), child: Row(children: [const Icon(Icons.share_outlined, color: AppColors.cyan, size: 22), const SizedBox(width: 14), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [GlowText('Tshare Profile', style: AppTypography.soraHeading3(color: AppColors.cyan)), Text('Share or retrieve code', style: AppTypography.interCaption(color: AppColors.inkSoft))]), const Spacer(), const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.cyanDeep, size: 14)])).animate(delay: 200.ms).fadeIn(duration: 400.ms),
-                const SizedBox(height: 20),
-                Row(children: [
-                  Expanded(child: NeuCard(padding: const EdgeInsets.all(16), onTap: () => context.push(AppRoutes.resume), child: Row(children: [const Icon(Icons.article_outlined, color: AppColors.cyanDeep, size: 20), const SizedBox(width: 10), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Resume', style: AppTypography.interButton(color: AppColors.ink, size: 13)), Text('Build & export', style: AppTypography.interCaption())])]))),
-                  const SizedBox(width: 10),
-                  Expanded(child: NeuCard(padding: const EdgeInsets.all(16), onTap: () => _openSettings(context), child: Row(children: [const Icon(Icons.settings_outlined, color: AppColors.cyanDeep, size: 20), const SizedBox(width: 10), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Settings', style: AppTypography.interButton(color: AppColors.ink, size: 13)), Text('Account & privacy', style: AppTypography.interCaption())])]))),
-                ]).animate(delay: 250.ms).fadeIn(duration: 400.ms),
-                if (isOwn) ...[
-                  if (user.isAdmin) ...[
-                    const SizedBox(height: 16),
-                    NeuCard(padding: const EdgeInsets.all(16), onTap: () => context.push('/admin/add-deal'), child: Row(children: [const Icon(Icons.local_offer, color: AppColors.gold, size: 20), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Admin: Add Deal', style: AppTypography.interButton(color: AppColors.gold)), Text('Post a new Campus Deal', style: AppTypography.interCaption())])])).animate(delay: 280.ms).fadeIn(duration: 400.ms),
-                    const SizedBox(height: 16),
-                    NeuCard(padding: const EdgeInsets.all(16), onTap: () => context.push('/admin/add-event'), child: Row(children: [const Icon(Icons.event, color: Colors.indigo, size: 20), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Admin: Add Event', style: AppTypography.interButton(color: Colors.indigo)), Text('Post a new Campus Event', style: AppTypography.interCaption())])])).animate(delay: 290.ms).fadeIn(duration: 400.ms),
-                  ],
-                  const SizedBox(height: 16),
-                  NeuCard(padding: const EdgeInsets.all(16), onTap: () async { await AuthService().signOut(); if (context.mounted) context.go(AppRoutes.welcome); }, child: Row(children: [const Icon(Icons.logout_rounded, color: AppColors.error, size: 20), const SizedBox(width: 12), Text('Sign Out', style: AppTypography.interButton(color: AppColors.error))])).animate(delay: 300.ms).fadeIn(duration: 400.ms),
-                ],
+                const SizedBox(height: 16),
+                if (user.bio != null && user.bio!.isNotEmpty)
+                  _InfoTile(
+                    title: 'About',
+                    child: Text(user.bio!, style: AppTypography.interBody(height: 1.6)),
+                  ).animate(delay: 100.ms).fadeIn(duration: 400.ms),
+                if (user.skills.isNotEmpty)
+                  _InfoTile(
+                    title: 'Skills',
+                    child: Wrap(spacing: 8, runSpacing: 8, children: user.skills.map((s) => NeuChip(label: s)).toList()),
+                  ).animate(delay: 150.ms).fadeIn(duration: 400.ms),
+                BentoGrid(tiles: _actionTiles(context, user, isOwn)).animate(delay: 200.ms).fadeIn(duration: 400.ms),
                 const SizedBox(height: 100),
               ]),
             ),
@@ -146,13 +327,34 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String label, value;
-  final IconData icon;
-  final Color color;
-  const _StatCard({required this.label, required this.value, required this.icon, this.color = AppColors.cyanDeep});
+/// Section card that matches the bento tiles (used for About and Skills).
+class _InfoTile extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const _InfoTile({required this.title, required this.child});
+
   @override
-  Widget build(BuildContext context) => Expanded(child: NeuCard(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16), child: Column(children: [Icon(icon, color: color, size: 22), const SizedBox(height: 8), Text(value, style: AppTypography.monoCode(size: 20, weight: FontWeight.w700, color: AppColors.ink)), Text(label, style: AppTypography.interCaption(), textAlign: TextAlign.center)])));
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1B1F2E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.inkMuted.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTypography.soraSubtitle()),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
 }
 
 class _EditProfileSheet extends StatefulWidget {

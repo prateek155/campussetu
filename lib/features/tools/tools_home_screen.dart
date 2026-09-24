@@ -6,7 +6,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_typography.dart';
 
 class ToolsHomeScreen extends ConsumerWidget {
-  const ToolsHomeScreen({super.key});
+  final String backRoute;
+  const ToolsHomeScreen({super.key, this.backRoute = '/home'});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +30,7 @@ class ToolsHomeScreen extends ConsumerWidget {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/home');
+              context.go(backRoute);
             }
           },
         ),

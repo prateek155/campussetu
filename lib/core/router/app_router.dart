@@ -37,6 +37,7 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/quiz/quiz_list_screen.dart';
 import '../../features/quiz/quiz_join_screen.dart';
 import '../../features/quiz/quiz_play_screen.dart';
+import '../../features/quiz/paper_tests_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../features/landing/web_landing_screen.dart';
 import '../../features/tools/tools_home_screen.dart';
@@ -197,6 +198,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // ── Quiz routes ─────────────────────────────────────────
       GoRoute(path: '/quiz', builder: (_, __) => const QuizListScreen()),
+      GoRoute(path: '/tests', builder: (_, __) => const PaperTestsScreen()),
+      GoRoute(path: '/tests/:testId', builder: (_, state) => PaperTestAttemptScreen(testId: state.pathParameters['testId']!)),
       GoRoute(
         path: '/quiz/join',
         builder: (_, state) => QuizJoinScreen(quizData: state.extra as Map<String, dynamic>?),

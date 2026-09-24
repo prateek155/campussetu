@@ -92,7 +92,7 @@ function setupQuizWebSocket(server) {
             return ws.close(1008, 'Faculty access required');
           }
           const { rows: quizzes } = await db.query(
-            `SELECT id FROM quizzes WHERE id = $1 AND (faculty_id = $2 OR $3 = true)`,
+            `SELECT id FROM quizzes WHERE id = $1 AND mode = 'live' AND (faculty_id = $2 OR $3 = true)`,
             [quizId, user.id, user.is_admin === true]
           );
           if (!quizzes.length) {
@@ -120,7 +120,8 @@ function setupQuizWebSocket(server) {
              FROM quiz_participants p
              JOIN users u ON u.id = p.user_id
              JOIN quizzes q ON q.id = p.quiz_id
-             WHERE p.quiz_id = $1 AND u.firebase_uid = $2 AND q.status IN ('waiting', 'live')`,
+             WHERE p.quiz_id = $1 AND u.firebase_uid = $2 AND u.role = 'student'
+               AND q.mode = 'live' AND q.status IN ('waiting', 'live')`,
             [quizId, ws.firebaseUid]
           );
           if (!participants.length) {

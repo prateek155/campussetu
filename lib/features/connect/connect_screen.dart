@@ -55,8 +55,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2),
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(children: [
           Padding(
@@ -67,7 +68,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with SingleTicker
               Expanded(
                 child: Container(
                   height: 38,
-                  decoration: BoxDecoration(color: const Color(0xFFE8E8E8), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: isDark ? const Color(0xFF1B1F2E) : const Color(0xFFE8E8E8), borderRadius: BorderRadius.circular(20)),
                   child: TextField(
                     controller: _searchCtrl,
                     onChanged: (_) => setState(() {}),
@@ -88,14 +89,14 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with SingleTicker
           const SizedBox(height: 8),
           TabBar(
             controller: _tabCtrl,
-            labelColor: const Color(0xFF0A6640),
-            unselectedLabelColor: const Color(0xFF6B7280),
-            indicatorColor: const Color(0xFF0A6640),
+            labelColor: AppColors.cyanDeep,
+            unselectedLabelColor: AppColors.inkSoft,
+            indicatorColor: AppColors.cyanDeep,
             indicatorWeight: 2.5,
             labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             tabs: const [Tab(text: 'Grow'), Tab(text: 'Catch up')],
           ),
-          Container(height: 8, color: const Color(0xFFE8E8E8)),
+          Container(height: 8, color: isDark ? const Color(0xFF1B1F2E) : const Color(0xFFE8E8E8)),
           Expanded(
             child: TabBarView(controller: _tabCtrl, children: [
               _GrowTab(searchQuery: _searchCtrl.text, dismissed: _dismissed, states: _states, onDismiss: (id) => setState(() => _dismissed.add(id)), onSend: _send, onSearchChanged: () => setState(() {})),
@@ -119,6 +120,8 @@ class _GrowTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1B1F2E) : Colors.white;
     final params = DiscoverParams(search: searchQuery);
     final asyncUsers = ref.watch(discoverProvider(params));
     final asyncPending = ref.watch(_pendingProvider);
@@ -130,10 +133,10 @@ class _GrowTab extends ConsumerWidget {
           InkWell(
             onTap: () => context.push(AppRoutes.invitations),
             child: Container(
-              color: Colors.white,
+              color: surface,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(children: [
-                Text('Invitations', style: AppTypography.interButton(size: 15, color: const Color(0xFF1A1D24))),
+                Text('Invitations', style: AppTypography.interButton(size: 15, color: AppColors.ink)),
                 const Spacer(),
                 asyncPending.when(
                   data: (list) => list.isEmpty ? const SizedBox() : Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)), child: Text('${list.length}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
@@ -141,28 +144,28 @@ class _GrowTab extends ConsumerWidget {
                   error: (_, __) => const SizedBox(),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF6B7280)),
+                Icon(Icons.arrow_forward_rounded, size: 18, color: AppColors.inkSoft),
               ]),
             ),
           ),
           const SizedBox(height: 6),
-          Container(height: 6, color: const Color(0xFFE8E8E8)),
+          Container(height: 6, color: AppColors.bg),
           InkWell(
             onTap: () => context.push(AppRoutes.manageNetwork),
             child: Container(
-              color: Colors.white,
+              color: surface,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(children: [Text('Manage my network', style: AppTypography.interButton(size: 15, color: const Color(0xFF1A1D24))), const Spacer(), const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF6B7280))]),
+              child: Row(children: [Text('Manage my network', style: AppTypography.interButton(size: 15, color: AppColors.ink)), const Spacer(), Icon(Icons.arrow_forward_rounded, size: 18, color: AppColors.inkSoft)]),
             ),
           ),
-          Container(height: 8, color: const Color(0xFFE8E8E8)),
+          Container(height: 8, color: AppColors.bg),
           Container(
-            color: Colors.white,
+            color: surface,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Text('People you may know based on your recent activity', style: AppTypography.interButton(size: 14, color: const Color(0xFF1A1D24))),
+            child: Text('People you may know based on your recent activity', style: AppTypography.interButton(size: 14, color: AppColors.ink)),
           ),
           Container(
-            color: Colors.white,
+            color: surface,
             child: asyncUsers.when(
               data: (users) {
                 final filtered = users.where((u) => !dismissed.contains(u.id)).toList();
@@ -197,7 +200,13 @@ class _PeopleGrid extends StatelessWidget {
   final Future<void> Function(UserModel) onSend;
   const _PeopleGrid({required this.users, required this.states, required this.onDismiss, required this.onSend});
   @override
-  Widget build(BuildContext context) => GridView.builder(
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1B1F2E) : Colors.white;
+    final border = isDark ? const Color(0xFF30364A) : const Color(0xFFE5E7EB);
+    final ink = AppColors.ink;
+    final muted = AppColors.inkSoft;
+    return GridView.builder(
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
     padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
@@ -208,7 +217,7 @@ class _PeopleGrid extends StatelessWidget {
       final state = states[u.id];
       final isPending = state == 'pending';
       return Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border)),
         child: Column(children: [
           Stack(clipBehavior: Clip.none, children: [
             Container(height: 64, decoration: BoxDecoration(color: i % 3 == 0 ? const Color(0xFFB8C6C6) : i % 3 == 1 ? const Color(0xFFE8D5C4) : const Color(0xFFD6E4F0), borderRadius: const BorderRadius.vertical(top: Radius.circular(12)))),
@@ -218,7 +227,7 @@ class _PeopleGrid extends StatelessWidget {
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: surface, shape: BoxShape.circle),
                   child: UserAvatar(name: u.name, size: 72, imageUrl: u.photoUrl),
                 ),
               ),
@@ -229,18 +238,18 @@ class _PeopleGrid extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Column(children: [
-              Text(u.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1D24)), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+              Text(u.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ink), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
               const SizedBox(height: 2),
-              Text(u.college ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+              Text(u.college ?? '', style: TextStyle(fontSize: 11, color: muted), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
               const SizedBox(height: 6),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.people_rounded, size: 12, color: Color(0xFF6B7280)),
+                Icon(Icons.people_rounded, size: 12, color: muted),
                 const SizedBox(width: 3),
-                Text('${u.connectionsCount}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1A1D24))),
-                const Text(' • ', style: TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
+                Text('${u.connectionsCount}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: ink)),
+                Text(' • ', style: TextStyle(fontSize: 10, color: muted)),
                 const Icon(Icons.stars_rounded, size: 12, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 3),
-                Text('${u.points} pts', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1A1D24))),
+                Text('${u.points} pts', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: ink)),
               ]),
             ]),
           ),
@@ -252,8 +261,8 @@ class _PeopleGrid extends StatelessWidget {
               height: 34,
               child: OutlinedButton(
                 onPressed: isPending ? null : () => onSend(u),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: isPending ? const Color(0xFF6B7280) : const Color(0xFF0A66C2)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), foregroundColor: isPending ? const Color(0xFF1A1D24) : const Color(0xFF0A66C2)),
-                child: Text(isPending ? 'Pending' : 'Connect', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isPending ? const Color(0xFF1A1D24) : const Color(0xFF0A66C2))),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: isPending ? muted : AppColors.cyanDeep), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), foregroundColor: isPending ? ink : AppColors.cyanDeep),
+                child: Text(isPending ? 'Pending' : 'Connect', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isPending ? ink : AppColors.cyanDeep)),
               ),
             ),
           ),
@@ -261,17 +270,21 @@ class _PeopleGrid extends StatelessWidget {
       );
     },
   );
+  }
 }
 
 class _CatchUpTab extends StatelessWidget {
   const _CatchUpTab();
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1B1F2E) : Colors.white;
+    return ListView(
     padding: const EdgeInsets.fromLTRB(16, 40, 16, 130),
     children: [
       Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? const Color(0xFF30364A) : const Color(0xFFE5E7EB))),
         child: Column(children: [
           const Icon(Icons.update_rounded, size: 40, color: Color(0xFF6B7280)),
           const SizedBox(height: 12),
@@ -282,4 +295,5 @@ class _CatchUpTab extends StatelessWidget {
       ),
     ],
   );
+  }
 }

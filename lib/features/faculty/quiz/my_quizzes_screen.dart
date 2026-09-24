@@ -1,10 +1,11 @@
 // lib/features/faculty/quiz/my_quizzes_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+import '../faculty_api.dart';
+import '../faculty_portal_shell.dart';
 
 class MyQuizzesScreen extends StatefulWidget {
   const MyQuizzesScreen({super.key});
@@ -24,21 +25,13 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
     _load();
   }
 
-  Future<Dio> _dio() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-    return Dio(BaseOptions(
-      baseUrl: dotenv.env['API_BASE_URL'] ?? '',
-      headers: {'Authorization': 'Bearer $token'},
-    ));
-  }
-
   Future<void> _load() async {
     try {
-      final dio = await _dio();
-      final resp = await dio.get('/quiz/my');
-
-      setState(() { _quizzes = resp.data; _loading = false; });
+      final rows = await FacultyApi.list('/quiz/my');
+      if (!mounted) return;
+      setState(() { _quizzes = rows.where((quiz) => quiz['mode'] != 'paper').toList(); _loading = false; _error = null; });
     } catch (e) {
+      if (!mounted) return;
       setState(() { _error = 'Failed to load quizzes'; _loading = false; });
     }
   }
@@ -72,7 +65,7 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Quizzes'),
+        title: const Text('Live quizzes'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
@@ -84,7 +77,7 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
         onPressed: () => context.go('/faculty/quizzes/create'),
         icon: const Icon(Icons.add),
         label: const Text('New Quiz'),
-        backgroundColor: const Color(0xFF6C63FF),
+        backgroundColor: facultyAccent,
         foregroundColor: Colors.white,
       ),
       body: Center(

@@ -32,10 +32,20 @@ class NeuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final decoration = BoxDecoration(
-      color: color ?? AppColors.bg,
+      color: color ?? (isDark ? const Color(0xFF1B1F2E) : Colors.white),
       borderRadius: BorderRadius.circular(borderRadius),
-      boxShadow: customShadows ?? AppColors.neuRaisedShadows,
+      border: Border.all(
+        color: isDark ? const Color(0xFF30364A) : const Color(0xFFE5E9EF),
+      ),
+      boxShadow: customShadows ?? [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.045),
+          blurRadius: isDark ? 16 : 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
     );
 
     final container = Container(

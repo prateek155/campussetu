@@ -22,6 +22,8 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
   List<dynamic> _questions = [];
   bool _loading = true;
   bool _isLive = false;
+  bool _isWaiting = false;
+  bool _launching = false;
   int _participantCount = 0;
   int _currentQuestion = 0;
   int _timeLeft = 20;
@@ -59,10 +61,11 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
         _questions = data['questions'] ?? [];
         _loading = false;
         _isLive = data['status'] == 'live';
+        _isWaiting = data['status'] == 'waiting';
         _quizEnded = data['status'] == 'ended';
         _currentQuestion = data['current_question'] ?? 0;
       });
-      if (data['status'] == 'waiting' || data['status'] == 'live') {
+      if (_isWaiting || _isLive) {
         _connectSocket();
       }
     } catch (e) {
@@ -71,13 +74,12 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
   }
 
   void _connectSocket() async {
-    final rawUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
-    final parsed = Uri.parse(rawUrl);
-    final wsScheme = parsed.scheme == 'https' ? 'wss' : 'ws';
-    final portStr = parsed.hasPort ? ':${parsed.port}' : '';
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-
     try {
+      final rawUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+      final parsed = Uri.parse(rawUrl);
+      final wsScheme = parsed.scheme == 'https' ? 'wss' : 'ws';
+      final portStr = parsed.hasPort ? ':${parsed.port}' : '';
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       final wsUri = Uri.parse('$wsScheme://${parsed.host}$portStr/quiz?token=$token');
       _channel = WebSocketChannel.connect(wsUri);
 
@@ -97,9 +99,17 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
             _currentQuestion = data['questionIndex'] ?? 0;
             _timeLeft = data['timeLeft'] ?? 20;
             _isLive = true;
+            _isWaiting = false;
+            _launching = false;
           }
           if (event == 'quiz-ended') _quizEnded = true;
+          if (event == 'error') _launching = false;
         });
+        if (event == 'error' && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'] ?? 'Quiz action failed'), backgroundColor: Colors.red),
+          );
+        }
       });
     } catch (e) {
       debugPrint('WebSocket connect error: $e');
@@ -111,19 +121,26 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
     _channel?.sink.add(jsonEncode(payload));
   }
 
-  Future<void> _startQuiz() async {
+  Future<void> _openWaitingRoom() async {
     try {
       final dio = await _dio();
       await dio.post('/quiz/${widget.quizId}/start');
-      _sendEvent('go-live');
-      if (mounted) setState(() => _isLive = true);
+      if (!mounted) return;
+      setState(() => _isWaiting = true);
+      _connectSocket();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to start quiz'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Could not open the waiting room'), backgroundColor: Colors.red),
         );
       }
     }
+  }
+
+  void _goLive() {
+    if (!_isWaiting || _participantCount == 0 || _launching) return;
+    setState(() => _launching = true);
+    _sendEvent('go-live');
   }
 
   Future<void> _nextQuestion() async {
@@ -191,8 +208,10 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
                 _banner(Colors.blue, Icons.check_circle, 'Quiz Ended', 'View full results from the Results button above')
               else if (_isLive)
                 _banner(Colors.green, Icons.play_circle_filled, 'Quiz is LIVE', 'Students are answering questions right now')
+              else if (_isWaiting)
+                _banner(Colors.orange, Icons.hourglass_top, 'Waiting Room', 'Share the PIN with students. Start the quiz when they have joined.')
               else
-                _banner(Colors.orange, Icons.hourglass_top, 'Waiting Room', 'Share the PIN with students, then click "Go Live"'),
+                _banner(Colors.blueGrey, Icons.edit_note, 'Draft quiz', 'Open the waiting room to let students join with the PIN.'),
 
               const SizedBox(height: 24),
 
@@ -287,9 +306,13 @@ class _QuizDashboardScreenState extends State<QuizDashboardScreen> {
                     if (!_isLive) ...[
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _participantCount > 0 ? _startQuiz : null,
-                          icon: const Icon(Icons.play_arrow),
-                          label: Text(_participantCount > 0 ? 'Go Live Now!' : 'Waiting for students...'),
+                          onPressed: _launching ? null : (_isWaiting ? (_participantCount > 0 ? _goLive : null) : _openWaitingRoom),
+                          icon: Icon(_isWaiting ? Icons.play_arrow : Icons.meeting_room),
+                          label: Text(_launching
+                              ? 'Starting…'
+                              : _isWaiting
+                                  ? (_participantCount > 0 ? 'Go Live Now!' : 'Waiting for students...')
+                                  : 'Open Waiting Room'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             padding: const EdgeInsets.symmetric(vertical: 16),

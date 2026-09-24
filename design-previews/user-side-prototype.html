@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fa">
+  <title>CampusSetu · User app concept</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #eef2f6;
+      --phone: #f7f9fb;
+      --surface: #ffffff;
+      --surface-2: #f4f7f9;
+      --surface-3: #eaf0f4;
+      --ink: #17212b;
+      --muted: #74818d;
+      --line: #e6ebef;
+      --teal: #087d83;
+      --teal-strong: #086c73;
+      --teal-soft: #e0f3f1;
+      --orange: #e58b35;
+      --orange-soft: #fff0df;
+      --blue: #5175c9;
+      --blue-soft: #e9efff;
+      --pink: #d66c8f;
+      --pink-soft: #ffebf1;
+      --green: #428464;
+      --green-soft: #e7f4ec;
+      --shadow: 0 22px 65px rgba(32, 51, 67, .17), 0 2px 8px rgba(32, 51, 67, .08);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at 18% 18%, rgba(8,125,131,.10), transparent 31%),
+        radial-gradient(ellipse at 85% 78%, rgba(229,139,53,.11), transparent 28%),
+        var(--page);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .stage { width: min(100%, 1020px); display: grid; grid-template-columns: minmax(0, 1fr) 393px; align-items: center; gap: 48px; }
+    .intro { padding: 20px 0 20px 24px; max-width: 480px; }
+    .eyebrow { display: inline-flex; gap: 8px; align-items: center; color: var(--teal); background: var(--teal-soft); border: 1px solid rgba(8,125,131,.11); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .eyebrow-dot { width: 7px; height: 7px; border-radius: 9px; background: var(--teal); }
+    h1 { margin: 19px 0 11px; max-width: 440px; font-size: clamp(34px, 4.5vw, 52px); line-height: 1.04; letter-spacing: -.055em; font-weight: 770; }
+    .intro > p { max-width: 430px; margin: 0; color: #687682; font-size: 15px; line-height: 1.7; }
+    .screen-index { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 25px 0 22px; }
+    .index-item { display: flex; gap: 10px; align-items: center; color: #45535f; font-size: 12px; font-weight: 620; }
+    .index-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 10px; background: white; border: 1px solid var(--line); color: var(--teal); font-size: 14px; }
+    .note { padding: 13px 15px; max-width: 430px; border: 1px solid rgba(8,125,131,.12); border-radius: 15px; background: rgba(255,255,255,.7); color: #687682; font-size: 11px; line-height: 1.6; }
+    .note strong { color: #34434e; }
+    .phone {
+      --phone-bg: var(--phone);
+      position: relative; justify-self: center; width: 393px; max-width: 100%; height: min(852px, calc(100vh - 48px)); min-height: 640px;
+      display: flex; flex-direction: column; overflow: hidden; border: 8px solid #1b262e; border-radius: 39px; background: var(--phone-bg); box-shadow: var(--shadow);
+    }
+    .phone:before { content: ""; position: absolute; z-index: 20; width: 105px; height: 23px; left: 50%; top: -1px; transform: translateX(-50%); background: #1b262e; border-radius: 0 0 15px 15px; }
+    .system-bar { flex: 0 0 30px; height: 30px; padding: 10px 20px 0; display: flex; justify-content: space-between; align-items: center; background: var(--phone-bg); font-size: 9px; font-weight: 760; letter-spacing: .015em; color: var(--ink); }
+    .system-right { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+    .signal { font-size: 10px; }
+    .appbar { min-height: 59px; padding: 5px 18px 9px; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--phone-bg); }
+    .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px; color: white; background: linear-gradient(145deg, #118b8d, #086973); font-size: 16px; box-shadow: 0 5px 12px rgba(8,125,131,.19); }
+    .brand-name { font-size: 14px; font-weight: 780; letter-spacing: -.03em; }
+    .brand-sub { margin-top: 1px; font-size: 9px; color: var(--muted); }
+    .top-actions { display: flex; align-items: center; gap: 7px; }
+    .icon-btn, .avatar-btn { cursor: pointer; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 12px; position: relative; font-size: 14px; }
+    .icon-btn .notification-dot { position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border: 1.5px solid var(--surface); border-radius: 9px; background: #e58b35; }
+    .avatar-btn { width: 34px; height: 34px; border-radius: 50%; background: #f7dfcd; color: #84523a; border: 0; font-weight: 800; font-size: 11px; }
+    .main { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 24px; scrollbar-width: none; }
+    .main::-webkit-scrollbar { display: none; }
+    .bottom-nav { flex: 0 0 62px; height: 62px; padding: 6px 9px max(6px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 95%, transparent); display: grid; grid-template-columns: repeat(5,1fr); z-index: 3; }
+    .nav-btn { position: relative; border: 0; border-radius: 13px; background: transparent; color: #82909b; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; font-size: 9px; font-weight: 630; }
+    .nav-btn .nav-icon { font-size: 17px; line-height: 1; }
+    .nav-btn.active { color: var(--teal); background: var(--teal-soft); }
+    .nav-btn.active:before { content: ""; position: absolute; width: 15px; height: 2px; top: 2px; border-radius: 4px; background: var(--teal); }
+    .screen-title { margin: 7px 0 3px; font-size: 22px; letter-spacing: -.04em; line-height: 1.18; }
+    .subhead { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .section-row { margin: 18px 0 10px; }
+    .section-title { margin: 0; font-size: 13px; letter-spacing: -.02em; font-weight: 760; }
+    .text-action { border: 0; padding: 4px 0; background: transparent; color: var(--teal); cursor: pointer; font-size: 10px; font-weight: 750; }
+    .card { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+    .greeting { padding: 5px 1px 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .hello-label { margin: 0 0 3px; color: var(--muted); font-size: 10px; font-weight: 620; }
+    .hello-title { margin: 0; font-size: 22px; line-height: 1.13; letter-spacing: -.045em; }
+    .hello-copy { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .streak { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 55px; min-width: 55px; height: 59px; border: 1px solid #f7e4c8; border-radius: 16px; background: #fff8ec; color: #a76818; }
+    .streak b { font-size: 18px; line-height: 1; }
+    .streak span { margin-top: 4px; font-size: 8px; font-weight: 700; }
+    .searchbox { display: flex; align-items: center; gap: 8px; height: 39px; padding: 0 12px; border: 1px solid var(--line); border-radius: 13px; color: #81909b; background: var(--surface); font-size: 12px; }
+    .searchbox input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
+    .searchbox input::placeholder { color: #8996a0; }
+    .feed-head { margin-top: 14px; }
+    .feed-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 760; }
+    .feed-title span { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 99px; background: var(--teal-soft); color: var(--teal); font-size: 8px; }
+    .post-button { border: 0; border-radius: 10px; padding: 7px 10px; background: var(--teal); color: white; cursor: pointer; font-size: 9px; font-weight: 740; }
+    .bento { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 65px; gap: 8px; margin-top: 9px; }
+    .tile { position: relative; overflow: hidden; padding: 9px 10px; border: 1px solid transparent; border-radius: 16px; text-align: left; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+    .tile:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(33,53,66,.09); }
+    .tile.wide { grid-column: span 2; }
+    .tile.tall { grid-row: span 2; }
+    .tile.tools { background: #e3f2f1; border-color: #d0eae8; color: #086a70; }
+    .tile.learning { background: #eaf0ff; border-color: #dae4ff; color: #4967af; }
+    .tile.travel { background: #fff0e5; border-color: #f9e2cf; color: #ad652a; }
+    .tile.events { background: #ffebf1; border-color: #f8dce6; color: #ae5577; }
+    .tile.helping { background: #e8f3e9; border-color: #d6e9d9; color: #39744f; }
+    .tile.deals { background: #fff5dc; border-color: #f8edcd; color: #9d7224; }
+    .tile.flatmates { background: #f1ebfa; border-color: #e6ddf5; color: #76519d; }
+    .tile.campus { background: #e8f2f6; border-color: #d8e9f0; color: #4d7487; }
+    .tile-icon { font-size: 17px; line-height: 1; }
+    .tile-label { display: block; margin-top: 6px; font-size: 9px; font-weight: 760; letter-spacing: -.015em; }
+    .tile-copy { display: block; margin-top: 2px; opacity: .76; font-size: 8px; line-height: 1.25; }
+    .tile-art { position: absolute; right: 8px; top: 8px; font-size: 24px; opacity: .17; transform: rotate(-12deg); }
+    .banner { position: relative; overflow: hidden; margin-top: 10px; min-height: 84px; padding: 13px 14px; border-radius: 17px; background: linear-gradient(105deg, #116e73, #0a8584 66%, #55a895); color: white; }
+    .banner:after { content: ""; position: absolute; width: 106px; height: 106px; right: -19px; top: -28px; border: 1px solid rgba(255,255,255,.18); border-radius: 50%; box-shadow: 0 0 0 14px rgba(255,255,255,.045), 0 0 0 28px rgba(255,255,255,.04); }
+    .banner-kicker { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; opacity: .76; font-weight: 750; }
+    .banner-title { margin: 5px 0 3px; max-width: 210px; font-size: 14px; font-weight: 750; letter-spacing: -.03em; }
+    .banner-copy { max-width: 225px; margin: 0; font-size: 9px; line-height: 1.4; opacity: .83; }
+    .banner-action { position: absolute; z-index: 1; right: 12px; bottom: 12px; border: 1px solid rgba(255,255,255,.4); border-radius: 9px; padding: 6px 8px; background: rgba(255,255,255,.13); color: white; cursor: pointer; font-size: 8px; font-weight: 720; }
+    .post-card { margin-top: 10px; padding: 12px; }
+    .person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .person-avatar { flex: 0 0 33px; width: 33px; height: 33px; display: grid; place-items: center; border-radius: 50%; background: #e8ddf6; color: #694c91; font-size: 10px; font-weight: 800; }
+    .person-name { font-size: 10px; font-weight: 740; }
+    .person-meta { margin-top: 2px; color: var(--muted); font-size: 8px; }
+    .more { border: 0; background: transparent; color: #8996a0; font-size: 17px; }
+    .post-copy { margin: 10px 0 8px; font-size: 10px; line-height: 1.55; }
+    .post-image { position: relative; height: 113px; overflow: hidden; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(140deg, #d9eeeb, #edf2ff 54%, #ffe9d7); }
+    .post-image:before,.post-image:after { content: ""; position: absolute; width: 120px; height: 120px; border-radius: 50%; background: rgba(16,123,124,.12); left: 24px; bottom: -69px; }
+    .post-image:after { width: 94px; height: 94px; left: auto; right: 36px; bottom: -47px; background: rgba(222,142,66,.15); }
+    .post-art { z-index: 1; display: flex; align-items: center; gap: 7px; color: #237579; font-size: 24px; }
+    .post-art .book { display: grid; place-items: center; width: 54px; height: 64px; transform: rotate(-8deg); border-radius: 7px; background: #fff; box-shadow: 0 8px 15px rgba(27,73,73,.12); font-size: 25px; }
+    .post-stats { display: flex; justify-content: space-between; padding: 8px 1px 7px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 8px; }
+    .post-actions { display: flex; gap: 5px; padding-top: 7px; }
+    .post-actions button { flex: 1; border: 0; padding: 5px; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; font-size: 9px; font-weight: 650; }
+    .post-actions button.liked { color: #d55c77; background: #fff0f3; }
+    .support-fab { position: absolute; z-index: 4; bottom: 75px; right: 13px; width: 39px; height: 39px; border: 0; border-radius: 50%; color: white; background: #087d83; box-shadow: 0 5px 13px rgba(8,125,131,.25); font-size: 16px; cursor: pointer; }
+    .profile-hero { position: relative; overflow: hidden; margin-top: 7px; padding: 18px 14px 14px; text-align: center; background: linear-gradient(165deg, #e4f3f1, #f4f8f7 76%); border: 1px solid #dcecea; border-radius: 20px; }
+    .profile-hero:after { content: ""; position: absolute; width: 160px; height: 160px; right: -74px; top: -103px; border: 1px solid rgba(8,125,131,.14); border-radius: 50%; box-shadow: 0 0 0 16px rgba(8,125,131,.035), 0 0 0 32px rgba(8,125,131,.025); }
+    .edit-profile { position: absolute; z-index: 1; right: 11px; top: 11px; border: 1px solid #d8e9e7; border-radius: 9px; background: rgba(255,255,255,.74); padding: 6px 8px; cursor: pointer; color: var(--teal); font-size: 9px; font-weight: 730; }
+    .profile-avatar { width: 66px; height: 66px; margin: 0 auto 8px; display: grid; place-items: center; border: 4px solid white; border-radius: 50%; background: linear-gradient(145deg, #edc9ac, #dba783); box-shadow: 0 4px 13px rgba(90,69,53,.13); color: #664638; font-size: 20px; font-weight: 800; }
+    .profile-name { margin: 0; font-size: 17px; letter-spacing: -.035em; }
+    .profile-detail { margin: 4px 0 8px; color: var(--muted); font-size: 9px; }
+    .verify-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 99px; color: var(--green); background: var(--green-soft); font-size: 8px; font-weight: 730; }
+    .profile-stats { display: grid; grid-template-columns: repeat(3,1fr); margin-top: 13px; padding-top: 11px; border-top: 1px solid rgba(8,125,131,.12); }
+    .profile-stat + .profile-stat { border-left: 1px solid rgba(8,125,131,.12); }
+    .profile-stat b { display: block; font-size: 13px; }
+    .profile-stat span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+    .profile-bento { display: grid; grid-template-columns: 1.2fr .8fr; gap: 8px; margin-top: 10px; }
+    .profile-points { padding: 12px; background: linear-gradient(140deg,#fff8e8,#fff0d3); border-color: #f5e9cd; }
+    .profile-points .big-icon { font-size: 17px; }
+    .profile-points strong { display: block; margin-top: 5px; font-size: 19px; letter-spacing: -.04em; }
+    .profile-points small { color: #957342; font-size: 8px; }
+    .profile-mini { padding: 11px; display: flex; flex-direction: column; justify-content: space-between; }
+    .profile-mini .big-icon { font-size: 16px; }
+    .profile-mini strong { font-size: 10px; }
+    .profile-mini small { color: var(--muted); font-size: 8px; }
+    .info-card { margin-top: 9px; padding: 12px; }
+    .info-heading { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 760; }
+    .info-heading button { border: 0; background: transparent; color: var(--teal); font-size: 9px; font-weight: 720; cursor: pointer; }
+    .info-text { margin: 8px 0 0; color: #66747f; font-size: 9px; line-height: 1.55; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .chip { border: 1px solid var(--line); padding: 5px 8px; border-radius: 999px; background: var(--surface-2); color: #56636e; font-size: 8px; font-weight: 640; }
+    .list-links { margin-top: 9px; overflow: hidden; }
+    .list-link { width: 100%; display: flex; align-items: center; gap: 9px; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--line); text-align: left; background: var(--surface); cursor: pointer; }
+    .list-link:last-child { border-bottom: 0; }
+    .list-link-icon { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px; background: var(--surface-2); font-size: 12px; }
+    .list-link-copy { flex: 1; font-size: 9px; font-weight: 700; }
+    .list-link small { display: block; margin-top: 2px; color: var(--muted); font-size: 8px; font-weight: 450; }
+    .chevron { color: #93a0a9; font-size: 14px; }
+    .task-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin: 13px 0 15px; }
+    .summary-box { padding: 10px 9px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .summary-box b { display: block; font-size: 17px; letter-spacing: -.04em; }
+    .summary-box span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+    .summary-box:first-child b { color: var(--teal); }
+    .task-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 10px; }
+    .segmented { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+    .segmented button { border: 0; border-radius: 8px; background: transparent; color: var(--muted); padding: 6px 10px; cursor: pointer; font-size: 9px; font-weight: 720; }
+    .segmented button.selected { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(20,35,45,.08); }
+    .filter-button { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 7px 9px; cursor: pointer; color: #5e6b76; font-size: 9px; font-weight: 650; }
+    .task-card { padding: 12px; margin-bottom: 8px; }
+    .task-tags { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .task-tag { padding: 4px 7px; border-radius: 99px; color: var(--blue); background: var(--blue-soft); font-size: 8px; font-weight: 730; }
+    .task-tag.open { color: var(--green); background: var(--green-soft); }
+    .task-date { color: var(--muted); font-size: 8px; }
+    .task-title { margin: 9px 0 5px; font-size: 12px; font-weight: 750; letter-spacing: -.02em; }
+    .task-desc { margin: 0; color: #6d7a85; font-size: 9px; line-height: 1.5; }
+    .task-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line); }
+    .requester { display: flex; align-items: center; gap: 6px; color: #687681; font-size: 8px; }
+    .mini-avatar { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #eee2d3; font-size: 8px; font-weight: 750; color: #815f45; }
+    .reward { color: #a16e1d; font-size: 10px; font-weight: 800; }
+    .task-action { border: 0; border-radius: 9px; padding: 7px 10px; color: white; background: var(--teal); font-size: 8px; font-weight: 730; cursor: pointer; }
+    .filter-row { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 11px; scrollbar-width: none; }
+    .filter-chip { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); padding: 6px 9px; color: #66747f; cursor: pointer; font-size: 8px; font-weight: 680; }
+    .filter-chip.selected { color: var(--teal); border-color: #c7e4e2; background: var(--teal-soft); }
+    .chat-search { margin: 11px 0 9px; }
+    .chat-filters { display: flex; gap: 7px; margin: 0 0 7px; }
+    .chat-filter { border: 1px solid var(--line); border-radius: 99px; padding: 6px 11px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 8px; font-weight: 710; }
+    .chat-filter.selected { color: var(--teal); background: var(--teal-soft); border-color: #d3eae7; }
+    .chat-list { overflow: hidden; }
+    .chat-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 10px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); text-align: left; cursor: pointer; }
+    .chat-row:last-child { border-bottom: 0; }
+    .chat-avatar { position: relative; flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #e9def5; color: #6e5194; font-weight: 800; font-size: 11px; }
+    .chat-avatar.orange { background: #ffe8d7; color: #a96330; }
+    .chat-avatar.blue { background: #e2ecff; color: #536dab; }
+    .chat-avatar.green { background: #e0f0e5; color: #407b55; }
+    .online { position: absolute; right: -1px; bottom: 0; width: 10px; height: 10px; border: 2px solid var(--surface); background: #47a978; border-radius: 50%; }
+    .chat-summary { flex: 1; min-width: 0; }
+    .chat-name-line { display: flex; justify-content: space-between; gap: 6px; }
+    .chat-name { font-size: 10px; font-weight: 750; }
+    .chat-time { color: var(--muted); font-size: 8px; }
+    .chat-last { overflow: hidden; margin-top: 4px; color: #7c8993; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
+    .unread-count { flex: 0 0 17px; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-size: 8px; font-weight: 760; }
+    .chat-head { display: flex; align-items: center; gap: 9px; padding: 7px 0 12px; border-bottom: 1px solid var(--line); }
+    .back-btn { width: 29px; height: 29px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; }
+    .chat-head .chat-avatar { width: 34px; height: 34px; flex-basis: 34px; }
+    .chat-thread { display: flex; flex-direction: column; gap: 9px; padding: 14px 0 16px; }
+    .day-label { align-self: center; padding: 5px 8px; border-radius: 99px; background: var(--surface-3); color: var(--muted); font-size: 8px; }
+    .bubble { max-width: 79%; align-self: flex-start; padding: 9px 10px 6px; border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--line); font-size: 9px; line-height: 1.5; }
+    .bubble.mine { align-self: flex-end; color: white; border: 0; border-radius: 14px 14px 4px 14px; background: var(--teal); }
+    .bubble time { display: block; margin-top: 4px; text-align: right; font-size: 7px; opacity: .65; }
+    .composer { position: sticky; bottom: -24px; display: flex; align-items: center; gap: 7px; margin: 0 -16px -24px; padding: 9px 12px 12px; border-top: 1px solid var(--line); background: var(--phone); }
+    .composer input { flex: 1; min-width: 0; height: 35px; padding: 0 11px; outline: none; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); color: var(--ink); font-size: 9px; }
+    .composer button { width: 34px; height: 34px; border: 0; border-radius: 50%; color: white; background: var(--teal); cursor: pointer; }
+    .balance-card { position: relative; overflow: hidden; margin-top: 12px; padding: 16px; border-radius: 19px; color: white; background: linear-gradient(125deg, #176b70, #078686 67%, #37a38e); }
+    .balance-card:after { content: ""; position: absolute; width: 136px; height: 136px; right: -36px; top: -68px; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; box-shadow: 0 0 0 17px rgba(255,255,255,.06), 0 0 0 33px rgba(255,255,255,.04); }
+    .balance-label { font-size: 9px; opacity: .79; }
+    .balance-value { display: flex; align-items: baseline; gap: 7px; margin-top: 6px; }
+    .balance-value strong { font-size: 29px; letter-spacing: -.05em; }
+    .balance-value span { font-size: 10px; opacity: .76; }
+    .balance-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.2); font-size: 8px; opacity: .87; }
+    .transfer-card { margin-top: 11px; padding: 13px; }
+    .step-label { display: flex; gap: 6px; align-items: center; color: var(--teal); font-size: 8px; font-weight: 790; letter-spacing: .06em; text-transform: uppercase; }
+    .step-number { width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--teal); font-size: 8px; }
+    .field-label { display: block; margin: 12px 0 5px; color: #5f6d77; font-size: 9px; font-weight: 700; }
+    .field { display: flex; align-items: center; gap: 7px; width: 100%; height: 37px; padding: 0 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+    .field input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
+    .field input::placeholder { color: #9aa5ae; }
+    .verify-btn { border: 0; padding: 6px 8px; border-radius: 8px; color: white; background: var(--teal); cursor: pointer; font-size: 8px; font-weight: 740; }
+    .verified { display: none; align-items: center; gap: 8px; margin-top: 9px; padding: 8px; border-radius: 11px; background: var(--green-soft); color: #34704e; font-size: 8px; }
+    .verified.visible { display: flex; }
+    .verified .mini-avatar { background: #cce8d5; color: #34704e; }
+    .quick-amounts { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-top: 7px; }
+    .amount-chip { border: 1px solid var(--line); border-radius: 9px; padding: 7px 3px; background: var(--surface); color: #596771; cursor: pointer; font-size: 8px; font-weight: 690; }
+    .amount-chip.selected { border-color: #a9d6d2; background: var(--teal-soft); color: var(--teal); }
+    .points-input-wrap { display: flex; align-items: center; gap: 6px; }
+    .points-input-wrap .field { flex: 1; }
+    .points-suffix { color: var(--muted); font-size: 8px; }
+    .transfer-btn { width: 100%; margin-top: 13px; border: 0; border-radius: 12px; padding: 11px; background: var(--teal); color: white; cursor: pointer; font-size: 10px; font-weight: 750; box-shadow: 0 5px 13px rgba(8,125,131,.17); }
+    .helper-card { display: flex; gap: 8px; margin-top: 9px; padding: 10px; border-radius: 13px; background: var(--blue-soft); color: #526a9c; font-size: 8px; line-height: 1.5; }
+    .activity { margin-top: 15px; }
+    .activity-row { display: flex; align-items: center; gap: 9px; padding: 10px 1px; border-bottom: 1px solid var(--line); }
+    .activity-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 10px; background: var(--green-soft); color: var(--green); font-size: 12px; }
+    .activity-icon.sent { background: var(--orange-soft); color: #a76a25; }
+    .activity-copy { flex: 1; font-size: 9px; font-weight: 670; }
+    .activity-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; font-weight: 450; }
+    .activity-points { color: var(--green); font-size: 9px; font-weight: 780; }
+    .activity-points.sent { color: #b56b28; }
+    .toast { position: absolute; z-index: 30; left: 50%; bottom: 76px; transform: translate(-50%, 16px); padding: 10px 13px; border-radius: 12px; color: white; background: #25343c; box-shadow: 0 7px 20px rgba(21,32,38,.2); font-size: 9px; opacity: 0; pointer-events: none; transition: .2s ease; white-space: nowrap; }
+    .toast.show { transform: translate(-50%,0); opacity: 1; }
+    .modal-backdrop { position: absolute; z-index: 25; inset: 0; display: none; place-items: center; padding: 22px; background: rgba(23,33,43,.45); backdrop-filter: blur(3px); }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: 100%; padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); text-align: center; box-shadow: 0 16px 45px rgba(15,30,40,.18); }
+    .modal-icon { width: 45px; height: 45px; display: grid; place-items: center; margin: 0 auto 9px; border-radius: 15px; background: var(--teal-soft); color: var(--teal); font-size: 20px; }
+    .modal h3 { margin: 0; font-size: 15px; }
+    .modal p { color: var(--muted); font-size: 9px; line-height: 1.55; }
+    .modal-actions { display: flex; gap: 7px; margin-top: 12px; }
+    .modal-actions button { flex: 1; padding: 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; font-size: 9px; font-weight: 720; }
+    .modal-actions .confirm { border-color: var(--teal); color: white; background: var(--teal); }
+    .empty { padding: 28px 14px; text-align: center; color: var(--muted); font-size: 10px; }
+    .empty b { display: block; margin-bottom: 5px; color: var(--ink); font-size: 12px; }
+    .dark {
+      color-scheme: dark;
+      --page: #0e151d; --phone: #141e27; --surface: #1a2731; --surface-2: #202f39; --surface-3: #263740; --ink: #f2f6f7; --muted: #9ba9b1; --line: #2c3a44; --teal: #5dd1c7; --teal-strong: #77dfd4; --teal-soft: #193b3d; --orange-soft: #493823; --blue-soft: #263650; --pink-soft: #452c38; --green-soft: #203b31; --shadow: 0 22px 65px rgba(0,0,0,.43);
+    }
+    .dark .intro > p,.dark .note { color: #a8b4bb; }
+    .dark .note { background: rgba(24,36,45,.74); border-color: #2c4447; }
+    .dark .note strong { color: #e2ebed; }
+    .dark .index-item { color: #c1cbd0; }
+    .dark .index-icon { background: var(--surface); border-color: var(--line); }
+    .dark .streak { background: #3d3427; border-color: #51412c; color: #f1c271; }
+    .dark .tile.tools { background: #203f40; border-color: #2a5352; color: #91ded6; }
+    .dark .tile.learning { background: #273754; border-color: #33476a; color: #aabfff; }
+    .dark .tile.travel { background: #473628; border-color: #5a4530; color: #f4bd8d; }
+    .dark .tile.events { background: #482e3b; border-color: #593847; color: #efabc2; }
+    .dark .tile.helping { background: #284333; border-color: #355640; color: #a6d6b1; }
+    .dark .tile.deals { background: #473d28; border-color: #5a4c30; color: #e7cc84; }
+    .dark .tile.flatmates { background: #3b304a; border-color: #4d3d60; color: #d0b4f2; }
+    .dark .tile.campus { background: #293c45; border-color: #39515d; color: #b0d0de; }
+    .dark .profile-hero { background: linear-gradient(165deg,#203c3d,#1b2d34 76%); border-color: #2b4b4b; }
+    .dark .profile-hero:after { border-color: rgba(93,209,199,.2); }
+    .dark .edit-profile { border-color: var(--line); background: var(--surface); }
+    .dark .profile-points { background: linear-gradient(140deg,#3d3427,#332d24); border-color: #51422f; }
+    .dark .profile-points small { color: #ceb782; }
+    .dark .post-image { background: linear-gradient(140deg,#234344,#29364c 54%,#4a3a2b); }
+    .dark .post-image:before { background: rgba(82,193,186,.14); }
+    .dark .post-image:after { background: rgba(222,142,66,.15); }
+    .dark .post-art .book { background: #e5eeee; }
+    .dark .feed-title span { color: var(--teal); }
+    .dark .profile-detail,.dark .task-desc,.dark .info-text,.dark .requester,.dark .chat-last { color: #a8b4bb; }
+    .dark .streak span { color: #e4c484; }
+    @media (max-width: 780px) {
+      body { padding: 0; background: var(--phone); }
+      .stage { display: block; width: 100%; }
+      .intro { display: none; }
+      .phone { width: 100%; height: 100dvh; min-height: 580px; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+      .phone:before { display: none; }
+      .system-bar { padding-top: max(8px, env(safe-area-inset-top)); height: max(27px, calc(20px + env(safe-area-inset-top))); flex-basis: max(27px, calc(20px + env(safe-area-inset-top))); }
+    }
+    @media (max-width: 360px) { .main { padding-left: 12px; padding-right: 12px; } .bento { grid-auto-rows: 61px; gap: 6px; } .tile { padding: 8px; } .hello-title { font-size: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <aside class="intro">
+      <span class="eyebrow"><i class="eyebrow-dot"></i> Interactive design preview</span>
+      <h1>Campus life, made easier.</h1>
+      <p>A connected student experience with the existing bento home as its starting point. Explore how the profile, tasks, chat and points screens could feel like part of the same app.</p>
+      <div class="screen-index">
+        <div class="index-item"><span class="index-icon">⌂</span> Bento home</div>
+        <div class="index-item"><span class="index-icon">◉</span> Student profile</div>
+        <div class="index-item"><span class="index-icon">✓</span> Tasks &amp; work</div>
+        <div class="index-item"><span class="index-icon">▤</span> Chats</div>
+        <div class="index-item"><span class="index-icon">↗</span> Points transfer</div>
+      </div>
+      <div class="note"><strong>Preview only:</strong> tap the bottom navigation, task filters, a chat, or the points transfer controls. Names, posts, tasks and balances shown here are sample data and are not connected to CampusSetu services.</div>
+    </aside>
+
+    <section class="phone" id="phone" aria-label="CampusSetu mobile design preview">
+      <div class="system-bar"><span>9:41</span><span class="system-right"><span>▮▮▮</span><span>◔</span><span>▰</span></span></div>
+      <header class="appbar" id="appbar">
+        <div class="brand"><div class="brand-mark">✳</div><div><div class="brand-name">CampusSetu</div><div class="brand-sub">Your campus, connected</div></div></div>
+        <div class="top-actions"><button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle light/dark theme">◐</button><button class="icon-btn" aria-label="Notifications" onclick="toast('You’re all caught up')">♧<i class="notification-dot"></i></button><button class="avatar-btn" onclick="showScreen('profile')" aria-label="Open profile">AS</button></div>
+      </header>
+      <main class="main" id="main"></main>
+      <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation"></nav>
+      <button class="support-fab" id="supportFab" aria-label="Help and support" title="Help and support" onclick="toast('Support chat preview')">?</button>
+      <div class="toast" id="toast" role="status"></div>
+      <div class="modal-backdrop" id="modalBackdrop"><div class="modal" id="modal"></div></div>
+    </section>
+  </div>
+  <script>
+    const navItems = [
+      { id: 'home', label: 'Home', icon: '⌂' },
+      { id: 'tasks', label: 'Tasks', icon: '✓' },
+      { id: 'chat', label: 'Chat', icon: '▤' },
+      { id: 'points', label: 'Points', icon: '↗' },
+      { id: 'profile', label: 'Profile', icon: '◉' }
+    ];
+    let currentScreen = 'home';
+    let chatDetail = false;
+    let activeChat = 'riya';
+    let taskType = 'Tasks';
+    let taskFilter = 'All';
+    let chatFilter = 'All';
+    let recipientVerified = false;
+    let selectedAmount = 100;
+    const chats = [
+      { id: 'riya', name: 'Riya Mehta', initials: 'RM', className: 'purple', time: '2m', last: 'That sounds good! I’ll share my notes.', unread: 2, online: true, color: 'purple' },
+      { id: 'arjun', name: 'Arjun Patel', initials: 'AP', className: 'orange', time: '1h', last: 'Can you help with the presentation?', unread: 0, online: true, color: 'orange' },
+      { id: 'sana', name: 'Sana Khan', initials: 'SK', className: 'blue', time: '3h', last: 'Thanks for sharing the resource ✨', unread: 0, online: false, color: 'blue' },
+      { id: 'dev', name: 'Dev Malhotra', initials: 'DM', className: 'green', time: 'Yesterday', last: 'Let’s meet after class tomorrow.', unread: 1, online: false, color: 'green' },
+      { id: 'aanya', name: 'Aanya Joshi', initials: 'AJ', className: 'purple', time: 'Mon', last: 'You: Got it, thank you!', unread: 0, online: false, color: 'purple' }
+    ];
+    const conversations = {
+      riya: [{ mine: false, text: 'Hey! Did you finish the data structures notes?', time: '9:32' }, { mine: true, text: 'Almost done — I’m formatting the last chapter now.', time: '9:34' }, { mine: false, text: 'That sounds good! I’ll share my notes too.', time: '9:36' }],
+      arjun: [{ mine: false, text: 'Can you help with the presentation?', time: '8:40' }, { mine: true, text: 'Sure! Send me the topic and I’ll take a look.', time: '8:48' }],
+      sana: [{ mine: false, text: 'Thanks for sharing the resource ✨', time: 'Yesterday' }, { mine: true, text: 'Anytime! Glad it helped.', time: 'Yesterday' }],
+      dev: [{ mine: false, text: 'Let’s meet after class tomorrow.', time: 'Yesterday' }],
+      aanya: [{ mine: true, text: 'Got it, thank you!', time: 'Mon' }]
+    };
+    const taskData = [
+      { type: 'Tasks', category: 'Design', status: 'Open', title: 'Design a poster for the coding club', desc: 'Need a clean, energetic poster for our Friday hack-night. Logo and details are ready.', person: 'Nikhil S.', initials: 'NS', reward: '250 pts', due: 'Due tomorrow' },
+      { type: 'Tasks', category: 'Study help', status: 'Open', title: 'Explain linked lists before the quiz', desc: 'Looking for a 30-minute peer tutoring session. I learn best with small examples.', person: 'Maya R.', initials: 'MR', reward: '180 pts', due: 'Due Fri' },
+      { type: 'Tasks', category: 'Writing', status: 'Open', title: 'Proofread my internship cover letter', desc: 'A quick review for clarity and grammar. It is about one page long.', person: 'Kabir A.', initials: 'KA', reward: '120 pts', due: 'Due in 3 days' },
+      { type: 'Jobs', category: 'Campus job', status: 'Open', title: 'Student ambassador · Open Day', desc: 'Welcome visitors, answer questions and help with the Computer Science tour.', person: 'Campus Team', initials: 'CT', reward: '500 pts', due: 'Saturday' },
+      { type: 'Jobs', category: 'Research', status: 'Open', title: 'Help label a small research dataset', desc: 'Work with the student research group on a short, flexible data labelling task.', person: 'Dr. Iyer', initials: 'DI', reward: '400 pts', due: 'Due next week' }
+    ];
+    function mountNav() {
+      document.getElementById('bottomNav').innerHTML = navItems.map(n => `<button class="nav-btn ${currentScreen === n.id ? 'active' : ''}" data-screen="${n.id}"><span class="nav-icon">${n.icon}</span><span>${n.label}</span></button>`).join('');
+      document.getElementById('bottomNav').style.display = chatDetail ? 'none' : 'grid';
+      document.getElementById('supportFab').style.display = chatDetail ? 'none' : 'block';
+      document.getElementById('appbar').style.display = chatDetail ? 'none' : 'flex';
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showScreen(btn.dataset.screen)));
+    }
+    function showScreen(screen) {
+      currentScreen = screen; chatDetail = false; mountNav(); render();
+    }
+    function render() {
+      mountNav();
+      const main = document.getElementById('main');
+      const screens = { home: homeScreen, profile: profileScreen, tasks: tasksScreen, chat: chatScreen, points: pointsScreen };
+      main.innerHTML = chatDetail && currentScreen === 'chat' ? chatDetailScreen() : screens[currentScreen]();
+      bindScreenEvents();
+    }
+    function homeScreen() {
+      return `<section class="greeting"><div><p class="hello-label">THURSDAY, 24 SEPTEMBER</p><h1 class="hello-title">Namaste, Aanya <span aria-hidden="true">👋</span></h1><p class="hello-copy">What are you in the mood to explore today?</p></div><div class="streak"><b>4</b><span>day streak 🔥</span></div></section>
+        <label class="searchbox"><span>⌕</span><input id="homeSearch" placeholder="Search tools, people, events…" aria-label="Search CampusSetu"><span>⌘ K</span></label>
+        <section class="feed-head"><div class="row"><div class="feed-title">Your campus <span>FOR YOU</span></div><button class="post-button" onclick="toast('Create a post preview')">＋ &nbsp;Post</button></div>
+          <div class="bento">
+            <button class="tile tools wide" onclick="toast('Opening campus tools preview')"><span class="tile-art">✦</span><span class="tile-icon">🧰</span><span class="tile-label">Tools</span><span class="tile-copy">Make student life simpler</span></button>
+            <button class="tile learning" onclick="showScreen('tasks')"><span class="tile-icon">📚</span><span class="tile-label">Learning</span></button>
+            <button class="tile travel" onclick="toast('Travel board preview')"><span class="tile-icon">🚌</span><span class="tile-label">Travel</span></button>
+            <button class="tile events tall" onclick="toast('Campus events preview')"><span class="tile-art">✧</span><span class="tile-icon">🎟️</span><span class="tile-label">Events</span><span class="tile-copy">Find your next campus moment</span></button>
+            <button class="tile helping" onclick="showScreen('tasks')"><span class="tile-icon">🤝</span><span class="tile-label">Helping</span></button>
+            <button class="tile deals" onclick="toast('Student deals preview')"><span class="tile-icon">🏷️</span><span class="tile-label">Deals</span></button>
+            <button class="tile flatmates" onclick="toast('Flatmate board preview')"><span class="tile-icon">🏡</span><span class="tile-label">Flatmates</span></button>
+            <button class="tile campus wide" onclick="toast('Campus Ambassador preview')"><span class="tile-icon">🌱</span><span class="tile-label">Campus Ambassador</span><span class="tile-copy">Build things with your community</span></button>
+          </div>
+        </section>
+        <section class="banner"><div class="banner-kicker">Your next little win</div><h2 class="banner-title">Learn together. Earn together.</h2><p class="banner-copy">Share your skills, lend a hand, and collect points along the way.</p><button class="banner-action" onclick="showScreen('tasks')">Explore tasks&nbsp; →</button></section>
+        <section class="row section-row"><h2 class="section-title">From your campus</h2><button class="text-action" onclick="toast('Campus feed preview')">See all</button></section>
+        <article class="card post-card"><div class="row"><div class="person"><div class="person-avatar">RK</div><div><div class="person-name">Rohan Kapoor</div><div class="person-meta">Computer Science · 2h ago</div></div></div><button class="more" aria-label="More post options">···</button></div><p class="post-copy">Wrapped up our first peer-learning circle today! Sharing a few moments from a really good afternoon ✨ <b>#CampusTogether</b></p><div class="post-image"><div class="post-art"><span>💡</span><span class="book">📖</span><span>🌿</span></div></div><div class="post-stats"><span>💚 24 people liked this</span><span>8 comments</span></div><div class="post-actions"><button class="like-action">♡ &nbsp;Like</button><button onclick="showScreen('chat')">▢ &nbsp;Comment</button><button onclick="toast('Post link copied')">↗ &nbsp;Share</button></div></article>`;
+    }
+    function profileScreen() {
+      return `<h1 class="screen-title">My profile</h1><p class="subhead">Your story, skills and campus connections.</p>
+        <section class="profile-hero"><button class="edit-profile" onclick="toast('Profile editing preview')">✎ &nbsp;Edit</button><div class="profile-avatar">AS</div><h2 class="profile-name">Aanya Sharma</h2><p class="profile-detail">Computer Science · Year 2 · North Campus</p><span class="verify-pill">✓ Verified student</span><div class="profile-stats"><div class="profile-stat"><b>248</b><span>Connections</span></div><div class="profile-stat"><b>12</b><span>Projects</span></div><div class="profile-stat"><b>08</b><span>Endorsements</span></div></div></section>
+        <div class="profile-bento"><button class="card profile-points" onclick="showScreen('points')"><span class="big-icon">✦</span><strong>1,240</strong><small>Campus points &nbsp;↗</small></button><button class="card profile-mini" onclick="toast('Campus ID preview')"><span class="big-icon">🪪</span><strong>Campus ID</strong><small>View your digital card&nbsp; →</small></button></div>
+        <section class="card info-card"><div class="info-heading">About me <button onclick="toast('Editing about section')">Edit</button></div><p class="info-text">Curious developer who enjoys building useful things with people. Currently exploring product design, mobile apps and volunteering on campus.</p></section>
+        <section class="card info-card"><div class="info-heading">Skills &amp; interests <button onclick="toast('Add a skill')">＋ Add</button></div><div class="chips"><span class="chip">Flutter</span><span class="chip">UI design</span><span class="chip">Figma</span><span class="chip">Volunteering</span><span class="chip">Public speaking</span></div></section>
+        <section class="card list-links"><button class="list-link" onclick="toast('Tshare portfolio preview')"><span class="list-link-icon">🌐</span><span class="list-link-copy">My Tshare portfolio<small>Projects, work and things I make</small></span><span class="chevron">›</span></button><button class="list-link" onclick="toast('Resume preview')"><span class="list-link-icon">📄</span><span class="list-link-copy">Resume<small>View or update your resume</small></span><span class="chevron">›</span></button><button class="list-link" onclick="toast('Settings preview')"><span class="list-link-icon">⚙️</span><span class="list-link-copy">Account &amp; privacy<small>Manage your preferences</small></span><span class="chevron">›</span></button></section>`;
+    }
+    function tasksScreen() {
+      const filtered = taskData.filter(t => t.type === taskType && (taskFilter === 'All' || t.category === taskFilter));
+      const filters = taskType === 'Tasks' ? ['All','Design','Study help','Writing'] : ['All','Campus job','Research'];
+      return `<div class="row"><div><h1 class="screen-title">Work &amp; tasks</h1><p class="subhead">Share a skill or find a hand with your next task.</p></div><button class="post-button" onclick="toast('Post a task preview')">＋ Post</button></div>
+        <div class="task-summary"><div class="summary-box"><b>3</b><span>Open for you</span></div><div class="summary-box"><b>2</b><span>In progress</span></div><div class="summary-box"><b>1,240</b><span>Points balance</span></div></div>
+        <div class="task-toolbar"><div class="segmented"><button class="${taskType==='Tasks'?'selected':''}" data-type="Tasks">Tasks</button><button class="${taskType==='Jobs'?'selected':''}" data-type="Jobs">Campus jobs</button></div><button class="filter-button" onclick="toast('Sort and filter options')">☷ &nbsp;Filter</button></div>
+        <div class="filter-row">${filters.map(f=>`<button class="filter-chip ${taskFilter===f?'selected':''}" data-filter="${f}">${f==='All'?'All requests':f}</button>`).join('')}</div>
+        <div id="taskResults">${filtered.length ? filtered.map(t=>`<article class="card task-card"><div class="task-tags"><span class="task-tag ${t.status==='Open'?'open':''}">${t.category}</span><span class="task-date">◷ &nbsp;${t.due}</span></div><h3 class="task-title">${t.title}</h3><p class="task-desc">${t.desc}</p><div class="task-foot"><div class="requester"><span class="mini-avatar">${t.initials}</span>Posted by ${t.person}</div><div class="row"><b class="reward">✦ ${t.reward}</b><button class="task-action" onclick="toast('Task details preview')">View task&nbsp; →</button></div></div></article>`).join('') : `<div class="empty card"><b>No requests in this filter yet</b>Try another category or check back soon.</div>`}</div>`;
+    }
+    function chatScreen() {
+      const shown = chats.filter(c => chatFilter === 'All' || c.unread > 0);
+      return `<h1 class="screen-title">Messages</h1><p class="subhead">Say hi, share an idea, make a plan.</p><label class="searchbox chat-search"><span>⌕</span><input id="chatSearch" placeholder="Search conversations…" aria-label="Search conversations"></label><div class="chat-filters"><button class="chat-filter ${chatFilter==='All'?'selected':''}" data-chat-filter="All">All messages</button><button class="chat-filter ${chatFilter==='Unread'?'selected':''}" data-chat-filter="Unread">Unread ${chats.filter(c=>c.unread>0).length}</button></div><section class="card chat-list" id="chatList">${shown.map(c=>`<button class="chat-row" data-chat="${c.id}"><span class="chat-avatar ${c.color}">${c.initials}${c.online?'<i class="online"></i>':''}</span><span class="chat-summary"><span class="chat-name-line"><span class="chat-name">${c.name}</span><span class="chat-time">${c.time}</span></span><span class="chat-last">${c.last}</span></span>${c.unread?`<span class="unread-count">${c.unread}</span>`:''}</button>`).join('')}</section>`;
+    }
+    function chatDetailScreen() {
+      const person = chats.find(c => c.id === activeChat);
+      const messages = conversations[activeChat] || [];
+      return `<div class="chat-head"><button class="back-btn" id="backToChats" aria-label="Back to messages">‹</button><span class="chat-avatar ${person.color}">${person.initials}${person.online?'<i class="online"></i>':''}</span><div class="chat-summary"><div class="chat-name">${person.name}</div><div class="person-meta">${person.online?'Online now':'CampusSetu student'}</div></div><button class="icon-btn" onclick="toast('Conversation details preview')">⋯</button></div><div class="chat-thread" id="chatThread"><span class="day-label">Today</span>${messages.map(m=>`<div class="bubble ${m.mine?'mine':''}">${escapeHtml(m.text)}<time>${m.time}</time></div>`).join('')}</div><form class="composer" id="messageForm"><input id="messageInput" placeholder="Write a message…" autocomplete="off" aria-label="Write a message"><button type="submit" aria-label="Send message">➤</button></form>`;
+    }
+    function pointsScreen() {
+      return `<h1 class="screen-title">Points</h1><p class="subhead">A little thank-you for helping each other.</p><section class="balance-card"><div class="balance-label">YOUR CAMPUSSETU BALANCE</div><div class="balance-value"><strong>1,240</strong><span>points</span></div><div class="balance-foot"><span>↗ &nbsp; +180 earned this month</span><span>View history&nbsp; →</span></div></section>
+        <section class="card transfer-card"><div class="step-label"><span class="step-number">1</span> Send points to a student</div><label class="field-label" for="recipient">Student email or CampusSetu ID</label><div class="field"><span>⌕</span><input id="recipient" placeholder="name@campus.edu" value="riya.mehta@campus.edu"><button class="verify-btn" id="verifyRecipient">Verify</button></div><div class="verified ${recipientVerified?'visible':''}" id="verifiedRecipient"><span class="mini-avatar">RM</span><span><b>Riya Mehta</b> · verified student</span><span>✓</span></div><label class="field-label" for="amount">How many points?</label><div class="quick-amounts">${[50,100,250,500].map(a=>`<button class="amount-chip ${selectedAmount===a?'selected':''}" data-amount="${a}">${a}</button>`).join('')}</div><div class="points-input-wrap"><div class="field"><span>✦</span><input id="amount" type="number" min="1" max="1240" value="${selectedAmount}" aria-label="Points amount"></div><span class="points-suffix">points</span></div><button class="transfer-btn" id="reviewTransfer">Review transfer&nbsp; →</button></section>
+        <div class="helper-card"><span>ⓘ</span><span>Points are a way to appreciate campus help. Check the recipient’s name before confirming a transfer.</span></div>
+        <section class="activity"><div class="row section-row"><h2 class="section-title">Recent activity</h2><button class="text-action" onclick="toast('Points history preview')">History</button></div><div class="activity-row"><span class="activity-icon">＋</span><span class="activity-copy">Helped with a design task<small>Yesterday · Campus community</small></span><b class="activity-points">+250</b></div><div class="activity-row"><span class="activity-icon sent">↗</span><span class="activity-copy">Sent points to Riya<small>18 Sep · Thank-you</small></span><b class="activity-points sent">−100</b></div><div class="activity-row"><span class="activity-icon">✦</span><span class="activity-copy">Weekly learning streak<small>16 Sep · Learning</small></span><b class="activity-points">+50</b></div></section>`;
+    }
+    function bindScreenEvents() {
+      document.querySelectorAll('[data-type]').forEach(b=>b.addEventListener('click',()=>{taskType=b.dataset.type;taskFilter='All';render()}));
+      document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{taskFilter=b.dataset.filter;render()}));
+      document.querySelectorAll('[data-chat-filter]').forEach(b=>b.addEventListener('click',()=>{chatFilter=b.dataset.chatFilter;render()}));
+      document.querySelectorAll('[data-chat]').forEach(b=>b.addEventListener('click',()=>{activeChat=b.dataset.chat;chatDetail=true;const person=chats.find(c=>c.id===activeChat);person.unread=0;render()}));
+      const back = document.getElementById('backToChats'); if(back) back.addEventListener('click',()=>{chatDetail=false;render()});
+      const form=document.getElementById('messageForm'); if(form) form.addEventListener('submit',e=>{e.preventDefault();const input=document.getElementById('messageInput');const value=input.value.trim();if(!value)return;conversations[activeChat].push({mine:true,text:value,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});chats.find(c=>c.id===activeChat).last='You: '+value;render();document.getElementById('chatThread').scrollTop=99999});
+      document.querySelectorAll('.post-actions .like-action').forEach(b=>b.addEventListener('click',()=>{b.classList.toggle('liked');b.innerHTML=b.classList.contains('liked')?'♥ &nbsp;Liked':'♡ &nbsp;Like'}));
+      document.querySelectorAll('[data-amount]').forEach(b=>b.addEventListener('click',()=>{selectedAmount=Number(b.dataset.amount);render()}));
+      const verify=document.getElementById('verifyRecipient'); if(verify) verify.addEventListener('click',()=>{recipientVerified=true;document.getElementById('verifiedRecipient').classList.add('visible');verify.textContent='Verified';verify.disabled=true});
+      const review=document.getElementById('reviewTransfer'); if(review) review.addEventListener('click',reviewTransfer);
+      const search=document.getElementById('chatSearch'); if(search) search.addEventListener('input',()=>{const q=search.value.toLowerCase();document.querySelectorAll('.chat-row').forEach(row=>row.style.display=row.textContent.toLowerCase().includes(q)?'flex':'none')});
+      const homeSearch=document.getElementById('homeSearch'); if(homeSearch) homeSearch.addEventListener('keydown',e=>{if(e.key==='Enter')toast('Search preview: '+homeSearch.value)});
+    }
+    function reviewTransfer() {
+      const amount=Number(document.getElementById('amount').value);
+      if(!recipientVerified){toast('Verify the student before continuing');return}
+      if(!amount||amount<1||amount>1240){toast('Enter an amount from 1 to 1,240');return}
+      const modal=document.getElementById('modal');
+      modal.innerHTML=`<div class="modal-icon">↗</div><h3>Review points transfer</h3><p>You’re sending <b>${amount} points</b> to <b>Riya Mehta</b>.<br>Your new balance will be ${1240-amount} points.</p><div class="modal-actions"><button id="cancelTransfer">Go back</button><button class="confirm" id="confirmTransfer">Confirm transfer</button></div>`;
+      document.getElementById('modalBackdrop').classList.add('open');
+      document.getElementById('cancelTransfer').onclick=()=>document.getElementById('modalBackdrop').classList.remove('open');
+      document.getElementById('confirmTransfer').onclick=()=>{document.getElementById('modal').innerHTML='<div class="modal-icon">✓</div><h3>Transfer preview complete</h3><p>This prototype does not move real points. The final app should confirm the server accepted the transfer.</p><div class="modal-actions"><button class="confirm" id="closeSuccess">Done</button></div>';document.getElementById('closeSuccess').onclick=()=>document.getElementById('modalBackdrop').classList.remove('open')};
+    }
+    function toast(message) { const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.classList.remove('show'),2100); }
+    function escapeHtml(value) { return value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    document.getElementById('themeToggle').addEventListener('click',()=>{document.body.classList.toggle('dark');document.querySelector('meta[name="theme-color"]').content=document.body.classList.contains('dark')?'#141e27':'#f5f7fa'});
+    document.getElementById('modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')e.currentTarget.classList.remove('open')});
+    render();
+  </script>
+</body>
+</html>

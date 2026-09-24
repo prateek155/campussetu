@@ -130,4 +130,18 @@ const requireFaculty = async (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth, requireAdmin, requireEnterprise, requireFaculty };
+const requireStudent = async (req, res, next) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT role FROM users WHERE firebase_uid = $1',
+      [req.user.uid]
+    );
+    if (rows.length > 0 && rows[0].role === 'student') return next();
+    return res.status(403).json({ error: 'Student access required' });
+  } catch (err) {
+    console.error('requireStudent error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { requireAuth, requireAdmin, requireEnterprise, requireFaculty, requireStudent };

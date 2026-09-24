@@ -12,6 +12,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/neu_card.dart';
 import '../../core/widgets/user_avatar.dart';
+import '../../core/widgets/bento_grid.dart';
 import '../../core/router/app_router.dart';
 import 'widgets/post_card.dart';
 import 'package:campussetu/features/home/help_chat_widget.dart';
@@ -265,127 +266,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SizedBox(
-                      height: 112,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        clipBehavior: Clip.none,
-                        children: [
-                          if (isAmbassadorOpen) ...[
-                            _buildCarouselCard(
-                              context,
-                              icon: Icons.campaign_rounded,
-                              iconColor: const Color(0xFFF59E0B),
-                              title: 'Ambassador',
-                              subtitle: 'Lead your campus',
-                              badge: 'APPLY NOW',
-                              badgeColor: const Color(0xFFD97706),
-                              lightGradient: const [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-                              darkGradient: const [Color(0xFF2E2008), Color(0xFF1E1705)],
-                              onTap: () => context.push(AppRoutes.ambassador),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.auto_fix_high_rounded,
-                            iconColor: const Color(0xFF0284C7),
-                            title: 'Tools',
-                            subtitle: 'PDF & Images',
-                            badge: '18 FREE',
-                            badgeColor: const Color(0xFF0284C7),
-                            lightGradient: const [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
-                            darkGradient: const [Color(0xFF0C2B40), Color(0xFF071C2B)],
-                            onTap: () => context.push(AppRoutes.tools),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.directions_car_rounded,
-                            iconColor: const Color(0xFF0D9488),
-                            title: 'Travel',
-                            subtitle: 'Carpooling',
-                            count: (counts['travels'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFCCFBF1), Color(0xFF99F6E4)],
-                            darkGradient: const [Color(0xFF0D332D), Color(0xFF07211D)],
-                            onTap: () => context.push('/travel'),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.event_rounded,
-                            iconColor: const Color(0xFF4F46E5),
-                            title: 'Events',
-                            subtitle: 'Campus events',
-                            count: (counts['events'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFE0E7FF), Color(0xFFC7D2FE)],
-                            darkGradient: const [Color(0xFF1E2248), Color(0xFF141733)],
-                            onTap: () => context.push('/events'),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.handshake_outlined,
-                            iconColor: const Color(0xFFEA580C),
-                            title: 'Helping Hand',
-                            subtitle: 'Earn points',
-                            count: (counts['tasks'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFFFEDD5), Color(0xFFFED7AA)],
-                            darkGradient: const [Color(0xFF351908), Color(0xFF220F04)],
-                            onTap: () => context.push(AppRoutes.helping),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.local_offer_outlined,
-                            iconColor: const Color(0xFF16A34A),
-                            title: 'Deals',
-                            subtitle: 'Student offers',
-                            count: (counts['deals'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFDCFCE7), Color(0xFFBBF7D0)],
-                            darkGradient: const [Color(0xFF0E331A), Color(0xFF072210)],
-                            onTap: () => context.push(AppRoutes.deals),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.record_voice_over_rounded,
-                            iconColor: const Color(0xFF9333EA),
-                            title: 'Whispers',
-                            subtitle: 'Anonymous',
-                            badge: 'PRO',
-                            badgeColor: const Color(0xFF9333EA),
-                            lightGradient: const [Color(0xFFF3E8FF), Color(0xFFE9D5FF)],
-                            darkGradient: const [Color(0xFF2C1844), Color(0xFF1D0E2E)],
-                            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Whispers feature unlocking soon!'))),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.home_work_outlined,
-                            iconColor: const Color(0xFFE11D48),
-                            title: 'Flatmates',
-                            subtitle: 'Find rooms',
-                            count: (counts['flatmates'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFFFE4E6), Color(0xFFFECDD3)],
-                            darkGradient: const [Color(0xFF381018), Color(0xFF24080F)],
-                            onTap: () => context.push(AppRoutes.flatmates),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildCarouselCard(
-                            context,
-                            icon: Icons.quiz_rounded,
-                            iconColor: const Color(0xFF7C3AED),
-                            title: 'Learning',
-                            subtitle: 'Live Quizzes',
-                            count: (counts['live_quizzes'] ?? 0).toString(),
-                            lightGradient: const [Color(0xFFEDE9FE), Color(0xFFDDD6FE)],
-                            darkGradient: const [Color(0xFF241C48), Color(0xFF161033)],
-                            onTap: () => context.push('/quiz'),
-                          ),
-                        ],
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: BentoGrid(
+                      rowHeight: 88,
+                      gap: 10,
+                      tiles: [
+                        BentoTile(id: 'tools', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.auto_fix_high_rounded, color: const Color(0xFF0284C7), title: 'Tools', subtitle: 'PDF & image utilities', onTap: () => context.push(AppRoutes.tools)),
+                        BentoTile(id: 'learning', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.quiz_rounded, color: const Color(0xFF7C3AED), title: 'Learning', subtitle: 'Live quizzes & tests', count: (counts['live_quizzes'] ?? 0).toString(), onTap: () => context.push('/quiz')),
+                        BentoTile(id: 'travel', kind: BentoKind.small, w: 1, h: 1, icon: Icons.directions_car_rounded, color: const Color(0xFF0D9488), title: 'Travel', count: (counts['travels'] ?? 0).toString(), onTap: () => context.push('/travel')),
+                        BentoTile(id: 'events', kind: BentoKind.small, w: 1, h: 1, icon: Icons.event_rounded, color: const Color(0xFF4F46E5), title: 'Events', count: (counts['events'] ?? 0).toString(), onTap: () => context.push('/events')),
+                        BentoTile(id: 'helping', kind: BentoKind.small, w: 1, h: 1, icon: Icons.handshake_outlined, color: const Color(0xFFEA580C), title: 'Helping', count: (counts['tasks'] ?? 0).toString(), onTap: () => context.push(AppRoutes.helping)),
+                        BentoTile(id: 'deals', kind: BentoKind.small, w: 1, h: 1, icon: Icons.local_offer_outlined, color: const Color(0xFF16A34A), title: 'Deals', count: (counts['deals'] ?? 0).toString(), onTap: () => context.push(AppRoutes.deals)),
+                        BentoTile(id: 'flatmates', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.home_work_outlined, color: const Color(0xFFE11D48), title: 'Flatmates', subtitle: 'Find rooms and roommates', count: (counts['flatmates'] ?? 0).toString(), onTap: () => context.push(AppRoutes.flatmates)),
+                        if (isAmbassadorOpen) BentoTile(id: 'ambassador', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.campaign_rounded, color: const Color(0xFFF59E0B), title: 'Campus Ambassador', subtitle: 'Lead your campus', badge: 'APPLY', onTap: () => context.push(AppRoutes.ambassador)),
+                      ],
                     ),
                   ),
                   if (isAmbassadorOpen && !_dismissedAmbassadorBanner)
@@ -445,124 +339,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               error: (e, _) => SliverToBoxAdapter(child: _ErrorCard(msg: e.toString(), onRetry: () => ref.invalidate(feedProvider))),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCarouselCard(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    String? badge,
-    Color? badgeColor,
-    Color? badgeTextColor,
-    String? count,
-    required List<Color> lightGradient,
-    required List<Color> darkGradient,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gradient = isDark ? darkGradient : lightGradient;
-    final borderColor = iconColor.withValues(alpha: isDark ? 0.35 : 0.28);
-    final shadowColor = iconColor.withValues(alpha: isDark ? 0.20 : 0.12);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 142,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor, width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: shadowColor,
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: isDark ? 0.25 : 0.18),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: iconColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                if (count != null) ...[
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: iconColor.withValues(alpha: isDark ? 0.25 : 0.18),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      count,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: iconColor,
-                      ),
-                    ),
-                  ),
-                ] else if (badge != null) ...[
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: badgeColor ?? iconColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      badge,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: badgeTextColor ?? Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1E293B),
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
           ],
         ),
       ),
@@ -901,5 +677,3 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     );
   }
 }
-
-

@@ -386,12 +386,18 @@ CREATE TABLE IF NOT EXISTS quizzes (
   title TEXT NOT NULL,
   pin TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','waiting','live','ended')),
+  mode TEXT NOT NULL DEFAULT 'live' CHECK (mode IN ('live','paper')),
+  duration_minutes INT NOT NULL DEFAULT 60 CHECK (duration_minutes > 0),
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
   current_question INT DEFAULT 0,
   question_started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS question_started_at TIMESTAMPTZ;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'live';
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS duration_minutes INT NOT NULL DEFAULT 60;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS quiz_questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -399,9 +405,11 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
   question_text TEXT NOT NULL,
   image_url TEXT,
   options JSONB NOT NULL,
+  marks INT NOT NULL DEFAULT 1 CHECK (marks > 0),
   order_index INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS marks INT NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS quiz_participants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -413,9 +421,40 @@ CREATE TABLE IF NOT EXISTS quiz_participants (
   UNIQUE(quiz_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS quiz_submissions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+  total_score INT NOT NULL DEFAULT 0,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (quiz_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS quiz_test_attempts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (quiz_id, user_id)
+);
+ALTER TABLE quiz_test_attempts ADD COLUMN IF NOT EXISTS answers JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+CREATE TABLE IF NOT EXISTS quiz_test_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN ('tab_switch')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_quizzes_status ON quizzes (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_quizzes_faculty ON quizzes (faculty_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz ON quiz_questions (quiz_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_quiz_participants_quiz ON quiz_participants (quiz_id, total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions (quiz_id, total_score DESC, submitted_at ASC);
+CREATE INDEX IF NOT EXISTS idx_quiz_test_attempts_quiz ON quiz_test_attempts (quiz_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_quiz_test_events_attempt ON quiz_test_events (quiz_id, user_id, created_at DESC);
 
 

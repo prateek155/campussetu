@@ -45,7 +45,7 @@ async function submitQuizAnswer({ quizId, questionId, userId, selectedIndex }) {
     transactionOpen = true;
 
     const { rows: quizzes } = await client.query(
-      `SELECT status, current_question,
+      `SELECT status, mode, current_question,
          EXTRACT(EPOCH FROM (NOW() - question_started_at)) AS elapsed_seconds
        FROM quizzes WHERE id = $1 FOR SHARE`,
       [quizId]
@@ -87,7 +87,7 @@ async function submitQuizAnswer({ quizId, questionId, userId, selectedIndex }) {
     }
 
     const quiz = quizzes[0];
-    if (quiz.status !== 'live') throw new QuizAnswerError(409, 'Quiz is not live');
+    if (quiz.mode !== 'live' || quiz.status !== 'live') throw new QuizAnswerError(409, 'Quiz is not live');
     const questionIndex = Number(quiz.current_question) || 0;
     const { rows: activeQuestions } = await client.query(
       `SELECT id FROM quiz_questions WHERE quiz_id = $1

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_typography.dart';
+import '../../core/widgets/neu_card.dart';
 
 final liveQuizzesProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
   return await ApiService().getLiveQuizzes();
@@ -17,13 +20,18 @@ class QuizListScreen extends ConsumerWidget {
     final quizzesAsync = ref.watch(liveQuizzesProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FF),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('Live Quizzes 📚'),
-        backgroundColor: const Color(0xFF6C63FF),
-        foregroundColor: Colors.white,
+        title: const Text('Live quizzes'),
+        backgroundColor: AppColors.bg,
+        foregroundColor: AppColors.ink,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Paper tests',
+            onPressed: () => context.push('/tests'),
+            icon: const Icon(Icons.fact_check_outlined),
+          ),
           IconButton(
             onPressed: () => ref.invalidate(liveQuizzesProvider),
             icon: const Icon(Icons.refresh),
@@ -33,32 +41,23 @@ class QuizListScreen extends ConsumerWidget {
       body: quizzesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 56, color: Colors.grey),
-              const SizedBox(height: 12),
-              const Text('Failed to load quizzes', style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(liveQuizzesProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.error_outline, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text('Failed to load quizzes', style: AppTypography.interBody(color: AppColors.inkSoft)),
+            const SizedBox(height: 12),
+            ElevatedButton(onPressed: () => ref.invalidate(liveQuizzesProvider), child: const Text('Retry')),
+          ]),
         ),
         data: (quizzes) => quizzes.isEmpty
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('🎯', style: TextStyle(fontSize: 64)),
-                    SizedBox(height: 16),
-                    Text('No Live Quizzes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    SizedBox(height: 8),
-                    Text('Check back when your faculty starts a quiz!', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
+            ? Center(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Text('🎯', style: TextStyle(fontSize: 64)),
+                  const SizedBox(height: 16),
+                  Text('No live quizzes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.inkSoft)),
+                  const SizedBox(height: 8),
+                  Text('Check back when your faculty starts a quiz!', style: AppTypography.interBody(color: AppColors.inkSoft)),
+                ]),
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -66,17 +65,11 @@ class QuizListScreen extends ConsumerWidget {
                 itemBuilder: (ctx, i) {
                   final q = quizzes[i];
                   final isLive = q['status'] == 'live';
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 3,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: NeuCard(
                       onTap: () => context.push('/quiz/join', extra: q),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
+                      child: Row(children: [
                             Container(
                               width: 56, height: 56,
                               decoration: BoxDecoration(
@@ -94,9 +87,9 @@ class QuizListScreen extends ConsumerWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(q['title'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  Text(q['title'] ?? '', style: AppTypography.interButton(size: 15)),
                                   const SizedBox(height: 4),
-                                  Text('By ${q['faculty_name'] ?? 'Faculty'}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                  Text('By ${q['faculty_name'] ?? 'Faculty'}', style: AppTypography.interCaption()),
                                   const SizedBox(height: 6),
                                   Row(
                                     children: [
@@ -112,18 +105,16 @@ class QuizListScreen extends ConsumerWidget {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text('${q['question_count'] ?? 0} questions', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      Text('${q['question_count'] ?? 0} questions', style: AppTypography.interCaption()),
                                       const SizedBox(width: 8),
-                                      Text('${q['participant_count'] ?? 0} joined', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      Text('${q['participant_count'] ?? 0} joined', style: AppTypography.interCaption()),
                                     ],
                                   ),
                                 ],
                               ),
                             ),
                             const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                          ],
-                        ),
-                      ),
+                      ]),
                     ),
                   );
                 },

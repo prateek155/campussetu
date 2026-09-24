@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:campussetu/core/config/app_config.dart';
+import 'package:uuid/uuid.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
@@ -84,6 +85,43 @@ class ApiService {
     if (res.data is List) return res.data as List;
     if (res.data is Map && res.data['data'] is List) return res.data['data'] as List;
     return [];
+  }
+
+  Future<List<dynamic>> getPaperTests() async {
+    final res = await _dio.get('/quiz/tests');
+    if (res.data is List) return res.data as List;
+    if (res.data is Map && res.data['data'] is List) return res.data['data'] as List;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getPaperTest(String testId) async {
+    final res = await _dio.get('/quiz/$testId/paper');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<int> recordPaperTestFlag(String testId) async {
+    final res = await _dio.post('/quiz/$testId/flag', data: {'event': 'tab_switch'});
+    final data = res.data;
+    return data is Map ? (data['violation_count'] as num?)?.toInt() ?? 0 : 0;
+  }
+
+  Future<void> savePaperTestAnswer(String testId, String questionId, int selectedIndex) async {
+    await _dio.patch('/quiz/$testId/answer', data: {
+      'question_id': questionId,
+      'selected_index': selectedIndex,
+    });
+  }
+
+  Future<Map<String, dynamic>> submitPaperTest(String testId, Map<String, int> answers) async {
+    final res = await _dio.post(
+      '/quiz/$testId/submit',
+      data: {'answers': answers},
+      options: Options(
+        headers: {'Idempotency-Key': const Uuid().v4()},
+        extra: {'retries': 0, 'idempotentRetry': true},
+      ),
+    );
+    return Map<String, dynamic>.from(res.data as Map);
   }
 
   Future<Map<String, dynamic>> joinQuiz(String pin) async {
