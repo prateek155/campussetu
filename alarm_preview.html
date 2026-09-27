@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CampusSetu Alarm UI Preview</title>
+  <style>
+    :root {
+      --bg: #e9ebee;
+      --card: #f1f3f6;
+      --ink: #1a1d24;
+      --soft: #6b7280;
+      --muted: #9ca3af;
+      --cyan: #1ba8c4;
+      --cyan-light: #3fd8f5;
+      --pink: #db2777;
+      --shadow-dark: #c7cad1;
+      --shadow-light: #fff;
+      --line: rgba(107,114,128,.16);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 30px 18px 48px;
+      background: radial-gradient(circle at 50% -20%, #fff 0, #eef0f3 42%, #e5e8ec 100%);
+      color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1120px; margin: 0 auto; }
+    .intro { text-align: center; margin: 0 auto 22px; }
+    .eyebrow { color: var(--cyan); font-size: 11px; letter-spacing: .16em; font-weight: 800; text-transform: uppercase; }
+    h1 { margin: 8px 0 8px; font-size: clamp(24px, 4vw, 34px); letter-spacing: -.04em; }
+    .intro p { margin: 0; color: var(--soft); font-size: 14px; line-height: 1.55; }
+    .tabs { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 22px auto 26px; }
+    .tab { border: 1px solid #d4d8df; border-radius: 999px; background: rgba(255,255,255,.68); color: #606978; padding: 10px 15px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 5px rgba(20,30,50,.04); }
+    .tab.active { color: white; background: #1ba8c4; border-color: #1ba8c4; box-shadow: 0 7px 18px rgba(27,168,196,.2); }
+    .stage { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 28px; align-items: center; justify-content: center; }
+    .device-wrap { display: flex; justify-content: center; }
+    .device {
+      width: min(100%, 392px); min-height: 792px; padding: 11px;
+      border: 1px solid #c7cbd2; border-radius: 40px;
+      background: linear-gradient(140deg, #30343d, #17191f 58%, #3b3e46);
+      box-shadow: 0 28px 75px rgba(25,32,47,.24), inset 0 1px 1px rgba(255,255,255,.3);
+    }
+    .screen { min-height: 768px; overflow: hidden; border-radius: 30px; background: var(--bg); position: relative; }
+    .status { height: 30px; padding: 8px 20px 0; display:flex; justify-content:space-between; font-size: 10px; font-weight: 700; color:#667080; }
+    .appbar { height: 55px; padding: 6px 20px 10px; display:flex; align-items:center; justify-content:space-between; }
+    .appbar h2 { margin:0; font-size:20px; letter-spacing:-.03em; }
+    .round-icon { width:38px; height:38px; display:grid; place-items:center; border-radius:13px; color:var(--cyan); background:#eef1f4; box-shadow:5px 5px 11px var(--shadow-dark),-5px -5px 11px var(--shadow-light); font-size:20px; }
+    .scroll { height: 654px; overflow:auto; padding: 6px 16px 22px; scrollbar-width:none; }
+    .scroll::-webkit-scrollbar { display:none; }
+    .neu { background:var(--card); border-radius:20px; box-shadow:7px 7px 16px var(--shadow-dark),-7px -7px 16px var(--shadow-light); }
+    .hero { padding:16px; display:flex; align-items:center; gap:13px; margin-bottom:18px; }
+    .hero-icon { width:48px; height:48px; flex:none; border-radius:15px; display:grid; place-items:center; background:rgba(219,39,119,.11); color:var(--pink); font-size:24px; }
+    .hero h3 { font:700 15px Georgia,serif; margin:0 0 5px; }
+    .hero p { color:var(--soft); font-size:11px; line-height:1.4; margin:0; }
+    .alarm-card { padding:15px 13px 13px 16px; margin:0 0 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; transition:transform .15s, box-shadow .15s; }
+    .alarm-card:hover { transform:translateY(-2px); }
+    .alarm-time { font:700 36px Georgia,serif; letter-spacing:-.04em; margin-bottom:1px; }
+    .alarm-name { font-size:13px; font-weight:700; margin-bottom:7px; }
+    .pills { display:flex; flex-wrap:wrap; gap:5px; }
+    .pill { border-radius:999px; padding:4px 8px; font-size:9px; font-weight:800; background:rgba(27,168,196,.12); color:#13879e; }
+    .pill.purple { background:rgba(124,58,237,.11); color:#6d35d3; }
+    .switch { width:42px; height:24px; border-radius:20px; background:#c5cad2; padding:3px; transition:.15s; flex:none; }
+    .switch:after { content:""; display:block; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 4px #7776; transition:.15s; }
+    .switch.on { background:var(--cyan); }
+    .switch.on:after { transform:translateX(18px); }
+    .footnote { text-align:center; color:#7d8593; font-size:10px; line-height:1.45; margin:17px 10px 0; }
+    .bottom-nav { position:absolute; bottom:0; height:58px; left:0; right:0; display:flex; align-items:center; justify-content:space-around; background:rgba(241,243,246,.95); border-top:1px solid var(--line); color:#808997; font-size:9px; }
+    .bottom-nav span { text-align:center; }
+    .bottom-nav b { display:block; font-size:17px; margin-bottom:3px; }
+    .fab { position:absolute; right:21px; bottom:76px; border:0; width:58px; height:58px; border-radius:19px; background:var(--cyan); color:white; font-size:27px; box-shadow:0 9px 21px rgba(27,168,196,.28); cursor:pointer; }
+    .side { padding:18px 3px; }
+    .side .tag { color:var(--cyan); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; }
+    .side h3 { margin:9px 0 9px; font-size:21px; letter-spacing:-.03em; }
+    .side p { color:var(--soft); font-size:13px; line-height:1.6; margin:0 0 17px; }
+    .side ul { padding-left:18px; margin:0; color:#4c5665; font-size:12px; line-height:1.9; }
+    .side .tip { border-left:3px solid var(--cyan); padding:10px 12px; background:rgba(255,255,255,.55); border-radius:0 10px 10px 0; margin-top:20px; color:#657080; font-size:11px; line-height:1.5; }
+    .editor { padding: 5px 16px 18px; height: 709px; overflow:auto; scrollbar-width:none; }
+    .timebox { display:flex; align-items:center; padding:14px 17px; margin:4px 0 17px; gap:12px; cursor:pointer; }
+    .timebox .time { color:var(--cyan); font:700 40px Georgia,serif; letter-spacing:-.04em; }
+    .timebox small { margin-left:auto; color:var(--cyan); letter-spacing:.08em; font-size:9px; font-weight:800; }
+    .label { color:#7b8492; font-size:10px; font-weight:800; letter-spacing:.13em; margin:16px 2px 8px; }
+    .field { height:45px; border-radius:12px; background:#e9ebee; box-shadow:inset 4px 4px 8px #d0d3d9,inset -4px -4px 8px #fff; padding:13px 13px; color:#303744; font-size:12px; }
+    .days { display:flex; gap:6px; }
+    .day { height:35px; width:35px; border-radius:50%; display:grid; place-items:center; background:#e9ebee; box-shadow:3px 3px 7px #c7cad1,-3px -3px 7px white; font-weight:800; color:#7b8492; font-size:10px; }
+    .day.sel { color:#11859b; box-shadow:inset 3px 3px 6px #c7cad1,inset -3px -3px 6px white; background:#e2f3f7; }
+    .hint { color:#8a929f; font-size:10px; margin:7px 2px 0; }
+    .select { display:flex; justify-content:space-between; align-items:center; padding:13px 14px; font-size:12px; }
+    .select b { font-size:12px; color:#343a46; }
+    .setting-card { padding:0 0 5px; overflow:hidden; }
+    .setting-row { display:flex; align-items:center; gap:10px; padding:12px 14px; font-size:12px; }
+    .setting-row + .setting-row { border-top:1px solid var(--line); }
+    .setting-row .ico { color:var(--cyan); font-size:17px; }
+    .setting-row small { display:block; color:#858e9b; font-size:10px; margin-top:3px; }
+    .setting-row .right { margin-left:auto; color:#606978; white-space:nowrap; }
+    .slider { height:5px; margin:12px 12px 4px 41px; background:#d2d6dc; border-radius:9px; }
+    .slider i { display:block; height:5px; width:78%; border-radius:9px; background:var(--cyan); position:relative; }
+    .slider i:after { content:""; position:absolute; right:-5px; top:-4px; width:13px; height:13px; border-radius:50%; background:var(--cyan); box-shadow:0 1px 4px #7775; }
+    .submit { display:block; width:100%; height:47px; margin-top:14px; border:0; border-radius:14px; background:var(--cyan); color:white; font-weight:800; cursor:pointer; box-shadow:0 7px 16px rgba(27,168,196,.18); }
+    .ring-screen { min-height:768px; background:radial-gradient(ellipse at 50% 0%,rgba(8,145,178,.34),transparent 52%),linear-gradient(160deg,#183449,#101827 65%); color:white; padding:25px 21px 24px; display:flex; flex-direction:column; }
+    .ring-status { color:#bdc6d7; display:flex; justify-content:space-between; font-size:10px; font-weight:700; }
+    .ring-main { margin:auto 0; text-align:center; }
+    .ring-icon { font-size:55px; color:#fb7185; margin:3px auto 13px; }
+    .ring-label { font-size:15px; font-weight:700; color:#eef2f7; }
+    .ring-time { font:700 55px Georgia,serif; margin:7px 0 24px; letter-spacing:-.05em; }
+    .mission { border:1px solid rgba(255,255,255,.09); border-radius:22px; background:#1a263a; padding:22px 18px; box-shadow:0 15px 34px rgba(0,0,0,.18); }
+    .mission-ico { font-size:26px; color:#fb7185; }
+    .mission h3 { margin:10px 0 14px; font:700 17px Georgia,serif; }
+    .question { font:700 29px Georgia,serif; margin-bottom:14px; }
+    .answer { display:block; width:100%; border:0; border-bottom:1px solid #667085; color:white; text-align:center; background:transparent; font-size:18px; outline:none; padding:12px; }
+    .answer::placeholder { color:#8994a6; }
+    .ring-actions { padding-bottom:4px; }
+    .dismiss { height:52px; width:100%; border:0; border-radius:15px; color:white; background:#db2777; font-weight:800; cursor:pointer; }
+    .snooze { display:block; margin:9px auto 0; border:0; color:#d3d8e2; background:transparent; font-weight:700; padding:9px; cursor:pointer; }
+    .bar { margin:15px 0 2px; height:6px; border-radius:10px; background:#ffffff1c; overflow:hidden; }
+    .bar i { display:block; width:64%; height:100%; background:#fb7185; border-radius:10px; }
+    .home-sample { padding:5px 16px 18px; height:709px; overflow:auto; }
+    .hello { font:700 21px Georgia,serif; padding:8px 4px 13px; }
+    .home-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
+    .tile { min-height:104px; border-radius:17px; background:#f1f3f6; box-shadow:5px 5px 10px #c7cad1,-5px -5px 10px white; padding:12px; cursor:pointer; }
+    .tile.wide { grid-column:span 2; }
+    .tile.active { outline:2px solid #db2777; box-shadow:0 0 0 5px rgba(219,39,119,.1),5px 5px 10px #c7cad1,-5px -5px 10px white; }
+    .tile .glyph { color:#167f9a; font-size:20px; display:block; margin-bottom:10px; }
+    .tile.active .glyph { color:var(--pink); }
+    .tile strong { display:block; font-size:11px; }
+    .tile small { color:#858e9b; display:block; font-size:9px; margin-top:4px; }
+    .section-title { display:flex; justify-content:space-between; margin:22px 3px 10px; font-weight:800; font-size:13px; }
+    .post { height:110px; padding:15px; color:#737d8b; font-size:11px; line-height:1.5; }
+    .notice { margin:14px auto 0; max-width:880px; border-radius:12px; background:rgba(255,255,255,.68); padding:11px 14px; color:#697383; font-size:11px; text-align:center; }
+    .hidden { display:none !important; }
+    @media(max-width:760px) {
+      body { padding:20px 10px 30px; }
+      .stage { grid-template-columns:1fr; gap:8px; }
+      .side { max-width:400px; margin:0 auto; padding:6px 12px; }
+      .device { min-height:0; }
+      .screen { min-height:768px; }
+      .tabs { margin:18px auto 20px; }
+      .tab { padding:9px 12px; font-size:12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="intro">
+      <div class="eyebrow">CampusSetu · User side</div>
+      <h1>Alarm screens preview</h1>
+      <p>A visual preview of the screens added to the app. Choose a screen below to switch the phone preview.</p>
+    </header>
+    <nav class="tabs" aria-label="Choose alarm screen">
+      <button class="tab active" data-screen="home">Home entry</button>
+      <button class="tab" data-screen="list">Alarm list</button>
+      <button class="tab" data-screen="edit">Alarm settings</button>
+      <button class="tab" data-screen="ring">Ringing mission</button>
+    </nav>
+    <section class="stage">
+      <div class="device-wrap">
+        <div class="device"><div class="screen">
+          <section class="mock hidden" id="home">
+            <div class="status"><span>9:41</span><span>◔ ◉ ▰</span></div>
+            <div class="appbar"><span style="font:700 27px cursive;color:#1b2634">CampusSetu</span><span class="round-icon">♧</span></div>
+            <div class="home-sample">
+              <div class="hello">Namaste! 👋<br><span style="font:600 14px system-ui;color:#667080">What's happening today?</span></div>
+              <div class="home-grid">
+                <div class="tile wide"><span class="glyph">✦</span><strong>Tools</strong><small>PDF & image utilities</small></div>
+                <div class="tile active" onclick="showScreen('list')"><span class="glyph">◷</span><strong>Alarms</strong><small>Open alarms</small></div>
+                <div class="tile wide"><span class="glyph" style="color:#7c3aed">▣</span><strong>Learning</strong><small>Live quizzes & tests</small></div>
+                <div class="tile"><span class="glyph" style="color:#0d9488">⌁</span><strong>Travel</strong></div>
+                <div class="tile"><span class="glyph" style="color:#4f46e5">▦</span><strong>Events</strong></div>
+                <div class="tile"><span class="glyph" style="color:#ea580c">♡</span><strong>Helping</strong></div>
+                <div class="tile"><span class="glyph" style="color:#16a34a">◇</span><strong>Deals</strong></div>
+                <div class="tile wide"><span class="glyph" style="color:#e11d48">⌂</span><strong>Flatmates</strong><small>Find rooms and roommates</small></div>
+              </div>
+              <div class="section-title"><span>Feed</span><span style="color:#1ba8c4">＋ Post</span></div>
+              <div class="neu post">Your campus community updates appear here.</div>
+            </div>
+            <div class="bottom-nav"><span><b>⌂</b>Home</span><span><b>♧</b>Connect</span><span><b>▢</b>Chat</span><span><b>▤</b>Work</span><span><b>◉</b>Profile</span></div>
+          </section>
+
+          <section class="mock" id="list">
+            <div class="status"><span>9:41</span><span>◔ ◉ ▰</span></div>
+            <div class="appbar"><h2>Alarms</h2><button class="round-icon" style="border:0;cursor:pointer" onclick="showScreen('edit')">＋</button></div>
+            <div class="scroll">
+              <div class="neu hero"><div class="hero-icon">◷</div><div><h3>Wake up on your terms</h3><p>Choose your wallpaper and sound, repeat days, snooze, and a mission.</p></div></div>
+              <div class="neu alarm-card" onclick="showScreen('edit')"><div><div class="alarm-time">7:00 AM</div><div class="alarm-name">Class day</div><div class="pills"><span class="pill">M · T · W · T · F</span><span class="pill purple">Math</span></div></div><div class="switch on" onclick="event.stopPropagation();this.classList.toggle('on')"></div></div>
+              <div class="neu alarm-card" onclick="showScreen('edit')"><div><div class="alarm-time">8:30 AM</div><div class="alarm-name">Weekend study</div><div class="pills"><span class="pill">S · S</span><span class="pill purple">Memory</span></div></div><div class="switch on" onclick="event.stopPropagation();this.classList.toggle('on')"></div></div>
+              <div class="neu alarm-card" onclick="showScreen('edit')"><div><div class="alarm-time">6:15 PM</div><div class="alarm-name">Study break reminder</div><div class="pills"><span class="pill">One time</span><span class="pill purple">Typing</span></div></div><div class="switch"></div></div>
+              <p class="footnote">Alarms stay on this device. They don’t need a CampusSetu session or internet connection to ring.</p>
+            </div>
+            <button class="fab" onclick="showScreen('edit')">＋</button>
+            <div class="bottom-nav"><span><b>⌂</b>Home</span><span><b>♧</b>Connect</span><span><b>▢</b>Chat</span><span><b>▤</b>Work</span><span><b>◉</b>Profile</span></div>
+          </section>
+
+          <section class="mock hidden" id="edit">
+            <div class="status"><span>9:41</span><span>◔ ◉ ▰</span></div>
+            <div class="appbar"><h2>New alarm</h2><button class="round-icon" style="border:0;cursor:pointer" onclick="showScreen('list')">×</button></div>
+            <div class="editor">
+              <div class="neu timebox"><span style="color:#1ba8c4;font-size:19px">◷</span><span class="time">7:00 AM</span><small>CHANGE</small></div>
+              <div class="label">LABEL</div><div class="field">Wake up</div>
+              <div class="label">REPEAT</div>
+              <div class="days"><span class="day sel">M</span><span class="day sel">T</span><span class="day sel">W</span><span class="day sel">T</span><span class="day sel">F</span><span class="day">S</span><span class="day">S</span></div>
+              <p class="hint">Repeats every selected day</p>
+              <div class="label">RINGING SCREEN WALLPAPER</div>
+              <div style="height:118px;border-radius:16px;background:linear-gradient(145deg,#0f766e,#163954 48%,#4c1d5e);display:grid;place-items:center;color:#fff;font-weight:700;letter-spacing:.03em">Your photo appears here</div>
+              <div class="neu setting-row" style="margin-top:8px;border-radius:14px"><span class="ico">▧</span><span>Choose a photo<small>Stored privately on this device</small></span><span class="right">Choose　›</span></div>
+              <div class="label">WAKE-UP MISSION</div><div class="neu select"><b>▦ &nbsp; Math</b><span>⌄</span></div>
+              <p class="hint">Complete the mission in CampusSetu to stop the alarm. Shake uses your phone motion sensor.</p>
+              <div class="label">SOUND & SNOOZE</div>
+              <div class="neu setting-card">
+                <div class="setting-row"><span class="ico">♫</span><span>Alarm sound<small>Device ringtone or your audio file</small></span><span class="right">›</span></div>
+                <div class="setting-row"><span class="ico">◴</span><span>Snooze length</span><span class="right">5 min　⌄</span></div>
+                <div class="setting-row"><span class="ico">◖</span><span>Alarm volume</span><span class="right">78%</span></div>
+                <div class="slider"><i></i></div>
+              </div>
+              <div class="neu setting-row" style="margin-top:12px;border-radius:14px"><span class="ico">◉</span><span>Vibrate while ringing</span><span class="switch on" style="margin-left:auto"></span></div>
+              <div class="neu setting-row" style="margin-top:8px;border-radius:14px"><span class="ico">●</span><span>Alarm enabled</span><span class="switch on" style="margin-left:auto"></span></div>
+              <button class="submit" onclick="showScreen('list')">Save alarm</button>
+            </div>
+          </section>
+
+          <section class="mock hidden" id="ring">
+            <div class="ring-screen">
+              <div class="ring-status"><span>Custom wallpaper • CampusSetu alarm</span><span>9:41</span></div>
+              <div class="ring-main">
+                <div class="ring-icon">◷</div>
+                <div class="ring-label">Class day</div>
+                <div class="ring-time">7:00 AM</div>
+                <div class="mission">
+                  <div class="mission-ico">▦</div>
+                  <h3>Solve to wake up</h3>
+                  <div class="question">18 + 7 = ?</div>
+                  <input class="answer" id="answer" type="number" placeholder="Your answer" />
+                  <div id="result" style="min-height:18px;color:#fda4af;font-size:11px;margin-top:9px"></div>
+                </div>
+              </div>
+              <div class="ring-actions"><button class="dismiss" onclick="checkAnswer()">Complete mission &amp; dismiss</button><button class="snooze" onclick="document.getElementById('result').textContent='Alarm snoozed for 5 minutes.'">◴ &nbsp; Snooze 5 minutes</button></div>
+            </div>
+          </section>
+        </div></div>
+      </div>
+      <aside class="side">
+        <div class="tag" id="side-tag">Home entry</div>
+        <h3 id="side-title">Find Alarms in the bento grid</h3>
+        <p id="side-copy">The alarm feature is added as a new Home tile, alongside CampusSetu’s existing student tools.</p>
+        <ul id="side-list"><li>Tap the highlighted Alarms tile</li><li>Create multiple alarms</li><li>Open the list to edit or disable</li></ul>
+        <div class="tip" id="side-tip">This is a visual UI preview of the current code changes. It is not a screenshot from a running Flutter build.</div>
+      </aside>
+    </section>
+    <div class="notice">Preview interactions: tap an alarm card or “＋” to open settings; tap Save to return; choose “Ringing mission” to try the math challenge.</div>
+  </main>
+  <script>
+    const descriptions = {
+      home: ['Home entry','Find Alarms in the bento grid','The alarm feature is added as a new Home tile, alongside CampusSetu’s existing student tools.',['Tap the highlighted Alarms tile','Create multiple alarms','Open the list to edit or disable']],
+      list: ['Alarm list','Your alarms at a glance','Each card shows its time, label, repeat days, chosen mission, and enabled state.',['Tap a card to edit it','Switch an alarm off without deleting','Use ＋ to add another']],
+      edit: ['Alarm settings','Customize each alarm','Choose a wallpaper and custom audio for this alarm, along with repeat days, volume, vibration, and a required wake-up mission.',['Wallpaper appears on the ringing screen','Use a built-in tone or a local audio file','Picked media stays on device']],
+      ring: ['Ringing mission','Complete the challenge to dismiss','Your selected photo appears behind the wake-up challenge. Your chosen audio loops while the alarm rings.',['Personal wallpaper per alarm','Custom audio or device ringtone','Successful mission stops the ring']]
+    };
+    function showScreen(name) {
+      document.querySelectorAll('.mock').forEach(el => el.classList.toggle('hidden', el.id !== name));
+      document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.screen === name));
+      const [tag,title,copy,items] = descriptions[name];
+      document.getElementById('side-tag').textContent = tag;
+      document.getElementById('side-title').textContent = title;
+      document.getElementById('side-copy').textContent = copy;
+      document.getElementById('side-list').innerHTML = items.map(x => `<li>${x}</li>`).join('');
+    }
+    document.querySelectorAll('.tab').forEach(el => el.addEventListener('click', () => showScreen(el.dataset.screen)));
+    function checkAnswer() {
+      const result = document.getElementById('result');
+      result.textContent = document.getElementById('answer').value === '25' ? 'Correct — alarm dismissed.' : 'That answer is not correct yet.';
+      if (document.getElementById('answer').value === '25') result.style.color = '#86efac';
+    }
+    showScreen('home');
+  </script>
+</body>
+</html>

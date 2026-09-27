@@ -141,7 +141,7 @@ exports.createQuiz = async (req, res) => {
 
     const { rows } = await client.query('SELECT * FROM quizzes WHERE id = $1', [quizId]);
     await client.query('COMMIT');
-    await cache.delCache('quiz:live');
+    await cache.delCache('quiz:live', 'quiz:live:v2');
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
@@ -316,7 +316,7 @@ exports.startQuiz = async (req, res) => {
       if (!existing.length) return res.status(400).json({ error: 'Quiz not found or already started' });
       return res.json(existing[0]);
     }
-    await cache.delCache('quiz:live', 'home:counts');
+    await cache.delCache('quiz:live', 'quiz:live:v2', 'home:counts');
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -330,7 +330,7 @@ exports.endQuiz = async (req, res) => {
       [req.params.id, facultyId]
     );
     if (!rows.length) return res.status(400).json({ error: 'Quiz not found or already ended' });
-    await cache.delCache('quiz:live', 'home:counts');
+    await cache.delCache('quiz:live', 'quiz:live:v2', 'home:counts');
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -386,13 +386,14 @@ exports.getResults = async (req, res) => {
 // ── STUDENT: Get live quizzes ─────────────────────────────────
 exports.getLiveQuizzes = async (req, res) => {
   try {
-    const cached = await cache.getCache('quiz:live');
+    // v2 deliberately omits quiz PINs so the Learning list can never reveal join codes.
+    const cached = await cache.getCache('quiz:live:v2');
     if (cached) {
       try { return res.json(JSON.parse(cached)); } catch (_) {}
     }
 
     const { rows } = await db.query(
-      `SELECT q.id, q.title, q.pin, q.status, q.created_at,
+      `SELECT q.id, q.title, q.status, q.created_at,
         u.name AS faculty_name,
         (SELECT COUNT(*)::int FROM quiz_participants p WHERE p.quiz_id = q.id) AS participant_count,
         (SELECT COUNT(*)::int FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count
@@ -402,7 +403,7 @@ exports.getLiveQuizzes = async (req, res) => {
        ORDER BY q.created_at DESC
        LIMIT 100`,
     );
-    await cache.setCache('quiz:live', JSON.stringify(rows), 15); // 15s cache
+    await cache.setCache('quiz:live:v2', JSON.stringify(rows), 15); // 15s cache
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -656,14 +657,18 @@ exports.joinQuiz = async (req, res) => {
     const userId = await getUserId(req.user.uid);
     if (!userId) return res.status(404).json({ error: 'User not found' });
 
-    const { pin } = req.body;
-    if (!pin) return res.status(400).json({ error: 'PIN required' });
+    const pin = typeof req.body?.pin === 'string' ? req.body.pin.trim() : '';
+    const quizId = typeof req.body?.quiz_id === 'string' ? req.body.quiz_id.trim() : '';
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(quizId);
+    if (!isUuid) return res.status(400).json({ error: 'Choose a quiz from Learning first' });
+    if (!/^\d{6}$/.test(pin)) return res.status(400).json({ error: 'Enter the 6-digit code shared by your faculty' });
 
     const { rows: quiz } = await db.query(
-      "SELECT * FROM quizzes WHERE pin = $1 AND mode = 'live' AND status IN ('waiting', 'live')",
-      [pin]
+      `SELECT id, title, status FROM quizzes
+       WHERE id = $1 AND pin = $2 AND mode = 'live' AND status IN ('waiting', 'live')`,
+      [quizId, pin]
     );
-    if (!quiz.length) return res.status(404).json({ error: 'Quiz not found or not active. Check your PIN.' });
+    if (!quiz.length) return res.status(404).json({ error: 'That code does not match this quiz, or the quiz is no longer active.' });
 
     // Upsert participant
     await db.query(

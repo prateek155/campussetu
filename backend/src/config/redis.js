@@ -30,7 +30,8 @@ if (connectionUrl) {
         // Exponential backoff reconnect: 100ms, 200ms, ... up to 3s
         return Math.min(times * 100, 3000);
       },
-      tls: isTls ? { rejectUnauthorized: false } : undefined,
+      // Keep Node's default certificate verification enabled for rediss:// connections.
+      tls: isTls ? {} : undefined,
     });
 
     client.on('connect', () => {
@@ -61,7 +62,7 @@ if (connectionUrl) {
     isReady = false;
   }
 } else {
-  console.log('ℹ️  REDIS_URL not set — caching running in memory mode');
+  console.log('ℹ️  REDIS_URL not set — Redis-backed caches are disabled');
 }
 
 module.exports = {

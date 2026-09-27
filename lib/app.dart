@@ -5,6 +5,7 @@ import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
+import 'features/alarm/alarm_service.dart';
 
 class CampusSetuApp extends ConsumerWidget {
   const CampusSetuApp({super.key});
@@ -12,6 +13,7 @@ class CampusSetuApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    AlarmService.onRingRequested = (id) => router.go('/alarm/ring?alarmId=$id');
     final themeMode = ref.watch(themeModeProvider);
     AppColors.setDark(themeMode == ThemeMode.dark);
     return MaterialApp.router(

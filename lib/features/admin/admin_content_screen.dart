@@ -106,6 +106,66 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
     } catch (e) { if (mounted) _snack('Error: $e', _red); }
   }
 
+  void _viewEventRegistrations(String id, String eventName) {
+    final registrationsFuture = ApiService().getEventRegistrations(id);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _card,
+        title: Text('Registrations · $eventName', style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 17)),
+        content: SizedBox(
+          width: 460,
+          height: 400,
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: registrationsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFF3FD8F5)));
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Could not load registrations: ${snapshot.error}', style: const TextStyle(color: Color(0xFFEF4444))));
+              }
+              final raw = snapshot.data?['registrations'];
+              final registrations = raw is List ? raw : const [];
+              final total = snapshot.data?['total'] ?? registrations.length;
+              if (registrations.isEmpty) {
+                return const Center(child: Text('No students have registered yet.', style: TextStyle(color: Color(0xFF9CA3AF))));
+              }
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$total registered${total > registrations.length ? ' · showing first ${registrations.length}' : ''}', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: registrations.length,
+                    separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
+                    itemBuilder: (_, index) {
+                      final row = Map<String, dynamic>.from(registrations[index] as Map);
+                      final name = (row['name'] ?? 'CampusSetu student').toString();
+                      final email = (row['email'] ?? '').toString();
+                      final registeredAt = (row['registered_at'] ?? '').toString();
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF20313A),
+                          child: Text(name.isEmpty ? '?' : name[0].toUpperCase(), style: const TextStyle(color: _cyan)),
+                        ),
+                        title: Text(name, style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 13)),
+                        subtitle: Text('$email${registeredAt.isNotEmpty ? '\n$registeredAt' : ''}', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11)),
+                        isThreeLine: registeredAt.isNotEmpty,
+                      );
+                    },
+                  ),
+                ),
+              ]);
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+      ),
+    );
+  }
+
   Future<void> _deleteDeal(String id, int index) async {
     if (!await _confirm('Delete Deal', 'This deal will be permanently removed.')) return;
     try {
@@ -215,7 +275,14 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                             final id = (e['_id'] ?? e['id'] ?? '').toString();
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
-                              child: _EventCard(event: e, onDelete: () => _deleteEvent(id, i)),
+                              child: _EventCard(
+                                event: e,
+                                onDelete: () => _deleteEvent(id, i),
+                                onViewRegistrations: () => _viewEventRegistrations(
+                                  id,
+                                  (e['name'] ?? e['title'] ?? 'Event').toString(),
+                                ),
+                              ),
                             ).animate(delay: (i * 30).ms).fadeIn(duration: 280.ms);
                           },
                         ),
@@ -363,8 +430,9 @@ class _ContentTab extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final Map<String, dynamic> event;
   final VoidCallback onDelete;
+  final VoidCallback onViewRegistrations;
 
-  const _EventCard({required this.event, required this.onDelete});
+  const _EventCard({required this.event, required this.onDelete, required this.onViewRegistrations});
 
   @override
   Widget build(BuildContext context) {
@@ -378,6 +446,8 @@ class _EventCard extends StatelessWidget {
     final date  = (event['time_date']         ?? event['date']          ?? event['time'] ?? '').toString();
     final link  = (event['registration_link'] ?? event['link']          ?? '').toString();
     final pic   = (event['picture_url']       ?? event['image_url']     ?? event['image'] ?? '').toString();
+    final isInternal = event['registration_mode'] == 'internal';
+    final registrationCount = (event['registration_count'] as num?)?.toInt() ?? 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -422,6 +492,15 @@ class _EventCard extends StatelessWidget {
                 const Icon(Icons.access_time_rounded, color: Color(0xFF9CA3AF), size: 13),
                 const SizedBox(width: 4),
                 Expanded(child: Text(date, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), overflow: TextOverflow.ellipsis)),
+              ]),
+            ],
+            if (isInternal) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.people_alt_outlined, color: Color(0xFF3FD8F5), size: 15),
+                const SizedBox(width: 5),
+                Expanded(child: Text('$registrationCount ${registrationCount == 1 ? 'student' : 'students'} registered on CampusSetu', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11))),
+                TextButton(onPressed: onViewRegistrations, child: const Text('View list', style: TextStyle(color: cyan, fontSize: 11))),
               ]),
             ],
             if (link.isNotEmpty) ...[

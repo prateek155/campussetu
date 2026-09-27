@@ -1,5 +1,6 @@
 // lib/features/quiz/quiz_join_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
 
@@ -17,15 +18,6 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
   bool _loading = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Pre-fill PIN if quiz selected from list
-    if (widget.quizData != null) {
-      _pinC.text = widget.quizData!['pin'] ?? '';
-    }
-  }
-
-  @override
   void dispose() {
     _pinC.dispose();
     super.dispose();
@@ -33,15 +25,22 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
 
   Future<void> _join() async {
     final pin = _pinC.text.trim();
-    if (pin.isEmpty) {
+    final quizId = widget.quizData?['id']?.toString() ?? '';
+    if (quizId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a PIN')),
+        const SnackBar(content: Text('Choose a quiz from Learning first')),
+      );
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the 6-digit code shared by your faculty')),
       );
       return;
     }
     setState(() => _loading = true);
     try {
-      final data = await ApiService().joinQuiz(pin);
+      final data = await ApiService().joinQuiz(quizId, pin);
       final quiz = data['quiz'] as Map<String, dynamic>;
 
 
@@ -52,7 +51,7 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
         'pin': pin,
       });
     } catch (e) {
-      String msg = 'Could not join quiz. Check your PIN.';
+      String msg = 'Could not join this quiz. Check the 6-digit code.';
       if (e is Exception) msg = e.toString().replaceFirst('Exception: ', '');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,7 +72,18 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
         elevation: 0,
         title: const Text('Join Quiz'),
       ),
-      body: Center(
+      body: widget.quizData == null
+          ? Center(child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.menu_book_rounded, size: 56, color: Colors.white),
+                const SizedBox(height: 16),
+                const Text('Choose a quiz from Learning first', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(onPressed: () => context.go('/quiz'), child: const Text('Open Learning')),
+              ]),
+            ))
+          : Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
@@ -83,24 +93,19 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
               children: [
                 const Text('🎯', style: TextStyle(fontSize: 72)),
                 const SizedBox(height: 16),
-                if (widget.quizData != null) ...[
-                  Text(
-                    widget.quizData!['title'] ?? '',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'By ${widget.quizData!['faculty_name'] ?? 'Faculty'}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 32),
-                ] else ...[
-                  const Text('Enter Quiz PIN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                  const SizedBox(height: 8),
-                  const Text('Get the PIN from your faculty', style: TextStyle(color: Colors.white70, fontSize: 15)),
-                  const SizedBox(height: 32),
-                ],
+                Text(
+                  widget.quizData!['title']?.toString() ?? 'Quiz',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'By ${widget.quizData!['faculty_name'] ?? 'Faculty'}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                const Text('Enter the 6-digit code shared by this faculty', style: TextStyle(color: Colors.white70, fontSize: 15), textAlign: TextAlign.center),
+                const SizedBox(height: 28),
 
                 // PIN Input
                 Container(
@@ -114,9 +119,10 @@ class _QuizJoinScreenState extends State<QuizJoinScreen> {
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     maxLength: 6,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 10),
                     decoration: const InputDecoration(
-                      hintText: '------',
+                      hintText: '••••••',
                       hintStyle: TextStyle(letterSpacing: 10, color: Colors.grey),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),

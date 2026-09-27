@@ -22,7 +22,7 @@ class QuizListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('Live quizzes'),
+        title: const Text('Learning'),
         backgroundColor: AppColors.bg,
         foregroundColor: AppColors.ink,
         elevation: 0,
@@ -61,9 +61,21 @@ class QuizListScreen extends ConsumerWidget {
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: quizzes.length,
+                itemCount: quizzes.length + 1,
                 itemBuilder: (ctx, i) {
-                  final q = quizzes[i];
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: NeuCard(
+                        child: Row(children: [
+                          const Icon(Icons.info_outline_rounded, color: Color(0xFF7C3AED)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text('Choose the quiz shared by your faculty, then enter their 6-digit code.', style: AppTypography.interBodySmall())),
+                        ]),
+                      ),
+                    );
+                  }
+                  final q = quizzes[i - 1];
                   final isLive = q['status'] == 'live';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),

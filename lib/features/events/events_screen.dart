@@ -14,6 +14,7 @@ class EventsScreen extends StatefulWidget {
 class _EventsScreenState extends State<EventsScreen> {
   List<EventModel> _events = [];
   bool _isLoading = true;
+  final Set<String> _registeringEventIds = {};
 
   // Breakpoint: below this width => original mobile layout (unchanged).
   // At/above this width => web/desktop layout (2-3 cards per row).
@@ -57,6 +58,52 @@ class _EventsScreenState extends State<EventsScreen> {
           SnackBar(content: Text('Could not launch $url')),
         );
       }
+    }
+  }
+
+  Future<void> _handleRegistration(EventModel event) async {
+    if (event.registrationMode != 'internal') {
+      await _launchUrl(event.registrationLink);
+      return;
+    }
+
+    if (event.isRegistered) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Cancel registration?'),
+          content: Text('You will give up your place for ${event.name}.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep registration')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Cancel registration')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() => _registeringEventIds.add(event.id));
+    try {
+      if (event.isRegistered) {
+        await ApiService().cancelEventRegistration(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your event registration was cancelled')));
+        }
+      } else {
+        await ApiService().registerForEvent(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are registered for this event')));
+        }
+      }
+      if (mounted) await _fetchEvents();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update your registration: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _registeringEventIds.remove(event.id));
     }
   }
 
@@ -176,18 +223,41 @@ class _EventsScreenState extends State<EventsScreen> {
                   maxLines: isWeb ? 2 : 4,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (event.registrationMode == 'internal') ...[
+                  const SizedBox(height: 9),
+                  Row(children: [
+                    Icon(Icons.people_alt_outlined, size: 15, color: Colors.grey.shade600),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${event.registrationCount} ${event.registrationCount == 1 ? 'student' : 'students'} registered',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    ),
+                    const Spacer(),
+                    if (event.isRegistered)
+                      const Text('You’re in ✓', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.teal)),
+                  ]),
+                ],
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _launchUrl(event.registrationLink),
+                    onPressed: _registeringEventIds.contains(event.id) ? null : () => _handleRegistration(event),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo.shade600,
+                      backgroundColor: event.registrationMode == 'internal' ? Colors.teal.shade700 : Colors.indigo.shade600,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text('Register Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: _registeringEventIds.contains(event.id)
+                        ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(
+                            event.registrationMode != 'internal'
+                                ? 'Register Now'
+                                : event.isRegistered
+                                    ? 'Registered · Cancel'
+                                    : 'Register on CampusSetu',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 6),

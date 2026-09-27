@@ -44,6 +44,7 @@ import '../../features/tools/tools_home_screen.dart';
 import '../../features/tools/tools_category_screen.dart';
 import '../../features/tools/tool_workspace_screen.dart';
 import '../../features/ambassador/screens/campus_ambassador_screen.dart';
+import '../../features/alarm/alarm_screen.dart';
 import '../shell/main_shell.dart';
 
 
@@ -83,6 +84,7 @@ class AppRoutes {
   static const manageNetwork = '/connect/manage';
   static const connections = '/connect/connections';
   static const ambassador = '/ambassador';
+  static const alarms = '/alarms';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -97,7 +99,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnAuthRoute = loc == AppRoutes.welcome ||
           loc == AppRoutes.login ||
           loc == AppRoutes.authConfirm ||
-          loc == AppRoutes.profileSetup;
+          loc == AppRoutes.profileSetup ||
+          loc == '/alarm/ring';
 
       if (user == null && !isOnAuthRoute) return AppRoutes.welcome;
       if (user != null && (loc == AppRoutes.welcome || loc == AppRoutes.login)) return AppRoutes.home;
@@ -125,6 +128,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.privacy, builder: (_, __) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.terms, builder: (_, __) => const TermsScreen()),
       GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/alarm/ring',
+        builder: (_, state) => AlarmRingingScreen(
+          alarmId: int.tryParse(state.uri.queryParameters['alarmId'] ?? '') ?? -1,
+        ),
+      ),
 
       // Admin shell (with its own 4-tab bottom nav)
       GoRoute(path: AppRoutes.admin, builder: (_, __) => const AdminShell()),
@@ -146,6 +155,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
+          GoRoute(path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
           GoRoute(path: AppRoutes.connect, builder: (_, __) => const ConnectScreen()),
           GoRoute(path: AppRoutes.chat, builder: (_, __) => const ChatListScreen()),
           GoRoute(

@@ -272,6 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       gap: 10,
                       tiles: [
                         BentoTile(id: 'tools', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.auto_fix_high_rounded, color: const Color(0xFF0284C7), title: 'Tools', subtitle: 'PDF & image utilities', onTap: () => context.push(AppRoutes.tools)),
+                        BentoTile(id: 'alarms', kind: BentoKind.small, w: 1, h: 1, icon: Icons.alarm_rounded, color: const Color(0xFFDB2777), title: 'Alarms', onTap: () => context.push(AppRoutes.alarms)),
                         BentoTile(id: 'learning', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.quiz_rounded, color: const Color(0xFF7C3AED), title: 'Learning', subtitle: 'Live quizzes & tests', count: (counts['live_quizzes'] ?? 0).toString(), onTap: () => context.push('/quiz')),
                         BentoTile(id: 'travel', kind: BentoKind.small, w: 1, h: 1, icon: Icons.directions_car_rounded, color: const Color(0xFF0D9488), title: 'Travel', count: (counts['travels'] ?? 0).toString(), onTap: () => context.push('/travel')),
                         BentoTile(id: 'events', kind: BentoKind.small, w: 1, h: 1, icon: Icons.event_rounded, color: const Color(0xFF4F46E5), title: 'Events', count: (counts['events'] ?? 0).toString(), onTap: () => context.push('/events')),

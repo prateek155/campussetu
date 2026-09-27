@@ -315,10 +315,37 @@ CREATE TABLE IF NOT EXISTS events (
   description TEXT NOT NULL,
   place TEXT NOT NULL,
   time_date TEXT NOT NULL,
-  registration_link TEXT NOT NULL,
+  registration_mode TEXT NOT NULL DEFAULT 'external',
+  registration_link TEXT,
   picture_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events (created_at DESC);
+
+-- Existing events stay on the original external-link flow.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_mode TEXT NOT NULL DEFAULT 'external';
+ALTER TABLE events ALTER COLUMN registration_link DROP NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'events_registration_mode_check'
+      AND conrelid = 'events'::regclass
+  ) THEN
+    ALTER TABLE events ADD CONSTRAINT events_registration_mode_check
+      CHECK (registration_mode IN ('external', 'internal'));
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS event_registrations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (event_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_event_registrations_user_event
+  ON event_registrations (user_id, event_id);
 
 CREATE TABLE IF NOT EXISTS travel_rides (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

@@ -2,11 +2,17 @@
 const admin = require('../config/firebase');
 const cache = require('../config/redis');
 const { activityLogger } = require('./activityLogger');
+const { createHash } = require('crypto');
 
 // In-memory fallback cache when Redis is unavailable
 const _memCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 const CACHE_TTL_SEC = 5 * 60;       // 5 min (for Redis EX)
+
+function tokenCacheKey(token) {
+  const digest = createHash('sha256').update(token).digest('hex');
+  return `auth:token:${digest}`;
+}
 
 function continueAuthenticatedRequest(req, res, next, decoded) {
   req.user = decoded;
@@ -16,19 +22,27 @@ function continueAuthenticatedRequest(req, res, next, decoded) {
 }
 
 function getMemCached(token) {
-  const e = _memCache.get(token);
+  const key = tokenCacheKey(token);
+  const e = _memCache.get(key);
   if (!e) return null;
-  if (Date.now() - e.ts > CACHE_TTL_MS) { _memCache.delete(token); return null; }
+  if (Date.now() >= e.expiresAt) { _memCache.delete(key); return null; }
   return e.decoded;
 }
 function setMemCached(token, decoded) {
+  const now = Date.now();
+  const tokenExpiry = Number(decoded.exp) * 1000;
+  const expiresAt = Math.min(
+    now + CACHE_TTL_MS,
+    Number.isFinite(tokenExpiry) && tokenExpiry > 0 ? tokenExpiry : now + CACHE_TTL_MS
+  );
+  if (expiresAt <= now) return;
   if (_memCache.size > 500) _memCache.clear();
-  _memCache.set(token, { decoded, ts: Date.now() });
+  _memCache.set(tokenCacheKey(token), { decoded, expiresAt });
 }
 
 async function getCachedToken(token) {
   // Try Redis first
-  const raw = await cache.getCache(`auth:token:${token}`);
+  const raw = await cache.getCache(tokenCacheKey(token));
   if (raw) {
     try { return JSON.parse(raw); } catch { /* fall through */ }
   }
@@ -38,7 +52,13 @@ async function getCachedToken(token) {
 
 async function setCachedToken(token, decoded) {
   // Store in Redis (fire-and-forget; errors are swallowed inside setCache)
-  await cache.setCache(`auth:token:${token}`, JSON.stringify(decoded), CACHE_TTL_SEC);
+  const tokenExpiry = Number(decoded.exp);
+  const remainingTokenSeconds = Number.isFinite(tokenExpiry)
+    ? tokenExpiry - Math.floor(Date.now() / 1000)
+    : CACHE_TTL_SEC;
+  const ttlSeconds = Math.min(CACHE_TTL_SEC, remainingTokenSeconds);
+  if (ttlSeconds <= 0) return;
+  await cache.setCache(tokenCacheKey(token), JSON.stringify(decoded), ttlSeconds);
   // Always maintain in-memory copy as well for zero-latency fallback
   setMemCached(token, decoded);
 }

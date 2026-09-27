@@ -28,6 +28,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   
   XFile? _photo;
   bool _loading = false;
+  bool _inAppRegistration = false;
   final _picker = ImagePicker();
 
   Future<void> _submit() async {
@@ -47,9 +48,17 @@ class _AddEventScreenState extends State<AddEventScreen> {
       _snack('Time & Date is required', _red);
       return;
     }
-    if (_linkCtrl.text.trim().isEmpty) {
-      _snack('Registration link is required', _red);
-      return;
+    if (!_inAppRegistration) {
+      final rawLink = _linkCtrl.text.trim();
+      final normalizedLink = rawLink.contains('://') ? rawLink : 'https://$rawLink';
+      final uri = Uri.tryParse(normalizedLink);
+      if (uri == null ||
+          !const {'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
+          uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty) {
+        _snack('Enter a valid HTTP or HTTPS registration link', _red);
+        return;
+      }
     }
 
     setState(() => _loading = true);
@@ -59,7 +68,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
         'description': _descCtrl.text.trim(),
         'place': _placeCtrl.text.trim(),
         'time_date': _timeDateCtrl.text.trim(),
-        'registration_link': _linkCtrl.text.trim(),
+        'registration_mode': _inAppRegistration ? 'internal' : 'external',
+        if (!_inAppRegistration) 'registration_link': _linkCtrl.text.trim(),
       }, photoPath: _photo?.path);
 
       if (mounted) {
@@ -77,6 +87,16 @@ class _AddEventScreenState extends State<AddEventScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _placeCtrl.dispose();
+    _timeDateCtrl.dispose();
+    _linkCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -114,8 +134,40 @@ class _AddEventScreenState extends State<AddEventScreen> {
             _Field(controller: _timeDateCtrl, hint: 'e.g. Oct 12, 10:00 AM'),
             const SizedBox(height: 20),
             
-            const _Label('Registration Link (URL)'),
-            _Field(controller: _linkCtrl, hint: 'e.g. https://forms.gle/...'),
+            const _Label('How can students register?'),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('External registration link'),
+                  selected: !_inAppRegistration,
+                  onSelected: _loading ? null : (_) => setState(() => _inAppRegistration = false),
+                  selectedColor: _purple.withValues(alpha: 0.25),
+                  labelStyle: TextStyle(color: !_inAppRegistration ? _ink : const Color(0xFF9CA3AF)),
+                ),
+                ChoiceChip(
+                  label: const Text('Register on CampusSetu'),
+                  selected: _inAppRegistration,
+                  onSelected: _loading ? null : (_) => setState(() => _inAppRegistration = true),
+                  selectedColor: _purple.withValues(alpha: 0.25),
+                  labelStyle: TextStyle(color: _inAppRegistration ? _ink : const Color(0xFF9CA3AF)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_inAppRegistration)
+              const Padding(
+                padding: EdgeInsets.only(left: 2, top: 4),
+                child: Text(
+                  'Students can register with their CampusSetu account. You can view the attendee list from Content Management.',
+                  style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, height: 1.45),
+                ),
+              )
+            else ...[
+              const _Label('Registration Link (URL)'),
+              _Field(controller: _linkCtrl, hint: 'e.g. https://forms.gle/...'),
+            ],
             const SizedBox(height: 20),
             
             const _Label('Picture (Optional)'),

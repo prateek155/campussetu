@@ -124,8 +124,8 @@ class ApiService {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> joinQuiz(String pin) async {
-    final res = await _dio.post('/quiz/join', data: {'pin': pin});
+  Future<Map<String, dynamic>> joinQuiz(String quizId, String pin) async {
+    final res = await _dio.post('/quiz/join', data: {'quiz_id': quizId, 'pin': pin});
     return res.data as Map<String, dynamic>;
   }
 
@@ -439,6 +439,21 @@ class ApiService {
     }
     final res = await _dio.post('/events', data: data);
     return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> registerForEvent(String eventId) async {
+    final res = await _dio.post('/events/$eventId/register');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> cancelEventRegistration(String eventId) async {
+    final res = await _dio.delete('/events/$eventId/register');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> getEventRegistrations(String eventId) async {
+    final res = await _dio.get('/events/$eventId/registrations');
+    return Map<String, dynamic>.from(res.data as Map);
   }
 
   // ── Travel API ───────────────────────────────────────────────

@@ -1,8 +1,19 @@
 // backend/src/routes/quiz.routes.js
 const router = require('express').Router();
+const rateLimit = require('express-rate-limit');
 const c = require('../controllers/quiz.controller');
 const fc = require('../controllers/facultyAuth.controller');
 const { requireAuth, requireFaculty, requireStudent } = require('../middleware/auth');
+
+const quizJoinCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => `${req.user?.uid || 'student'}:${req.body?.quiz_id || 'quiz'}`,
+  message: { error: 'Too many incorrect quiz codes. Try again in 15 minutes.' },
+});
 
 // ── Faculty Auth (no auth needed for register) ────────────────
 router.post('/faculty/register', fc.registerFaculty);
@@ -33,7 +44,7 @@ router.get('/:id/paper', requireAuth, requireStudent, c.getPaperTest);
 router.patch('/:id/answer', requireAuth, requireStudent, c.savePaperTestAnswer);
 router.post('/:id/submit', requireAuth, requireStudent, c.submitPaperTest);
 router.post('/:id/flag', requireAuth, requireStudent, c.recordPaperTestFlag);
-router.post('/join', requireAuth, requireStudent, c.joinQuiz);
+router.post('/join', requireAuth, requireStudent, quizJoinCodeLimiter, c.joinQuiz);
 router.post('/answer', requireAuth, requireStudent, c.submitAnswer);
 router.get('/:id/my-result', requireAuth, requireStudent, c.getMyResult);
 

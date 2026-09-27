@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'features/alarm/alarm_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -25,5 +26,6 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await AlarmService.initialize();
   runApp(const ProviderScope(child: CampusSetuApp()));
 }
