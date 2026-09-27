@@ -916,16 +916,317 @@ String _missionName(AlarmMission mission) => switch (mission) {
   AlarmMission.shake => 'Shake',
 };
 
-// ── Pre-built wallpaper definitions ──────────────────────────────────────────
+// ── Wallpaper type enum ───────────────────────────────────────────────────────
 
-class _BuiltInWallpaperDef {
+enum _WpType { gradient, image, animated, video }
+
+// ── Unified wallpaper definition ──────────────────────────────────────────────
+
+class _WallpaperDef {
   final String id;
   final String label;
+  final _WpType type;
+  // gradient fields
   final List<Color> colors;
   final AlignmentGeometry begin;
   final AlignmentGeometry end;
-  const _BuiltInWallpaperDef({required this.id, required this.label, required this.colors, this.begin = Alignment.topLeft, this.end = Alignment.bottomRight});
+  // asset path (image / rive / video)
+  final String assetPath;
+  // thumbnail color for non-gradient types (shown in grid before load)
+  final Color thumbColor;
+
+  const _WallpaperDef.gradient({
+    required this.id, required this.label, required this.colors,
+    this.begin = Alignment.topLeft, this.end = Alignment.bottomRight,
+  }) : type = _WpType.gradient, assetPath = '', thumbColor = const Color(0xFF232526);
+
+  const _WallpaperDef.image({
+    required this.id, required this.label, required this.assetPath, required this.thumbColor,
+  }) : type = _WpType.image, colors = const [], begin = Alignment.topLeft, end = Alignment.bottomRight;
+
+  const _WallpaperDef.animated({
+    required this.id, required this.label, required this.assetPath, required this.thumbColor,
+  }) : type = _WpType.animated, colors = const [], begin = Alignment.topLeft, end = Alignment.bottomRight;
+
+  const _WallpaperDef.video({
+    required this.id, required this.label, required this.assetPath, required this.thumbColor,
+  }) : type = _WpType.video, colors = const [], begin = Alignment.topLeft, end = Alignment.bottomRight;
+
+  /// Returns the encoded path string stored in CampusAlarm.wallpaperPath
+  String get encodedPath => switch (type) {
+    _WpType.gradient => '__builtin__:$id',
+    _WpType.image    => '__asset_img__:$assetPath',
+    _WpType.animated => '__asset_rive__:$assetPath',
+    _WpType.video    => '__asset_video__:$assetPath',
+  };
 }
+
+// ── Wallpaper catalogue ───────────────────────────────────────────────────────
+
+const _gradientWallpapers = [
+  _WallpaperDef.gradient(id: 'aurora',   label: 'Aurora',    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)]),
+  _WallpaperDef.gradient(id: 'sunset',   label: 'Sunset',    colors: [Color(0xFFFF512F), Color(0xFFDD2476)]),
+  _WallpaperDef.gradient(id: 'ocean',    label: 'Ocean',     colors: [Color(0xFF1A2980), Color(0xFF26D0CE)]),
+  _WallpaperDef.gradient(id: 'forest',   label: 'Forest',    colors: [Color(0xFF134E5E), Color(0xFF71B280)]),
+  _WallpaperDef.gradient(id: 'midnight', label: 'Midnight',  colors: [Color(0xFF232526), Color(0xFF414345)]),
+  _WallpaperDef.gradient(id: 'lavender', label: 'Lavender',  colors: [Color(0xFF8360C3), Color(0xFF2EBF91)]),
+  _WallpaperDef.gradient(id: 'fire',     label: 'Fire',      colors: [Color(0xFFf12711), Color(0xFFf5af19)]),
+  _WallpaperDef.gradient(id: 'cosmos',   label: 'Cosmos',    colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243E)]),
+  _WallpaperDef.gradient(id: 'mint',     label: 'Mint',      colors: [Color(0xFF00B4DB), Color(0xFF0083B0)]),
+  _WallpaperDef.gradient(id: 'cherry',   label: 'Cherry',    colors: [Color(0xFFEB3349), Color(0xFFF45C43)]),
+  _WallpaperDef.gradient(id: 'ink',      label: 'Ink',       colors: [Color(0xFF000000), Color(0xFF434343)]),
+  _WallpaperDef.gradient(id: 'rose',     label: 'Rose Gold', colors: [Color(0xFFB76E79), Color(0xFFFFD1D1)]),
+];
+
+const _imageWallpapers = [
+  _WallpaperDef.image(
+    id: 'galaxy',
+    label: 'Galaxy',
+    assetPath: 'assets/alarm_wallpapers/sample_galaxy.jpg',
+    thumbColor: Color(0xFF1a0533),
+  ),
+  // ← Add more image wallpapers here
+  // _WallpaperDef.image(id: 'mountains', label: 'Mountains', assetPath: 'assets/alarm_wallpapers/mountains.jpg', thumbColor: Color(0xFF2c3e50)),
+];
+
+const _animatedWallpapers = [
+  _WallpaperDef.animated(
+    id: 'vehicles',
+    label: 'Vehicles',
+    assetPath: 'assets/alarm_wallpapers/sample_animated.riv',
+    thumbColor: Color(0xFF1565C0),
+  ),
+  // ← Add more Rive wallpapers here
+  // _WallpaperDef.animated(id: 'particles', label: 'Particles', assetPath: 'assets/alarm_wallpapers/particles.riv', thumbColor: Color(0xFF6a0dad)),
+];
+
+const _videoWallpapers = [
+  _WallpaperDef.video(
+    id: 'bbb',
+    label: 'Big Buck Bunny',
+    assetPath: 'assets/alarm_wallpapers/sample_video.mp4',
+    thumbColor: Color(0xFF1B5E20),
+  ),
+  // ← Add more video wallpapers here
+  // _WallpaperDef.video(id: 'lava', label: 'Lava Lamp', assetPath: 'assets/alarm_wallpapers/lava.mp4', thumbColor: Color(0xFFBF360C)),
+];
+
+// ── Wallpaper Picker Sheet ────────────────────────────────────────────────────
+
+class _WallpaperPickerSheet extends StatefulWidget {
+  const _WallpaperPickerSheet({required this.alarmId, required this.currentPath, required this.onPicked});
+  final int alarmId;
+  final String currentPath;
+  final void Function(String path, {bool isBuiltIn}) onPicked;
+
+  @override
+  State<_WallpaperPickerSheet> createState() => _WallpaperPickerSheetState();
+}
+
+class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with SingleTickerProviderStateMixin {
+  late TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final path = await AlarmService.pickWallpaper(alarmId: widget.alarmId);
+      if (path != null && mounted) widget.onPicked(path, isBuiltIn: false);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open that image.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, controller) => Column(children: [
+        const SizedBox(height: 12),
+        // ── Header ──────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+          child: Row(children: [
+            Expanded(child: Text('Choose wallpaper', style: AppTypography.soraHeading2())),
+            IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+          ]),
+        ),
+        // ── Tab bar ─────────────────────────────────────────────────────────
+        TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: const [
+            Tab(text: '🎨 Gradients'),
+            Tab(text: '🖼️ Images'),
+            Tab(text: '✨ Animated'),
+            Tab(text: '🎬 Video'),
+          ],
+        ),
+        const Divider(height: 1),
+        // ── Tab views ────────────────────────────────────────────────────────
+        Expanded(child: TabBarView(
+          controller: _tabs,
+          children: [
+            _GradientGrid(wallpapers: _gradientWallpapers, currentPath: widget.currentPath, onPicked: widget.onPicked),
+            _AssetGrid(wallpapers: _imageWallpapers, currentPath: widget.currentPath, onPicked: widget.onPicked, onGallery: _pickFromGallery),
+            _AssetGrid(wallpapers: _animatedWallpapers, currentPath: widget.currentPath, onPicked: widget.onPicked),
+            _AssetGrid(wallpapers: _videoWallpapers, currentPath: widget.currentPath, onPicked: widget.onPicked),
+          ],
+        )),
+      ]),
+    );
+  }
+}
+
+// ── Gradient tab grid ─────────────────────────────────────────────────────────
+
+class _GradientGrid extends StatelessWidget {
+  const _GradientGrid({required this.wallpapers, required this.currentPath, required this.onPicked});
+  final List<_WallpaperDef> wallpapers;
+  final String currentPath;
+  final void Function(String, {bool isBuiltIn}) onPicked;
+
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.65,
+    ),
+    itemCount: wallpapers.length,
+    itemBuilder: (_, i) {
+      final wp = wallpapers[i];
+      final selected = currentPath == wp.encodedPath;
+      return GestureDetector(
+        onTap: () => onPicked(wp.encodedPath, isBuiltIn: true),
+        child: Stack(fit: StackFit.expand, children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(gradient: LinearGradient(colors: wp.colors, begin: wp.begin as Alignment, end: wp.end as Alignment)),
+              child: Align(alignment: Alignment.bottomCenter, child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(wp.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11, shadows: [Shadow(blurRadius: 4)])),
+              )),
+            ),
+          ),
+          if (selected) _SelectedOverlay(),
+        ]),
+      );
+    },
+  );
+}
+
+// ── Asset (image / rive / video) tab grid ────────────────────────────────────
+
+class _AssetGrid extends StatelessWidget {
+  const _AssetGrid({required this.wallpapers, required this.currentPath, required this.onPicked, this.onGallery});
+  final List<_WallpaperDef> wallpapers;
+  final String currentPath;
+  final void Function(String, {bool isBuiltIn}) onPicked;
+  final VoidCallback? onGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    final showGallery = onGallery != null;
+    final count = wallpapers.length + (showGallery ? 1 : 0);
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.65,
+      ),
+      itemCount: count,
+      itemBuilder: (_, i) {
+        // Gallery tile (only on image tab)
+        if (showGallery && i == 0) {
+          return GestureDetector(
+            onTap: () { Navigator.pop(context); onGallery!(); },
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.inkMuted.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.inkMuted.withValues(alpha: 0.25)),
+              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.cyanDeep),
+                const SizedBox(height: 8),
+                Text('My Gallery', textAlign: TextAlign.center, style: AppTypography.interCaption(color: AppColors.ink)),
+              ]),
+            ),
+          );
+        }
+        final wp = wallpapers[showGallery ? i - 1 : i];
+        final selected = currentPath == wp.encodedPath;
+        final icon = switch (wp.type) {
+          _WpType.animated => Icons.animation_rounded,
+          _WpType.video    => Icons.play_circle_outline_rounded,
+          _              => Icons.image_outlined,
+        };
+        return GestureDetector(
+          onTap: () => onPicked(wp.encodedPath, isBuiltIn: true),
+          child: Stack(fit: StackFit.expand, children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: wp.type == _WpType.image
+                  ? Image.asset(wp.assetPath, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: wp.thumbColor))
+                  : Container(
+                      color: wp.thumbColor,
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(icon, color: Colors.white54, size: 36),
+                        const SizedBox(height: 8),
+                        Text(wp.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11, shadows: [Shadow(blurRadius: 4)])),
+                      ]),
+                    ),
+            ),
+            if (wp.type != _WpType.image)
+              Positioned(top: 8, right: 8, child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                child: Icon(icon, size: 14, color: Colors.white),
+              )),
+            Positioned(bottom: 0, left: 0, right: 0, child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.transparent, Colors.black54], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+              ),
+              child: Text(wp.label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
+            )),
+            if (selected) _SelectedOverlay(),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ── Selection overlay ─────────────────────────────────────────────────────────
+
+class _SelectedOverlay extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Positioned.fill(child: DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.cyanDeep, width: 3),
+    ),
+    child: const Center(child: Icon(Icons.check_circle_rounded, color: Colors.white, size: 32)),
+  ));
+}
+
 
 const _builtInWallpapers = [
   _BuiltInWallpaperDef(id: 'aurora',   label: 'Aurora',    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)]),

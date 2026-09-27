@@ -47,6 +47,8 @@ dependencies:
   flutter_animate: ^4.5.0
   percent_indicator: ^4.2.3
   fl_chart: ^0.70.2
+  rive: ^0.13.18          # Animated .riv wallpapers
+  video_player: ^2.9.2    # MP4 video wallpapers
 
   # PDF / Resume
   pdf: ^3.11.1
@@ -98,6 +100,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/alarm_wallpapers/
     - .env
 
 flutter_launcher_icons:
