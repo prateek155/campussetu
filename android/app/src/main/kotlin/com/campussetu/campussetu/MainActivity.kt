@@ -26,7 +26,7 @@ class MainActivity : FlutterActivity() {
 
     override fun getInitialRoute(): String {
         val id = intent?.getIntExtra(AlarmRingService.EXTRA_ALARM_ID, -1) ?: -1
-        return if (id > 0) "/alarm/ring?alarmId=$id" else super.getInitialRoute()
+        return if (id > 0) "/alarm/ring?alarmId=$id" else super.getInitialRoute() ?: "/"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
