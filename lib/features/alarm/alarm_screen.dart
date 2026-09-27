@@ -418,19 +418,27 @@ class _AlarmEditorState extends State<_AlarmEditor> {
   }
 
   Future<void> _chooseWallpaper() async {
-    try {
-      final path = await AlarmService.pickWallpaper(alarmId: widget.id);
-      if (path != null && mounted) {
-        final previousWallpaperPath = _wallpaperPath;
-        setState(() {
-          _wallpaperPath = path;
-          _createdAssets.add(path);
-        });
-        await _discardDraftAsset(previousWallpaperPath);
-      }
-    } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open that image. Try another photo.')));
-    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (ctx) => _WallpaperPickerSheet(
+        alarmId: widget.id,
+        currentPath: _wallpaperPath,
+        onPicked: (path, {bool isBuiltIn = false}) async {
+          Navigator.pop(ctx);
+          if (!mounted) return;
+          final previousWallpaperPath = _wallpaperPath;
+          setState(() {
+            _wallpaperPath = path;
+            if (!isBuiltIn) _createdAssets.add(path);
+          });
+          if (!isBuiltIn) await _discardDraftAsset(previousWallpaperPath);
+        },
+      ),
+    );
   }
 
   Future<void> _discardDraftAsset(String path) async {
@@ -738,37 +746,55 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
           Positioned.fill(child: AlarmWallpaperImage(path: alarm.wallpaperPath)),
         if (alarm != null && alarm.wallpaperPath.isNotEmpty)
           const Positioned.fill(child: ColoredBox(color: Color(0x99000000))),
-        SafeArea(child: Center(child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: Padding(padding: const EdgeInsets.fromLTRB(26, 20, 26, 28), child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.alarm_rounded, size: 62, color: Color(0xFFFB7185)),
-            const SizedBox(height: 18),
-            Text(alarm?.label ?? 'Wake up', style: AppTypography.interButton(color: Colors.white, size: 19)),
-            const SizedBox(height: 6),
-            Text(alarm == null ? TimeOfDay.now().format(context) : TimeOfDay(hour: alarm.hour, minute: alarm.minute).format(context), style: AppTypography.soraDisplay(size: 56, color: Colors.white)),
-            const SizedBox(height: 35),
-            if (!_ringLoaded)
-              const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: Colors.white))
-            else
-              _missionWidget(mission),
-            const Spacer(),
-            SizedBox(width: double.infinity, height: 54, child: FilledButton(
-              onPressed: _ringLoaded ? _dismiss : null,
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDB2777), foregroundColor: Colors.white),
-              child: const Text('Complete mission & dismiss'),
-            )),
-            const SizedBox(height: 10),
-            if (_error.isNotEmpty) ...[
-              Text(_error, style: const TextStyle(color: Color(0xFFFDA4AF)), textAlign: TextAlign.center),
-              const SizedBox(height: 6),
-            ],
-            if ((alarm?.snoozeMinutes ?? 5) > 0)
-              TextButton.icon(onPressed: _snooze, icon: const Icon(Icons.snooze_rounded, color: Colors.white70), label: Text('Snooze ${alarm?.snoozeMinutes ?? 5} minutes', style: const TextStyle(color: Colors.white70))),
-          ],
-        )),
-      ))),
+        SafeArea(child: Column(children: [
+          Expanded(child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(26, 20, 26, 0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                const Icon(Icons.alarm_rounded, size: 62, color: Color(0xFFFB7185)),
+                const SizedBox(height: 18),
+                Text(alarm?.label ?? 'Wake up', style: AppTypography.interButton(color: Colors.white, size: 19)),
+                const SizedBox(height: 6),
+                Text(
+                  alarm == null
+                      ? TimeOfDay.now().format(context)
+                      : TimeOfDay(hour: alarm.hour, minute: alarm.minute).format(context),
+                  style: AppTypography.soraDisplay(size: 56, color: Colors.white),
+                ),
+                const SizedBox(height: 35),
+                if (!_ringLoaded)
+                  const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: Colors.white))
+                else
+                  _missionWidget(mission),
+                const SizedBox(height: 30),
+              ],
+            ),
+          )),
+          // ── Bottom action area — always above navbar ───────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 8, 26, 16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(width: double.infinity, height: 54, child: FilledButton(
+                onPressed: _ringLoaded ? _dismiss : null,
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDB2777), foregroundColor: Colors.white),
+                child: const Text('Complete mission & dismiss'),
+              )),
+              const SizedBox(height: 8),
+              if (_error.isNotEmpty) ...[
+                Text(_error, style: const TextStyle(color: Color(0xFFFDA4AF)), textAlign: TextAlign.center),
+                const SizedBox(height: 6),
+              ],
+              if ((alarm?.snoozeMinutes ?? 5) > 0)
+                TextButton.icon(
+                  onPressed: _snooze,
+                  icon: const Icon(Icons.snooze_rounded, color: Colors.white70),
+                  label: Text('Snooze ${alarm?.snoozeMinutes ?? 5} minutes', style: const TextStyle(color: Colors.white70)),
+                ),
+            ]),
+          ),
+        ])),
       ]),
     );
   }
@@ -889,3 +915,130 @@ String _missionName(AlarmMission mission) => switch (mission) {
   AlarmMission.typing => 'Typing',
   AlarmMission.shake => 'Shake',
 };
+
+// ── Pre-built wallpaper definitions ──────────────────────────────────────────
+
+class _BuiltInWallpaperDef {
+  final String id;
+  final String label;
+  final List<Color> colors;
+  final AlignmentGeometry begin;
+  final AlignmentGeometry end;
+  const _BuiltInWallpaperDef({required this.id, required this.label, required this.colors, this.begin = Alignment.topLeft, this.end = Alignment.bottomRight});
+}
+
+const _builtInWallpapers = [
+  _BuiltInWallpaperDef(id: 'aurora',   label: 'Aurora',    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)]),
+  _BuiltInWallpaperDef(id: 'sunset',   label: 'Sunset',    colors: [Color(0xFFFF512F), Color(0xFFDD2476)]),
+  _BuiltInWallpaperDef(id: 'ocean',    label: 'Ocean',     colors: [Color(0xFF1A2980), Color(0xFF26D0CE)]),
+  _BuiltInWallpaperDef(id: 'forest',   label: 'Forest',    colors: [Color(0xFF134E5E), Color(0xFF71B280)]),
+  _BuiltInWallpaperDef(id: 'midnight', label: 'Midnight',  colors: [Color(0xFF232526), Color(0xFF414345)]),
+  _BuiltInWallpaperDef(id: 'lavender', label: 'Lavender',  colors: [Color(0xFF8360C3), Color(0xFF2EBF91)]),
+  _BuiltInWallpaperDef(id: 'fire',     label: 'Fire',      colors: [Color(0xFFf12711), Color(0xFFf5af19)]),
+  _BuiltInWallpaperDef(id: 'cosmos',   label: 'Cosmos',    colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243E)]),
+  _BuiltInWallpaperDef(id: 'mint',     label: 'Mint',      colors: [Color(0xFF00B4DB), Color(0xFF0083B0)]),
+  _BuiltInWallpaperDef(id: 'cherry',   label: 'Cherry',    colors: [Color(0xFFEB3349), Color(0xFFF45C43)]),
+  _BuiltInWallpaperDef(id: 'ink',      label: 'Ink',       colors: [Color(0xFF000000), Color(0xFF434343)]),
+  _BuiltInWallpaperDef(id: 'rose',     label: 'Rose Gold', colors: [Color(0xFFB76E79), Color(0xFFFFD1D1)]),
+];
+
+// Encodes built-in wallpaper as a special path the WallpaperImage widget understands.
+String _builtInWallpaperPath(String id) => '__builtin__:$id';
+bool isBuiltInWallpaperPath(String path) => path.startsWith('__builtin__:');
+String builtInWallpaperId(String path) => path.replaceFirst('__builtin__:', '');
+
+/// Shows a bottom sheet with pre-built gradient wallpapers + gallery option.
+class _WallpaperPickerSheet extends StatelessWidget {
+  const _WallpaperPickerSheet({required this.alarmId, required this.currentPath, required this.onPicked});
+  final int alarmId;
+  final String currentPath;
+  final void Function(String path, {bool isBuiltIn}) onPicked;
+
+  Future<void> _pickFromGallery(BuildContext context) async {
+    try {
+      final path = await AlarmService.pickWallpaper(alarmId: alarmId);
+      if (path != null) onPicked(path, isBuiltIn: false);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open that image. Try another photo.')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.92,
+      builder: (_, controller) => Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+          child: Row(children: [
+            Expanded(child: Text('Choose wallpaper', style: AppTypography.soraHeading2())),
+            IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+          ]),
+        ),
+        Expanded(child: GridView.builder(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.65,
+          ),
+          itemCount: _builtInWallpapers.length + 1, // +1 for "gallery" tile
+          itemBuilder: (_, i) {
+            if (i == 0) {
+              return GestureDetector(
+                onTap: () => _pickFromGallery(context),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.inkMuted.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.inkMuted.withValues(alpha: 0.25)),
+                  ),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.cyanDeep),
+                    const SizedBox(height: 8),
+                    Text('My Gallery', textAlign: TextAlign.center, style: AppTypography.interCaption(color: AppColors.ink)),
+                  ]),
+                ),
+              );
+            }
+            final wp = _builtInWallpapers[i - 1];
+            final path = _builtInWallpaperPath(wp.id);
+            final selected = currentPath == path;
+            return GestureDetector(
+              onTap: () => onPicked(path, isBuiltIn: true),
+              child: Stack(fit: StackFit.expand, children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: wp.colors, begin: wp.begin as Alignment, end: wp.end as Alignment),
+                    ),
+                    child: Align(alignment: Alignment.bottomCenter, child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(wp.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11, shadows: [Shadow(blurRadius: 4)])),
+                    )),
+                  ),
+                ),
+                if (selected)
+                  Positioned.fill(child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.cyanDeep, width: 3),
+                    ),
+                    child: const Center(child: Icon(Icons.check_circle_rounded, color: Colors.white, size: 32)),
+                  )),
+              ]),
+            );
+          },
+        )),
+      ]),
+    );
+  }
+}

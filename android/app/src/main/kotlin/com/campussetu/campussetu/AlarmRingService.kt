@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -90,6 +91,11 @@ class AlarmRingService : Service() {
     }
 
     private fun startRingtone(id: Int) {
+        // ── Boost alarm stream to system max so alarm is always loud ──────────
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val maxVol = audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: -1
+        if (maxVol > 0) audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0)
+        // ─────────────────────────────────────────────────────────────────────
         val alarm = AlarmScheduler.alarm(this, id)
         val volume = (alarm?.optDouble("volume", 1.0) ?: 1.0).toFloat().coerceIn(0.2f, 1f)
         val customPath = alarm?.optString("customSoundPath").orEmpty()

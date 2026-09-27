@@ -100,11 +100,15 @@ internal object AlarmScheduler {
             set(Calendar.MILLISECOND, 0)
         }
         if (weekday == 0) {
-            if (!target.after(now)) target.add(Calendar.DAY_OF_YEAR, 1)
+            // One-time alarm: if the target moment has already passed (or is within 1 s),
+            // schedule it for the same clock-time tomorrow.
+            if (target.timeInMillis <= System.currentTimeMillis() + 1_000L) {
+                target.add(Calendar.DAY_OF_YEAR, 1)
+            }
         } else {
             val calendarDay = if (weekday == 7) Calendar.SUNDAY else weekday + 1
             var offset = (calendarDay - now.get(Calendar.DAY_OF_WEEK) + 7) % 7
-            if (offset == 0 && !target.after(now)) offset = 7
+            if (offset == 0 && target.timeInMillis <= System.currentTimeMillis() + 1_000L) offset = 7
             target.add(Calendar.DAY_OF_YEAR, offset)
         }
         return target.timeInMillis
