@@ -3,8 +3,11 @@ const express = require('express');
 const router = express.Router();
 const travelController = require('../controllers/travel.controller');
 const { requireAuth } = require('../middleware/auth');
+const { cacheRoute, invalidateCache } = require('../middleware/cacheMiddleware');
 
-router.get('/', requireAuth, travelController.getRides);
-router.post('/', requireAuth, travelController.createRide);
+// GET rides — cached 60 seconds (active rides change frequently)
+router.get('/',  requireAuth, cacheRoute(60, () => 'travel:list'), travelController.getRides);
+// POST new ride — invalidate ride list
+router.post('/', requireAuth, invalidateCache('travel:*'), travelController.createRide);
 
 module.exports = router;

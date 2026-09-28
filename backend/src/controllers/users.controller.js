@@ -74,6 +74,14 @@ function parseStrictAmount(v) {
 exports.getUser = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Serve from Redis cache (10 min TTL)
+    const cached = await cache.getUserProfile(id);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
     const { rows } = await db.query(
       `SELECT u.id, u.name, u.photo_url, u.college, u.state, u.city, u.course,
         u.branch, u.year_of_study, u.bio, u.skills, u.profile_complete,
@@ -86,12 +94,17 @@ exports.getUser = async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
     if (!rows[0].campus_id) rows[0].campus_id = await ensureCampusId(id);
+
+    // Cache public profile
+    await cache.setUserProfile(id, rows[0]);
+    res.setHeader('X-Cache', 'MISS');
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // ── GET /users/me ────────────────────────────────────────
 exports.getMe = async (req, res) => {
@@ -217,7 +230,10 @@ exports.updateProfile = async (req, res) => {
       ]
     );
 
+    // Invalidate all caches for this user (profile, points, avatar)
+    await cache.invalidateUser(user[0].id);
     await cache.delCache(`user:me:${firebaseUid}`);
+
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -333,8 +349,14 @@ exports.transferPoints = async (req, res) => {
     );
     await client.query('COMMIT');
     transactionOpen = false;
-    await cache.delPattern('user:me:*');
+    // Invalidate only the 2 affected users — not everyone
+    await Promise.all([
+      cache.invalidateUser(senderId),
+      cache.invalidateUser(recv[0].id),
+      cache.delCache(`user:me:${req.user.uid}`),
+    ]);
     res.json(result);
+
   } catch (err) {
     if (client && transactionOpen) await client.query('ROLLBACK').catch(() => {});
     console.error('Points transfer failed:', err.code || 'unknown error');

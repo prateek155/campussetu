@@ -5,6 +5,7 @@ const multer = require('multer');
 const { randomUUID } = require('crypto');
 const { requireAuth, requireAdmin, requireStudent } = require('../middleware/auth');
 const eventsController = require('../controllers/events.controller');
+const { cacheRoute, invalidateCache } = require('../middleware/cacheMiddleware');
 
 const imageExtensions = {
   'image/jpeg': '.jpg',
@@ -31,21 +32,17 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
-// All endpoints require authentication
 router.use(requireAuth);
 
-// GET events (all authenticated users)
-router.get('/', eventsController.getEvents);
+// GET events — cached 2 minutes (same for all users)
+router.get('/', cacheRoute(120, () => 'events:list'), eventsController.getEvents);
 
-// Internal registration is tied to the authenticated student, never a client user id.
-router.post('/:id/register', requireStudent, eventsController.registerForEvent);
-router.delete('/:id/register', requireStudent, eventsController.cancelEventRegistration);
+router.post('/:id/register', requireStudent, invalidateCache('events:*'), eventsController.registerForEvent);
+router.delete('/:id/register', requireStudent, invalidateCache('events:*'), eventsController.cancelEventRegistration);
 router.get('/:id/registrations', requireAdmin, eventsController.getEventRegistrations);
 
-// POST events (only admins)
-router.post('/', requireAdmin, upload.single('image'), eventsController.createEvent);
-
-// DELETE events (only admins)
-router.delete('/:id', requireAdmin, eventsController.deleteEvent);
+// Admin mutations — invalidate cache on change
+router.post('/', requireAdmin, upload.single('image'), invalidateCache('events:*'), eventsController.createEvent);
+router.delete('/:id', requireAdmin, invalidateCache('events:*'), eventsController.deleteEvent);
 
 module.exports = router;

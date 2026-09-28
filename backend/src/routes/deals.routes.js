@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const dealsController = require('../controllers/deals.controller');
+const { cacheRoute, invalidateCache } = require('../middleware/cacheMiddleware');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) =>
@@ -27,16 +28,13 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
-// All endpoints require authentication
 router.use(requireAuth);
 
-// GET deals (all authenticated users)
-router.get('/', dealsController.getDeals);
+// GET deals — cached 3 minutes (deals rarely change)
+router.get('/', cacheRoute(180, () => 'deals:list'), dealsController.getDeals);
 
-// POST deals (only admins)
-router.post('/', requireAdmin, upload.single('image'), dealsController.createDeal);
-
-// DELETE deals (only admins)
-router.delete('/:id', requireAdmin, dealsController.deleteDeal);
+// Admin mutations — invalidate cache
+router.post('/', requireAdmin, upload.single('image'), invalidateCache('deals:*'), dealsController.createDeal);
+router.delete('/:id', requireAdmin, invalidateCache('deals:*'), dealsController.deleteDeal);
 
 module.exports = router;
