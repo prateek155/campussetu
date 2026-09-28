@@ -1,4 +1,4 @@
-package com.campussetu.campussetu
+﻿package com.campussetu.campussetu
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -27,6 +27,7 @@ class AlarmRingService : Service() {
     private var vibrator: Vibrator? = null
     private val handler = Handler(Looper.getMainLooper())
     private var alarmId = -1
+    private var isSnooze = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -34,6 +35,7 @@ class AlarmRingService : Service() {
             return START_NOT_STICKY
         }
         alarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
+        isSnooze = intent?.getBooleanExtra(AlarmReceiver.EXTRA_IS_SNOOZE, false) ?: false
         if (alarmId <= 0) {
             stopSelf()
             return START_NOT_STICKY
@@ -63,7 +65,8 @@ class AlarmRingService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(openPi)
-        if ((alarm?.optInt("snoozeMinutes", 5) ?: 5) > 0) {
+        // Only 1 snooze allowed - if already snoozed once, do not show snooze button
+        if (!isSnooze && (alarm?.optInt("snoozeMinutes", 5) ?: 5) > 0) {
             builder.addAction(android.R.drawable.ic_lock_idle_alarm, "Snooze", snoozePi)
         }
         return builder.build()

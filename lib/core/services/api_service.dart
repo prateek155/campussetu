@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:campussetu/core/config/app_config.dart';
 import 'package:uuid/uuid.dart';
@@ -132,6 +132,38 @@ class ApiService {
   Future<Map<String, dynamic>> getMyQuizResult(String quizId) async {
     final res = await _dio.get('/quiz/$quizId/my-result');
     return res.data as Map<String, dynamic>;
+  }
+
+  // ── Alarm Wallpapers API ──────────────────────────────────────────────────
+  Future<Map<String, dynamic>> getAlarmWallpapers() async {
+    try {
+      final res = await _dio.get('/alarm-wallpapers');
+      if (res.data is Map<String, dynamic>) return res.data as Map<String, dynamic>;
+      if (res.data is Map) return Map<String, dynamic>.from(res.data as Map);
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<dynamic> uploadAlarmWallpaper({
+    required String label,
+    required String type,
+    required String filePath,
+    int sortOrder = 0,
+  }) async {
+    final formData = FormData.fromMap({
+      'label': label,
+      'type': type,
+      'sort_order': sortOrder,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final res = await _dio.post('/alarm-wallpapers', data: formData);
+    return res.data;
+  }
+
+  Future<void> deleteAlarmWallpaper(String id) async {
+    await _dio.delete('/alarm-wallpapers/' + id);
   }
 
   void clearToken() { _token = null; }

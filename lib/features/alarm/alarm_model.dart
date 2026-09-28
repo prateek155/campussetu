@@ -18,6 +18,9 @@ class CampusAlarm {
     this.wallpaperPath = '',
     this.volume = 1.0,
     this.vibration = true,
+    this.difficulty = 1, // 0 = Easy, 1 = Medium, 2 = Hard
+    this.gentleStart = false,
+    this.snoozeCount = 0,
   });
 
   final int id;
@@ -35,6 +38,24 @@ class CampusAlarm {
   final String wallpaperPath;
   final double volume;
   final bool vibration;
+  final int difficulty; // 0 = Easy, 1 = Medium, 2 = Hard
+  final bool gentleStart;
+  final int snoozeCount;
+
+  bool get isOnce => days.isEmpty;
+  bool get isWeekdays => days.length == 5 && [1, 2, 3, 4, 5].every(days.contains);
+  bool get isWeekends => days.length == 2 && [6, 7].every(days.contains);
+  bool get isEveryDay => days.length == 7;
+
+  String get repeatLabel {
+    if (isOnce) return 'One time';
+    if (isEveryDay) return 'Every day';
+    if (isWeekdays) return 'Weekdays';
+    if (isWeekends) return 'Weekends';
+    const dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    final sorted = [...days]..sort();
+    return sorted.map((d) => dayNames[d - 1]).join(' · ');
+  }
 
   CampusAlarm copyWith({
     int? hour,
@@ -50,6 +71,9 @@ class CampusAlarm {
     String? wallpaperPath,
     double? volume,
     bool? vibration,
+    int? difficulty,
+    bool? gentleStart,
+    int? snoozeCount,
   }) => CampusAlarm(
     id: id,
     hour: hour ?? this.hour,
@@ -65,6 +89,9 @@ class CampusAlarm {
     wallpaperPath: wallpaperPath ?? this.wallpaperPath,
     volume: volume ?? this.volume,
     vibration: vibration ?? this.vibration,
+    difficulty: difficulty ?? this.difficulty,
+    gentleStart: gentleStart ?? this.gentleStart,
+    snoozeCount: snoozeCount ?? this.snoozeCount,
   );
 
   Map<String, dynamic> toJson() => {
@@ -82,6 +109,9 @@ class CampusAlarm {
     'wallpaperPath': wallpaperPath,
     'volume': volume,
     'vibration': vibration,
+    'difficulty': difficulty,
+    'gentleStart': gentleStart,
+    'snoozeCount': snoozeCount,
   };
 
   factory CampusAlarm.fromJson(Map<String, dynamic> json) => CampusAlarm(
@@ -102,6 +132,9 @@ class CampusAlarm {
     wallpaperPath: json['wallpaperPath']?.toString() ?? '',
     volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
     vibration: json['vibration'] as bool? ?? true,
+    difficulty: (json['difficulty'] as num?)?.toInt() ?? 1,
+    gentleStart: json['gentleStart'] as bool? ?? false,
+    snoozeCount: (json['snoozeCount'] as num?)?.toInt() ?? 0,
   );
 
   static String encodeList(List<CampusAlarm> alarms) => jsonEncode(alarms.map((a) => a.toJson()).toList());

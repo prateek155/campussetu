@@ -1,4 +1,4 @@
-// lib/features/admin/admin_content_screen.dart
+﻿// lib/features/admin/admin_content_screen.dart
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import '../alarm/alarm_wallpaper_image.dart';
 import '../../core/services/api_service.dart';
 import '../../core/router/app_router.dart';
 
@@ -40,10 +42,15 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
   String? _dealsError;
   String? _flatmatesError;
 
+  Map<String, dynamic> _wallpapers = {};
+  bool _loadingWallpapers = true;
+  String? _wallpapersError;
+
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
+    _loadWallpapers();
     _initToken().then((_) {
       _loadEvents();
       _loadDeals();
@@ -83,6 +90,169 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
     } catch (e) {
       if (mounted) setState(() { _loadingDeals = false; _dealsError = e.toString(); });
     }
+  }
+
+  Future<void> _loadWallpapers() async {
+    setState(() { _loadingWallpapers = true; _wallpapersError = null; });
+    try {
+      final data = await ApiService().getAlarmWallpapers();
+      if (mounted) setState(() { _wallpapers = data; _loadingWallpapers = false; });
+    } catch (e) {
+      if (mounted) setState(() { _loadingWallpapers = false; _wallpapersError = e.toString(); });
+    }
+  }
+
+  Future<void> _deleteWallpaper(String id) async {
+    if (!await _confirm('Delete Wallpaper', 'This wallpaper will be permanently deleted.')) return;
+    try {
+      await ApiService().deleteAlarmWallpaper(id);
+      _loadWallpapers();
+      _snack('Wallpaper deleted', _green);
+    } catch (e) {
+      _snack('Error deleting: $e', _red);
+    }
+  }
+
+  Future<void> _showAddWallpaperDialog() async {
+    final labelCtrl = TextEditingController();
+    String type = 'image';
+    String? selectedFilePath;
+    String? selectedFileName;
+    bool uploading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          backgroundColor: _card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Add Alarm Wallpaper', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Label / Name', style: TextStyle(color: _inkSoft, fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: labelCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Cyberpunk City',
+                    hintStyle: const TextStyle(color: Colors.white30),
+                    filled: true,
+                    fillColor: _bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Type / Category', style: TextStyle(color: _inkSoft, fontSize: 12)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+                  child: DropdownButton<String>(
+                    value: type,
+                    isExpanded: true,
+                    dropdownColor: _card,
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(color: Colors.white),
+                    items: const [
+                      DropdownMenuItem(value: 'image', child: Text('🖼️ Static Image (JPG, PNG, WebP)')),
+                      DropdownMenuItem(value: 'animated', child: Text('✨ Rive Animation (.riv)')),
+                      DropdownMenuItem(value: 'video', child: Text('🎬 Video Wallpaper (.mp4)')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlgState(() => type = v);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Wallpaper File', style: TextStyle(color: _inkSoft, fontSize: 12)),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final res = await FilePicker.platform.pickFiles(
+                      type: FileType.any,
+                      allowMultiple: false,
+                    );
+                    if (res != null && res.files.isNotEmpty) {
+                      setDlgState(() {
+                        selectedFilePath = res.files.single.path;
+                        selectedFileName = res.files.single.name;
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: selectedFilePath != null ? _cyan : _border, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(selectedFilePath != null ? Icons.check_circle_rounded : Icons.file_upload_outlined, color: selectedFilePath != null ? _cyan : _inkSoft),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            selectedFileName ?? 'Tap to pick file',
+                            style: TextStyle(color: selectedFilePath != null ? Colors.white : _inkSoft, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: uploading ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: _inkSoft)),
+            ),
+            FilledButton(
+              onPressed: uploading
+                  ? null
+                  : () async {
+                      final label = labelCtrl.text.trim();
+                      if (label.isEmpty) {
+                        _snack('Enter a wallpaper label', _red);
+                        return;
+                      }
+                      if (selectedFilePath == null) {
+                        _snack('Please select a file to upload', _red);
+                        return;
+                      }
+                      setDlgState(() => uploading = true);
+                      try {
+                        await ApiService().uploadAlarmWallpaper(
+                          label: label,
+                          type: type,
+                          filePath: selectedFilePath!,
+                        );
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          _snack('Wallpaper uploaded successfully!', _green);
+                          _loadWallpapers();
+                        }
+                      } catch (e) {
+                        setDlgState(() => uploading = false);
+                        _snack('Upload failed: $e', _red);
+                      }
+                    },
+              style: FilledButton.styleFrom(backgroundColor: _cyan),
+              child: uploading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Upload', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadFlatmates() async {
@@ -238,6 +408,7 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                   Tab(text: 'Events'),
                   Tab(text: 'Deals'),
                   Tab(text: 'Flatmates'),
+                  Tab(text: 'Wallpapers'),
                 ],
               ),
             ]),
@@ -354,6 +525,96 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _FlatmateCard(flatmate: f, onDelete: () => _deleteFlatmate(id, i)),
                             ).animate(delay: (i * 30).ms).fadeIn(duration: 280.ms);
+                          },
+                        ),
+                ),
+
+                // ── Wallpapers Tab ──────────────────────────
+                _ContentTab(
+                  accentColor: _purple,
+                  icon: Icons.wallpaper_rounded,
+                  emptyLabel: 'No remote wallpapers yet',
+                  addLabel: 'Add Wallpaper',
+                  loading: _loadingWallpapers,
+                  error: _wallpapersError,
+                  onRefresh: _loadWallpapers,
+                  onAdd: _showAddWallpaperDialog,
+                  body: _loadingWallpapers
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFFA855F7)))
+                      : _wallpapersError != null
+                      ? _ErrorView(error: _wallpapersError!, onRetry: _loadWallpapers)
+                      : Builder(
+                          builder: (context) {
+                            final allList = <Map<String, dynamic>>[];
+                            for (final key in ['image', 'animated', 'video']) {
+                              final items = (_wallpapers[key] as List<dynamic>?) ?? [];
+                              for (final item in items) {
+                                allList.add(Map<String, dynamic>.from(item as Map));
+                              }
+                            }
+                            if (allList.isEmpty) {
+                              return const _EmptyView(icon: Icons.wallpaper_rounded, message: 'No custom wallpapers uploaded yet.\nTap + to add new designs!');
+                            }
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                              itemCount: allList.length,
+                              itemBuilder: (ctx, i) {
+                                final w = allList[i];
+                                final id = w['id']?.toString() ?? '';
+                                final label = w['label']?.toString() ?? 'Wallpaper';
+                                final type = w['type']?.toString() ?? 'image';
+                                final url = w['url']?.toString() ?? '';
+                                final icon = switch (type) {
+                                  'animated' => '✨ Animated',
+                                  'video' => '🎬 Video',
+                                  _ => '🖼️ Image',
+                                };
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: _card,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: _border),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: SizedBox(
+                                          width: 50,
+                                          height: 50,
+                                          child: type == 'image'
+                                              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _bg))
+                                              : Container(
+                                                  color: _bg,
+                                                  child: Icon(
+                                                    type == 'video' ? Icons.play_arrow_rounded : Icons.auto_awesome,
+                                                    color: _cyan,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                                            const SizedBox(height: 4),
+                                            Text(icon, style: const TextStyle(color: _inkSoft, fontSize: 12)),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline_rounded, color: _red),
+                                        onPressed: () => _deleteWallpaper(id),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
                           },
                         ),
                 ),

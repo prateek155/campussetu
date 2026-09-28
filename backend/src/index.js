@@ -1,4 +1,4 @@
-﻿// backend/src/index.js
+// backend/src/index.js
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -26,6 +26,7 @@ const travelRouter = require('./routes/travel.routes');
 const flatmatesRouter = require('./routes/flatmates.routes');
 const quizRouter = require('./routes/quiz.routes');
 const reportsRouter = require('./routes/reports.routes');
+const alarmWallpaperRouter = require('./routes/alarmWallpaper.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -109,6 +110,7 @@ app.use('/api/v1/travel', travelRouter);
 app.use('/api/v1/flatmates', flatmatesRouter);
 app.use('/api/v1/quiz', quizRouter);
 app.use('/api/v1/reports', reportsRouter);
+app.use('/api/v1/alarm-wallpapers', alarmWallpaperRouter);
 
 // ── Admin: Faculty request endpoints ──────────────────────
 const { requireAuth, requireAdmin } = require('./middleware/auth');
@@ -396,6 +398,17 @@ app.use((err, req, res, next) => {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions (quiz_id, total_score DESC, submitted_at ASC)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_attempts_quiz ON quiz_test_attempts (quiz_id, started_at)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_events_attempt ON quiz_test_events (quiz_id, user_id, created_at DESC)`);
+      // Alarm remote wallpapers
+      await db.query(`CREATE TABLE IF NOT EXISTS alarm_wallpapers (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        type TEXT NOT NULL CHECK (type IN ('image', 'animated', 'video')),
+        label TEXT NOT NULL,
+        url TEXT NOT NULL,
+        thumbnail_url TEXT,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_alarm_wallpapers_type ON alarm_wallpapers (type, sort_order ASC)`);
 
       console.log('✅  DB tables ensured');
       return;

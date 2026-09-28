@@ -1,4 +1,4 @@
-package com.campussetu.campussetu
+﻿package com.campussetu.campussetu
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -51,6 +51,7 @@ internal object AlarmScheduler {
         val start = Intent(context, AlarmRingService::class.java).apply {
             action = AlarmRingService.ACTION_RING
             putExtra(AlarmRingService.EXTRA_ALARM_ID, id)
+            putExtra(AlarmReceiver.EXTRA_IS_SNOOZE, snooze)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(start)
         else context.startService(start)
@@ -58,7 +59,7 @@ internal object AlarmScheduler {
 
     fun scheduleSnooze(context: Context, id: Int, minutes: Int) {
         val alarm = alarm(context, id) ?: return
-        val safeMinutes = minutes.coerceIn(1, 30)
+        val safeMinutes = 5 // fixed 5 min snooze
         val at = System.currentTimeMillis() + safeMinutes * 60_000L
         schedule(context, alarm, -1, at, snooze = true)
     }
