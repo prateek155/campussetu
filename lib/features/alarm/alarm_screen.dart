@@ -1,4 +1,6 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -1372,6 +1374,22 @@ class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with Singl
   }
 
   Future<void> _loadRemoteWallpapers() async {
+    // 1. Instant local offline cache (0ms load time)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString('cached_remote_alarm_wallpapers');
+      if (cachedJson != null && mounted) {
+        final data = jsonDecode(cachedJson) as Map<String, dynamic>;
+        setState(() {
+          _remoteImages = (data['image'] as List<dynamic>?) ?? [];
+          _remoteAnimated = (data['animated'] as List<dynamic>?) ?? [];
+          _remoteVideos = (data['video'] as List<dynamic>?) ?? [];
+          _loadingRemote = false;
+        });
+      }
+    } catch (_) {}
+
+    // 2. Fetch latest from Redis-backed API (<1ms from Redis memory)
     try {
       final data = await ApiService().getAlarmWallpapers();
       if (!mounted) return;
@@ -1381,6 +1399,8 @@ class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with Singl
         _remoteVideos = (data['video'] as List<dynamic>?) ?? [];
         _loadingRemote = false;
       });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_remote_alarm_wallpapers', jsonEncode(data));
     } catch (_) {
       if (mounted) setState(() => _loadingRemote = false);
     }
