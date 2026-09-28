@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/services/api_service.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -27,8 +26,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  bool? _filterBanned; // null = all, true = banned, false = active
-  bool _filterAdminOnly = false;
+  String _activeFilter = 'all'; // 'all' | 'active' | 'faculty' | 'admins' | 'banned'
 
   // Location & College Filters
   String? _filterState;
@@ -108,10 +106,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       final data = await ApiService().getAdminUsers(
         page: pageNum,
         q: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
-        isBanned: _filterBanned,
+        isBanned: _activeFilter == 'banned' ? true : (_activeFilter == 'active' ? false : null),
         state: _filterState,
         city: _filterCity,
         college: _filterCollege,
+        role: _activeFilter == 'faculty' ? 'faculty' : null,
+        isAdmin: _activeFilter == 'admins' ? true : null,
       );
 
       final raw = data['users'] ?? data['data'] ?? data['results'] ?? data['items'] ?? [];
@@ -342,10 +342,29 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   bool get _hasActiveLocationFilter =>
       _filterState != null || _filterCity != null || _filterCollege != null;
 
-  // Filter users by client-side admin toggle if selected
+  static bool isFacultyUser(Map<String, dynamic> u) {
+    final role = (u['role'] ?? '').toString().trim().toLowerCase();
+    return role == 'faculty' || u['is_faculty'] == true || u['isFaculty'] == true;
+  }
+
+  static bool isAdminUser(Map<String, dynamic> u) {
+    final role = (u['role'] ?? '').toString().trim().toLowerCase();
+    return u['is_admin'] == true || u['isAdmin'] == true || role == 'admin';
+  }
+
+  // Filter users by client-side active filter
   List<Map<String, dynamic>> get _displayedUsers {
-    if (_filterAdminOnly) {
-      return _users.where((u) => u['is_admin'] == true || u['isAdmin'] == true).toList();
+    if (_activeFilter == 'faculty') {
+      return _users.where((u) => isFacultyUser(u)).toList();
+    }
+    if (_activeFilter == 'admins') {
+      return _users.where((u) => isAdminUser(u)).toList();
+    }
+    if (_activeFilter == 'active') {
+      return _users.where((u) => u['is_banned'] != true && u['isBanned'] != true).toList();
+    }
+    if (_activeFilter == 'banned') {
+      return _users.where((u) => u['is_banned'] == true || u['isBanned'] == true).toList();
     }
     return _users;
   }
@@ -353,7 +372,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   // Counts for pills
   int get _countAll => _users.length;
   int get _countActive => _users.where((u) => (u['is_banned'] != true && u['isBanned'] != true)).length;
-  int get _countAdmins => _users.where((u) => (u['is_admin'] == true || u['isAdmin'] == true)).length;
+  int get _countFaculties => _users.where((u) => isFacultyUser(u)).length;
+  int get _countAdmins => _users.where((u) => isAdminUser(u)).length;
   int get _countBanned => _users.where((u) => (u['is_banned'] == true || u['isBanned'] == true)).length;
 
   @override
@@ -459,14 +479,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               _StatusFilterPill(
                                 label: 'All',
                                 count: _countAll,
-                                isSelected: _filterBanned == null && !_filterAdminOnly,
+                                isSelected: _activeFilter == 'all',
                                 selectedBg: const Color(0xFF3FD8F5),
                                 selectedTextColor: Colors.black,
                                 onTap: () {
-                                  setState(() {
-                                    _filterBanned = null;
-                                    _filterAdminOnly = false;
-                                  });
+                                  setState(() => _activeFilter = 'all');
                                   _fetchUsers(reset: true);
                                 },
                               ),
@@ -474,14 +491,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               _StatusFilterPill(
                                 label: 'Active',
                                 count: _countActive,
-                                isSelected: _filterBanned == false && !_filterAdminOnly,
+                                isSelected: _activeFilter == 'active',
                                 selectedBg: const Color(0xFF10B981),
                                 selectedTextColor: Colors.white,
                                 onTap: () {
-                                  setState(() {
-                                    _filterBanned = false;
-                                    _filterAdminOnly = false;
-                                  });
+                                  setState(() => _activeFilter = 'active');
+                                  _fetchUsers(reset: true);
+                                },
+                              ),
+                              const SizedBox(width: 10),
+                              _StatusFilterPill(
+                                label: 'Faculty',
+                                count: _countFaculties,
+                                isSelected: _activeFilter == 'faculty',
+                                selectedBg: const Color(0xFF818CF8),
+                                selectedTextColor: Colors.white,
+                                onTap: () {
+                                  setState(() => _activeFilter = 'faculty');
                                   _fetchUsers(reset: true);
                                 },
                               ),
@@ -489,28 +515,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               _StatusFilterPill(
                                 label: 'Admins',
                                 count: _countAdmins,
-                                isSelected: _filterAdminOnly,
+                                isSelected: _activeFilter == 'admins',
                                 selectedBg: const Color(0xFF38BDF8),
                                 selectedTextColor: Colors.black,
                                 onTap: () {
-                                  setState(() {
-                                    _filterAdminOnly = true;
-                                    _filterBanned = null;
-                                  });
+                                  setState(() => _activeFilter = 'admins');
+                                  _fetchUsers(reset: true);
                                 },
                               ),
                               const SizedBox(width: 10),
                               _StatusFilterPill(
                                 label: 'Banned',
                                 count: _countBanned,
-                                isSelected: _filterBanned == true,
+                                isSelected: _activeFilter == 'banned',
                                 selectedBg: const Color(0xFFEF4444),
                                 selectedTextColor: Colors.white,
                                 onTap: () {
-                                  setState(() {
-                                    _filterBanned = true;
-                                    _filterAdminOnly = false;
-                                  });
+                                  setState(() => _activeFilter = 'banned');
                                   _fetchUsers(reset: true);
                                 },
                               ),
@@ -598,7 +619,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       Expanded(flex: 4, child: Text('User', style: TextStyle(color: Color(0xFF5A6882), fontSize: 13, fontWeight: FontWeight.w600))),
                       Expanded(flex: 3, child: Text('College', style: TextStyle(color: Color(0xFF5A6882), fontSize: 13, fontWeight: FontWeight.w600))),
                       Expanded(flex: 2, child: Text('Activity', style: TextStyle(color: Color(0xFF5A6882), fontSize: 13, fontWeight: FontWeight.w600))),
-                      SizedBox(width: 140, child: Text('Status', style: TextStyle(color: Color(0xFF5A6882), fontSize: 13, fontWeight: FontWeight.w600))),
+                      SizedBox(width: 200, child: Text('Role & Status', style: TextStyle(color: Color(0xFF5A6882), fontSize: 13, fontWeight: FontWeight.w600))),
                     ],
                   ),
                 );
@@ -936,32 +957,10 @@ class _UserRowCard extends StatelessWidget {
     final points   = (user['points'] ?? 0).toString();
     final posts    = (user['posts_count'] ?? user['post_count'] ?? 0).toString();
     final conns    = (user['connections_count'] ?? user['connectionsCount'] ?? 0).toString();
-    final isBanned = user['is_banned'] ?? user['isBanned'] ?? false;
-    final isAdmin  = user['is_admin'] ?? user['isAdmin'] ?? false;
+    final isBanned = user['is_banned'] == true || user['isBanned'] == true;
+    final isAdmin  = _AdminUsersScreenState.isAdminUser(user);
+    final isFaculty = _AdminUsersScreenState.isFacultyUser(user);
     final initial  = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
-    // Status pill setup
-    Color statusBg;
-    Color statusDot;
-    Color statusText;
-    String statusLabel;
-
-    if (isBanned == true) {
-      statusBg = const Color(0xFF2C1014);
-      statusDot = const Color(0xFFEF4444);
-      statusText = const Color(0xFFEF4444);
-      statusLabel = 'Banned';
-    } else if (isAdmin == true) {
-      statusBg = const Color(0xFF092330);
-      statusDot = const Color(0xFF38BDF8);
-      statusText = const Color(0xFF38BDF8);
-      statusLabel = 'Admin';
-    } else {
-      statusBg = const Color(0xFF09291E);
-      statusDot = const Color(0xFF10B981);
-      statusText = const Color(0xFF10B981);
-      statusLabel = 'Active';
-    }
 
     final avatarColor = _getAvatarColor(name);
 
@@ -1072,17 +1071,69 @@ class _UserRowCard extends StatelessWidget {
                     ),
                   ),
 
-                  // 4. STATUS & BLOCK ACTION
+                  // 4. ROLE, STATUS & BLOCK ACTION
                   SizedBox(
-                    width: 140,
+                    width: 200,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Status badge (e.g. ● Active / ● Admin)
+                        if (isFaculty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1B4B),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(color: const Color(0xFF4338CA).withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(color: Color(0xFF818CF8), shape: BoxShape.circle),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Faculty',
+                                  style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ] else if (isAdmin) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF092330),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(color: const Color(0xFF0369A1).withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(color: Color(0xFF38BDF8), shape: BoxShape.circle),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Admin',
+                                  style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+
+                        // Status badge (● Active / ● Banned)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                           decoration: BoxDecoration(
-                            color: statusBg,
+                            color: isBanned ? const Color(0xFF2C1014) : const Color(0xFF09291E),
                             borderRadius: BorderRadius.circular(100),
                           ),
                           child: Row(
@@ -1091,17 +1142,24 @@ class _UserRowCard extends StatelessWidget {
                               Container(
                                 width: 6,
                                 height: 6,
-                                decoration: BoxDecoration(color: statusDot, shape: BoxShape.circle),
+                                decoration: BoxDecoration(
+                                  color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 5),
                               Text(
-                                statusLabel,
-                                style: TextStyle(color: statusText, fontSize: 12, fontWeight: FontWeight.w700),
+                                isBanned ? 'Banned' : 'Active',
+                                style: TextStyle(
+                                  color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
 
                         // Ban / Block Action Button
                         GestureDetector(
@@ -1115,7 +1173,7 @@ class _UserRowCard extends StatelessWidget {
                               border: Border.all(color: const Color(0xFF3B151C)),
                             ),
                             child: Icon(
-                              isBanned == true ? Icons.lock_open_rounded : Icons.block_rounded,
+                              isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
                               color: const Color(0xFFEF4444),
                               size: 15,
                             ),
@@ -1146,17 +1204,75 @@ class _UserRowCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(100)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(width: 6, height: 6, decoration: BoxDecoration(color: statusDot, shape: BoxShape.circle)),
-                            const SizedBox(width: 6),
-                            Text(statusLabel, style: TextStyle(color: statusText, fontSize: 11, fontWeight: FontWeight.w700)),
-                          ],
-                        ),
+                      const SizedBox(width: 6),
+                      Wrap(
+                        spacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (isFaculty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1B4B),
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(color: const Color(0xFF4338CA).withOpacity(0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF818CF8), shape: BoxShape.circle)),
+                                  const SizedBox(width: 4),
+                                  const Text('Faculty', style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            )
+                          else if (isAdmin)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF092330),
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(color: const Color(0xFF0369A1).withOpacity(0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF38BDF8), shape: BoxShape.circle)),
+                                  const SizedBox(width: 4),
+                                  const Text('Admin', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isBanned ? const Color(0xFF2C1014) : const Color(0xFF09291E),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isBanned ? 'Banned' : 'Active',
+                                  style: TextStyle(
+                                    color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
@@ -1164,8 +1280,16 @@ class _UserRowCard extends StatelessWidget {
                         child: Container(
                           width: 30,
                           height: 30,
-                          decoration: BoxDecoration(color: const Color(0xFF1E1114), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF3B151C))),
-                          child: Icon(isBanned == true ? Icons.lock_open_rounded : Icons.block_rounded, color: const Color(0xFFEF4444), size: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1114),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF3B151C)),
+                          ),
+                          child: Icon(
+                            isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
+                            color: const Color(0xFFEF4444),
+                            size: 14,
+                          ),
                         ),
                       ),
                     ],
@@ -1267,8 +1391,10 @@ class _UserDetailSheet extends StatelessWidget {
     final points    = (user['points'] ?? 0).toString();
     final posts     = (user['posts_count'] ?? user['post_count'] ?? 0).toString();
     final conns     = (user['connections_count'] ?? user['connectionsCount'] ?? 0).toString();
-    final isBanned  = user['is_banned'] ?? user['isBanned'] ?? false;
-    final isAdmin   = user['is_admin'] ?? user['isAdmin'] ?? false;
+    final isBanned  = user['is_banned'] == true || user['isBanned'] == true;
+    final isAdmin   = _AdminUsersScreenState.isAdminUser(user);
+    final isFaculty = _AdminUsersScreenState.isFacultyUser(user);
+    final subject   = (user['subject'] ?? user['department'] ?? '').toString();
     final initial   = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Container(
@@ -1307,6 +1433,13 @@ class _UserDetailSheet extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
+                    _DetailRow(
+                      label: 'Role',
+                      value: isAdmin ? 'Admin' : isFaculty ? 'Faculty' : 'Student',
+                      valueColor: isAdmin ? cyan : isFaculty ? const Color(0xFF818CF8) : const Color(0xFF94A3B8),
+                    ),
+                    if (isFaculty && subject.isNotEmpty && subject != 'null')
+                      _DetailRow(label: 'Subject', value: subject),
                     if (college.isNotEmpty) _DetailRow(label: 'College', value: college),
                     if (state.isNotEmpty || city.isNotEmpty)
                       _DetailRow(label: 'Location', value: '$city${city.isNotEmpty && state.isNotEmpty ? ', ' : ''}$state'),
@@ -1314,8 +1447,8 @@ class _UserDetailSheet extends StatelessWidget {
                     if (branch.isNotEmpty && branch != 'null') _DetailRow(label: 'Branch', value: branch),
                     _DetailRow(
                       label: 'Status',
-                      value: isAdmin == true ? 'Admin' : isBanned == true ? 'Banned' : 'Active',
-                      valueColor: isAdmin == true ? cyan : isBanned == true ? red : green,
+                      value: isBanned ? 'Banned' : 'Active',
+                      valueColor: isBanned ? red : green,
                     ),
                   ],
                 ),

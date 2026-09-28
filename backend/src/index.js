@@ -320,6 +320,14 @@ app.use((err, req, res, next) => {
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_faculty_requests_firebase_uid
         ON faculty_requests (firebase_uid) WHERE firebase_uid IS NOT NULL`);
 
+      // Sync approved faculty role
+      await db.query(`UPDATE users u
+        SET role = 'faculty'
+        FROM faculty_requests fr
+        WHERE fr.status = 'approved'
+          AND (LOWER(u.email) = LOWER(fr.email) OR (u.firebase_uid IS NOT NULL AND u.firebase_uid = fr.firebase_uid))
+          AND (u.role IS NULL OR u.role != 'faculty')`);
+
       // Quizzes
       await db.query(`CREATE TABLE IF NOT EXISTS quizzes (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

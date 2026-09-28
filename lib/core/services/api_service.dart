@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:campussetu/core/config/app_config.dart';
 import 'package:uuid/uuid.dart';
@@ -526,6 +526,8 @@ class ApiService {
     String? state,
     String? city,
     String? college,
+    String? role,
+    bool? isAdmin,
   }) async {
     final res = await _dio.get('/admin/users', queryParameters: {
       'page': page,
@@ -534,6 +536,8 @@ class ApiService {
       if (state != null && state.isNotEmpty) 'state': state,
       if (city != null && city.isNotEmpty) 'city': city,
       if (college != null && college.isNotEmpty) 'college': college,
+      if (role != null && role.isNotEmpty) 'role': role,
+      if (isAdmin != null) 'is_admin': isAdmin.toString(),
     });
     return res.data as Map<String, dynamic>;
   }

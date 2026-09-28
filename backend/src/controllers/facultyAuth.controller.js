@@ -182,6 +182,10 @@ exports.approveFacultyRequest = async (req, res) => {
       [userId, request.firebase_uid, request.name, request.email, request.college_name, request.subject]
     );
     await client.query(
+      `UPDATE users SET role = 'faculty', college_name = $1, subject = $2 WHERE LOWER(email) = LOWER($3)`,
+      [request.college_name, request.subject, request.email]
+    );
+    await client.query(
       "UPDATE faculty_requests SET status = 'approved' WHERE id = $1",
       [request.id]
     );

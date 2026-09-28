@@ -166,7 +166,7 @@ exports.approveNote = async (req, res) => {
 // ── GET /admin/users?page=1&limit=20&q=&is_banned=&state=&city=&college= ──
 exports.getUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 20, q, is_banned, state, city, college } = req.query;
+    const { page = 1, limit = 20, q, is_banned, state, city, college, role, is_admin } = req.query;
     const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
@@ -196,6 +196,24 @@ exports.getUsers = async (req, res) => {
       params.push(`%${college.trim()}%`);
       pi++;
     }
+    if (role && role.trim().length > 0) {
+      if (role.toLowerCase() === 'faculty') {
+        conditions.push(`(
+          LOWER(u.role) = 'faculty' OR EXISTS (
+            SELECT 1 FROM faculty_requests fr 
+            WHERE (LOWER(fr.email) = LOWER(u.email) OR (fr.firebase_uid IS NOT NULL AND fr.firebase_uid = u.firebase_uid))
+              AND fr.status = 'approved'
+          )
+        )`);
+      } else {
+        conditions.push(`LOWER(u.role) = $${pi}`);
+        params.push(role.trim().toLowerCase());
+        pi++;
+      }
+    }
+    if (is_admin === 'true') {
+      conditions.push('u.is_admin = true');
+    }
 
     const whereClause = conditions.length
       ? 'WHERE ' + conditions.join(' AND ')
@@ -206,7 +224,18 @@ exports.getUsers = async (req, res) => {
     const { rows } = await db.query(
       `SELECT u.id, u.name, u.email, u.campus_id, u.college, u.state, u.city,
          u.course, u.branch, u.year_of_study, u.photo_url, u.is_banned,
-         u.is_admin, u.is_verified, u.is_premium, u.role, u.college_name, u.created_at,
+         u.is_admin, u.is_verified, u.is_premium,
+         COALESCE(
+           CASE WHEN EXISTS (
+             SELECT 1 FROM faculty_requests fr 
+             WHERE (LOWER(fr.email) = LOWER(u.email) OR (fr.firebase_uid IS NOT NULL AND fr.firebase_uid = u.firebase_uid))
+               AND fr.status = 'approved'
+           ) THEN 'faculty' ELSE NULL END,
+           u.role,
+           'student'
+         ) AS role,
+         COALESCE(u.college_name, u.college) AS college_name,
+         u.created_at,
          (SELECT COALESCE(SUM(amount), 0)::int FROM points_ledger WHERE user_id = u.id) AS points,
          (SELECT COUNT(*)::int FROM posts WHERE author_id = u.id AND is_deleted = false) AS post_count,
          (SELECT COUNT(*)::int FROM connections
