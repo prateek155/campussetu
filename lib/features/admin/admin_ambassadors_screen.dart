@@ -1,7 +1,9 @@
 // lib/features/admin/admin_ambassadors_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../ambassador/models/campus_ambassador_model.dart';
 import '../ambassador/services/campus_ambassador_service.dart';
 
@@ -14,253 +16,283 @@ class AdminAmbassadorsScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen> {
-  static const _bg = Color(0xFF0D0F1A);
-  static const _card = Color(0xFF141728);
-  static const _border = Color(0xFF252840);
-  static const _cyan = Color(0xFF3FD8F5);
-  static const _green = Color(0xFF22C55E);
+  // ── Palette matching the modern dark design ────────────────────────────────
+  static const _bg = Color(0xFF090D16);
+  static const _card = Color(0xFF0D121E);
+  static const _cardAlt = Color(0xFF121725);
+  static const _border = Color(0xFF1A2234);
+  static const _cyan = Color(0xFF38BDF8);
+  static const _green = Color(0xFF10B981);
   static const _red = Color(0xFFEF4444);
   static const _orange = Color(0xFFF59E0B);
+  static const _textMuted = Color(0xFF64748B);
+  static const _textLight = Color(0xFFE2E8F0);
 
+  final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   AmbassadorStatus? _filterStatus;
   bool _isTogglingStatus = false;
 
   @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() {
+      final query = _searchCtrl.text.trim();
+      if (_searchQuery != query) {
+        setState(() => _searchQuery = query);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isProgramOpenAsync = ref.watch(ambassadorProgramStatusProvider);
     final isProgramOpen = isProgramOpenAsync.value ?? true;
-
     final applicationsAsync = ref.watch(adminAmbassadorsStreamProvider);
 
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // ── Top Header ───────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.campaign_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Campus Ambassadors',
-                                style: TextStyle(
-                                  color: Color(0xFFE9EBEE),
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Manage student nominations & visibility',
-                                style: TextStyle(
-                                  color: Color(0xFF9CA3AF),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+        child: applicationsAsync.when(
+          data: (allApplications) {
+            final pendingCount = allApplications
+                .where((a) => a.status == AmbassadorStatus.pending)
+                .length;
+            final acceptedCount = allApplications
+                .where((a) => a.status == AmbassadorStatus.accepted)
+                .length;
+            final rejectedCount = allApplications
+                .where((a) => a.status == AmbassadorStatus.rejected)
+                .length;
+            final totalCount = allApplications.length;
 
-                    // ── Killswitch Control Card ────────────────────────
-                    _buildKillswitchCard(isProgramOpen),
+            final filtered = allApplications.where((app) {
+              if (_filterStatus != null && app.status != _filterStatus) {
+                return false;
+              }
+              if (_searchQuery.isNotEmpty) {
+                final q = _searchQuery.toLowerCase();
+                final matchName = app.name.toLowerCase().contains(q);
+                final matchCollege = app.collegeName.toLowerCase().contains(q);
+                final matchDegree = app.degree.toLowerCase().contains(q);
+                final matchPhone = app.phone.contains(q);
+                return matchName || matchCollege || matchDegree || matchPhone;
+              }
+              return true;
+            }).toList();
 
-                    const SizedBox(height: 16),
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 700;
 
-                    // ── Stats Summary Row ──────────────────────────────
-                    applicationsAsync.when(
-                      data: (list) => _buildStatsRow(list),
-                      loading: () => const SizedBox(
-                        height: 70,
-                        child: Center(
-                          child: CircularProgressIndicator(color: _orange),
-                        ),
-                      ),
-                      error: (_, __) => const SizedBox(),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Search & Filter Controls ───────────────────────
-                    _buildSearchAndFilters(),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Applicants List ────────────────────────────────────────
-            applicationsAsync.when(
-              data: (list) {
-                final filtered = list.where((app) {
-                  if (_filterStatus != null && app.status != _filterStatus) {
-                    return false;
-                  }
-                  if (_searchQuery.isNotEmpty) {
-                    final q = _searchQuery.toLowerCase();
-                    final matchName = app.name.toLowerCase().contains(q);
-                    final matchCollege =
-                        app.collegeName.toLowerCase().contains(q);
-                    final matchDegree = app.degree.toLowerCase().contains(q);
-                    final matchPhone = app.phone.contains(q);
-                    return matchName || matchCollege || matchDegree || matchPhone;
-                  }
-                  return true;
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
+                return CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    // ── Header & Controls ────────────────────────────────────
+                    SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(32),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.people_outline_rounded,
-                                size: 48, color: Color(0xFF4B5563)),
-                            const SizedBox(height: 12),
-                            Text(
-                              list.isEmpty
-                                  ? 'No Ambassador applications yet'
-                                  : 'No applications match your filter',
-                              style: const TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
+                            // Title & Subtitle
+                            const Text(
+                              'Campus ambassadors',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              list.isEmpty
-                                  ? 'Submissions from the student app will appear here in real time.'
-                                  : 'Try changing your search term or status filter.',
-                              style: const TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontSize: 12,
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Review student nominations and control who sees the program.',
+                              style: TextStyle(
+                                color: _textMuted,
+                                fontSize: 13,
+                                height: 1.3,
                               ),
-                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 18),
+
+                            // ── Program Status Killswitch Card ────────────────
+                            _buildProgramStatusCard(isProgramOpen),
+
+                            const SizedBox(height: 16),
+
+                            // ── 3-Column Stats Row ────────────────────────────
+                            _buildStatsRow(
+                              pending: pendingCount,
+                              accepted: acceptedCount,
+                              rejected: rejectedCount,
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // ── Search Bar ────────────────────────────────────
+                            _buildSearchBar(),
+
+                            const SizedBox(height: 14),
+
+                            // ── Filter Pills ──────────────────────────────────
+                            _buildFilterPills(
+                              pendingCount: pendingCount,
+                              acceptedCount: acceptedCount,
+                              rejectedCount: rejectedCount,
+                              totalCount: totalCount,
                             ),
                           ],
                         ),
                       ),
                     ),
-                  );
-                }
 
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final app = filtered[index];
-                        return _buildApplicantCard(app);
-                      },
-                      childCount: filtered.length,
-                    ),
-                  ),
+                    // ── Submissions Cards ────────────────────────────────────
+                    if (filtered.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmptyState(allApplications.isEmpty),
+                      )
+                    else if (!isWide)
+                      // Mobile: single column list
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final app = filtered[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: _buildApplicantCard(app),
+                              );
+                            },
+                            childCount: filtered.length,
+                          ),
+                        ),
+                      )
+                    else
+                      // Wide Screen / Tablet: 2 columns pair-wise
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, rowIndex) {
+                              final firstIdx = rowIndex * 2;
+                              final secondIdx = firstIdx + 1;
+                              final app1 = filtered[firstIdx];
+                              final app2 = secondIdx < filtered.length
+                                  ? filtered[secondIdx]
+                                  : null;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: _buildApplicantCard(app1)),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: app2 != null
+                                          ? _buildApplicantCard(app2)
+                                          : const SizedBox(),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            childCount: (filtered.length / 2).ceil(),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
-              loading: () => const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(color: _orange),
-                ),
-              ),
-              error: (err, _) => SliverFillRemaining(
-                child: Center(
-                  child: Text(
-                    'Error loading applicants: $err',
-                    style: const TextStyle(color: _red),
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: _cyan),
+          ),
+          error: (err, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: _red, size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Error loading ambassador applications:\n$err',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: _red, fontSize: 13),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Killswitch Control ──────────────────────────────────────────────────
-  Widget _buildKillswitchCard(bool isProgramOpen) {
+  // ── Killswitch Control Card ────────────────────────────────────────────────
+  Widget _buildProgramStatusCard(bool isProgramOpen) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isProgramOpen
-              ? _green.withValues(alpha: 0.3)
-              : _red.withValues(alpha: 0.3),
+              ? _green.withValues(alpha: 0.25)
+              : _red.withValues(alpha: 0.25),
         ),
       ),
       child: Row(
         children: [
+          // Eye Icon Container
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: isProgramOpen
-                  ? _green.withValues(alpha: 0.15)
-                  : _red.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+                  ? const Color(0xFF064E3B).withValues(alpha: 0.6)
+                  : const Color(0xFF7F1D1D).withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isProgramOpen
+                    ? _green.withValues(alpha: 0.4)
+                    : _red.withValues(alpha: 0.4),
+              ),
             ),
             child: Icon(
-              isProgramOpen ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+              isProgramOpen
+                  ? Icons.visibility_rounded
+                  : Icons.visibility_off_rounded,
               color: isProgramOpen ? _green : _red,
-              size: 20,
+              size: 22,
             ),
           ),
           const SizedBox(width: 14),
+
+          // Label & Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Program Status: ',
-                      style: TextStyle(
-                        color: Color(0xFFE9EBEE),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      isProgramOpen ? 'ACTIVE (OPEN)' : 'PAUSED (CLOSED)',
-                      style: TextStyle(
-                        color: isProgramOpen ? _green : _red,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
+                Text(
+                  isProgramOpen ? 'Program is open' : 'Program is paused',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -268,43 +300,59 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
                       ? 'Visible to students on Home screen & carousel'
                       : 'Card and banners are hidden from student app',
                   style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 11,
+                    color: _textMuted,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
+
+          // Toggle Switch
           _isTogglingStatus
               ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _orange),
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: _green,
+                  ),
                 )
               : Switch.adaptive(
                   value: isProgramOpen,
-                  activeThumbColor: _green,
-                  activeTrackColor: _green.withValues(alpha: 0.3),
+                  activeColor: _green,
+                  activeTrackColor: _green.withValues(alpha: 0.35),
                   inactiveThumbColor: _red,
-                  inactiveTrackColor: _red.withValues(alpha: 0.3),
+                  inactiveTrackColor: _red.withValues(alpha: 0.35),
                   onChanged: (val) async {
                     setState(() => _isTogglingStatus = true);
                     try {
-                      await CampusAmbassadorService.instance.setProgramStatus(val);
+                      await CampusAmbassadorService.instance
+                          .setProgramStatus(val);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(val
-                                ? 'Ambassador Program opened on user app!'
-                                : 'Ambassador Program paused and hidden from user app.'),
+                            content: Text(
+                              val
+                                  ? 'Ambassador Program opened for students!'
+                                  : 'Ambassador Program paused and hidden from student app.',
+                            ),
                             backgroundColor: val ? _green : _orange,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         );
                       }
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to update status: $e')),
+                          SnackBar(
+                            content: Text('Failed to update program status: $e'),
+                            backgroundColor: _red,
+                            behavior: SnackBarBehavior.floating,
+                          ),
                         );
                       }
                     } finally {
@@ -317,51 +365,71 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     );
   }
 
-  // ── Stats Summary Row ───────────────────────────────────────────────────
-  Widget _buildStatsRow(List<CampusAmbassadorModel> list) {
-    final total = list.length;
-    final pending = list.where((e) => e.status == AmbassadorStatus.pending).length;
-    final accepted = list.where((e) => e.status == AmbassadorStatus.accepted).length;
-    final rejected = list.where((e) => e.status == AmbassadorStatus.rejected).length;
-
+  // ── 3-Column Stats Row ─────────────────────────────────────────────────────
+  Widget _buildStatsRow({
+    required int pending,
+    required int accepted,
+    required int rejected,
+  }) {
     return Row(
       children: [
-        Expanded(child: _statCard('Total', total.toString(), _cyan)),
-        const SizedBox(width: 8),
-        Expanded(child: _statCard('Pending', pending.toString(), _orange)),
-        const SizedBox(width: 8),
-        Expanded(child: _statCard('Accepted', accepted.toString(), _green)),
-        const SizedBox(width: 8),
-        Expanded(child: _statCard('Rejected', rejected.toString(), _red)),
+        Expanded(
+          child: _statBox(
+            label: 'Pending',
+            value: pending.toString(),
+            color: _orange,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statBox(
+            label: 'Accepted',
+            value: accepted.toString(),
+            color: _green,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statBox(
+            label: 'Rejected',
+            value: rejected.toString(),
+            color: _red,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _statCard(String label, String value, Color color) {
+  Widget _statBox({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: _textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 18,
+              fontSize: 24,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -369,359 +437,1119 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     );
   }
 
-  // ── Search & Filter Controls ───────────────────────────────────────────
-  Widget _buildSearchAndFilters() {
-    return Column(
-      children: [
-        // Search bar
-        TextField(
-          onChanged: (val) => setState(() => _searchQuery = val.trim()),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          decoration: InputDecoration(
-            hintText: 'Search by student name, college, degree, phone...',
-            hintStyle: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
-            prefixIcon: const Icon(Icons.search_rounded,
-                color: Color(0xFF6B7280), size: 18),
-            filled: true,
-            fillColor: _card,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _orange, width: 1.2),
-            ),
+  // ── Search Bar ─────────────────────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: TextField(
+        controller: _searchCtrl,
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Search name, college, degree, phone',
+          hintStyle: const TextStyle(color: _textMuted, fontSize: 13),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: _textMuted,
+            size: 20,
           ),
-        ),
-        const SizedBox(height: 10),
-
-        // Filter chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _filterChip('All', null),
-              const SizedBox(width: 8),
-              _filterChip('Pending ⏳', AmbassadorStatus.pending, color: _orange),
-              const SizedBox(width: 8),
-              _filterChip('Accepted 🎉', AmbassadorStatus.accepted, color: _green),
-              const SizedBox(width: 8),
-              _filterChip('Rejected ❌', AmbassadorStatus.rejected, color: _red),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _filterChip(String label, AmbassadorStatus? status, {Color? color}) {
-    final isSelected = _filterStatus == status;
-    final accent = color ?? _cyan;
-
-    return InkWell(
-      onTap: () => setState(() => _filterStatus = status),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? accent.withValues(alpha: 0.15) : _card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? accent : _border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? accent : const Color(0xFF9CA3AF),
-          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded,
+                      color: _textMuted, size: 18),
+                  onPressed: () => _searchCtrl.clear(),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         ),
       ),
     );
   }
 
-  // ── Applicant Card ──────────────────────────────────────────────────────
+  // ── Filter Pills ───────────────────────────────────────────────────────────
+  Widget _buildFilterPills({
+    required int pendingCount,
+    required int acceptedCount,
+    required int rejectedCount,
+    required int totalCount,
+  }) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          _filterPill(
+            label: 'Pending',
+            count: pendingCount,
+            status: AmbassadorStatus.pending,
+            badgeColor: _orange,
+          ),
+          const SizedBox(width: 8),
+          _filterPill(
+            label: 'Accepted',
+            count: acceptedCount,
+            status: AmbassadorStatus.accepted,
+            badgeColor: _green,
+          ),
+          const SizedBox(width: 8),
+          _filterPill(
+            label: 'Rejected',
+            count: rejectedCount,
+            status: AmbassadorStatus.rejected,
+            badgeColor: _red,
+          ),
+          const SizedBox(width: 8),
+          _filterPill(
+            label: 'All',
+            count: totalCount,
+            status: null,
+            badgeColor: _cyan,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterPill({
+    required String label,
+    required int count,
+    required AmbassadorStatus? status,
+    required Color badgeColor,
+  }) {
+    final isSelected = _filterStatus == status;
+
+    return InkWell(
+      onTap: () => setState(() => _filterStatus = status),
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? _cardAlt : _card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected ? badgeColor.withValues(alpha: 0.6) : _border,
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : _textMuted,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? badgeColor.withValues(alpha: 0.25)
+                    : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? badgeColor : _textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Applicant Card ─────────────────────────────────────────────────────────
   Widget _buildApplicantCard(CampusAmbassadorModel app) {
     Color statusColor;
-    String statusText;
-    IconData statusIcon;
+    String statusLabel;
 
     switch (app.status) {
       case AmbassadorStatus.accepted:
         statusColor = _green;
-        statusText = 'ACCEPTED';
-        statusIcon = Icons.check_circle_rounded;
+        statusLabel = 'Accepted';
         break;
       case AmbassadorStatus.rejected:
         statusColor = _red;
-        statusText = 'REJECTED';
-        statusIcon = Icons.cancel_rounded;
+        statusLabel = 'Rejected';
         break;
       case AmbassadorStatus.pending:
         statusColor = _orange;
-        statusText = 'PENDING';
-        statusIcon = Icons.hourglass_top_rounded;
+        statusLabel = 'Pending';
         break;
     }
 
-    final dateStr = DateFormat('dd MMM, yyyy').format(app.createdAt);
+    final avatarColor = _getAvatarColor(app.name);
+    final initial = app.name.trim().isNotEmpty
+        ? app.name.trim()[0].toUpperCase()
+        : 'S';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _card,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showStudentDetailSheet(app),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Name, Status badge & Date
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: statusColor.withValues(alpha: 0.15),
-                child: Text(
-                  app.name.isNotEmpty ? app.name[0].toUpperCase() : 'A',
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      app.name,
-                      style: const TextStyle(
-                        color: Color(0xFFE9EBEE),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Applied on $dateStr',
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, color: statusColor, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border),
           ),
-          const SizedBox(height: 14),
-
-          // Detail grid / rows
-          _applicantDetail(Icons.school_outlined, 'College', app.collegeName),
-          _applicantDetail(
-              Icons.menu_book_outlined, 'Program', '${app.degree} • ${app.currentYear}'),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _applicantDetail(
-                    Icons.phone_outlined, 'Contact', app.phone),
-              ),
-              Expanded(
-                child: _applicantDetail(
-                    Icons.cake_outlined, 'Age', '${app.age} yrs'),
-              ),
-            ],
-          ),
-
-          // Previous Experience
-          if (app.previousExperience.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: _bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _border),
-              ),
-              child: Column(
+              // Top Row: Avatar + Name/College + Status Badge
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Experience & Leadership Background:',
-                    style: TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: avatarColor.withValues(alpha: 0.25),
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        color: avatarColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    app.previousExperience,
-                    style: const TextStyle(
-                      color: Color(0xFFD1D5DB),
-                      fontSize: 12,
-                      height: 1.4,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          app.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          app.collegeName.isNotEmpty
+                              ? app.collegeName
+                              : 'College Not Specified',
+                          style: const TextStyle(
+                            color: _textMuted,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Status badge (dot + label)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: statusColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          statusLabel,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
 
-          if (app.reviewNote != null && app.reviewNote!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Remarks: ${app.reviewNote}',
-              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11, fontStyle: FontStyle.italic),
-            ),
-          ],
+              const SizedBox(height: 14),
 
-          const SizedBox(height: 14),
-
-          // Action Buttons: Accept / Reject / Reset
-          Row(
-            children: [
-              // Reject Button
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: app.status == AmbassadorStatus.rejected
-                      ? null
-                      : () => _updateStatus(app, AmbassadorStatus.rejected),
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _red,
-                    side: BorderSide(
-                      color: app.status == AmbassadorStatus.rejected
-                          ? _border
-                          : _red.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              // Row 1: Degree & Year
+              Row(
+                children: [
+                  const Icon(
+                    Icons.menu_book_outlined,
+                    size: 15,
+                    color: _textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Degree: ',
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: Text(
+                      '${app.degree.isNotEmpty ? app.degree : "N/A"}, Year ${app.currentYear.isNotEmpty ? app.currentYear : "1"}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
 
-              // Accept Button
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: app.status == AmbassadorStatus.accepted
-                      ? null
-                      : () => _updateStatus(app, AmbassadorStatus.accepted),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Accept'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _green,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 6),
+
+              // Row 2: Phone
+              Row(
+                children: [
+                  const Icon(
+                    Icons.phone_outlined,
+                    size: 15,
+                    color: _textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Phone: ',
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: Text(
+                      app.phone.isNotEmpty ? app.phone : 'Not provided',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Action Buttons: Reject & Accept
+              Row(
+                children: [
+                  // Reject Button
+                  Expanded(
+                    child: InkWell(
+                      onTap: () =>
+                          _updateStatus(app, AmbassadorStatus.rejected),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        height: 38,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C1518),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _red.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Text(
+                          app.status == AmbassadorStatus.rejected
+                              ? 'Rejected'
+                              : 'Reject',
+                          style: TextStyle(
+                            color: app.status == AmbassadorStatus.rejected
+                                ? _red.withValues(alpha: 0.7)
+                                : const Color(0xFFF87171),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Accept Button (Cyan)
+                  Expanded(
+                    child: InkWell(
+                      onTap: () =>
+                          _updateStatus(app, AmbassadorStatus.accepted),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        height: 38,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: app.status == AmbassadorStatus.accepted
+                              ? _cyan.withValues(alpha: 0.7)
+                              : _cyan,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          app.status == AmbassadorStatus.accepted
+                              ? 'Accepted'
+                              : 'Accept',
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _applicantDetail(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFF6B7280)),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF9CA3AF),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFE5E7EB),
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+  // ── Student Full Detail Modal ──────────────────────────────────────────────
+  void _showStudentDetailSheet(CampusAmbassadorModel app) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _StudentDetailSheet(
+          app: app,
+          onUpdateStatus: (newStatus) {
+            Navigator.of(ctx).pop();
+            _updateStatus(app, newStatus);
+          },
+          onMakeCall: () => _makeCall(app.phone),
+          onWhatsApp: () => _openWhatsApp(app.phone, app.name),
+        );
+      },
     );
   }
 
-  Future<void> _updateStatus(CampusAmbassadorModel app, AmbassadorStatus newStatus) async {
+  // ── Update Application Status ──────────────────────────────────────────────
+  Future<void> _updateStatus(
+    CampusAmbassadorModel app,
+    AmbassadorStatus newStatus,
+  ) async {
     try {
       await CampusAmbassadorService.instance.updateApplicationStatus(
         app.id,
         newStatus,
       );
       if (mounted) {
+        final isAccepted = newStatus == AmbassadorStatus.accepted;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Application marked as ${newStatus.label} for ${app.name}'),
-            backgroundColor:
-                newStatus == AmbassadorStatus.accepted ? _green : _red,
+            content: Row(
+              children: [
+                Icon(
+                  isAccepted
+                      ? Icons.check_circle_rounded
+                      : Icons.cancel_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${app.name} application marked as ${newStatus == AmbassadorStatus.accepted ? "Accepted" : "Rejected"}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: isAccepted ? _green : _red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update status: $e')),
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: _red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
+  }
+
+  // ── Helper Actions ─────────────────────────────────────────────────────────
+  Future<void> _makeCall(String phone) async {
+    final clean = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri.parse('tel:$clean');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      await Clipboard.setData(ClipboardData(text: clean));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Phone number copied to clipboard: $clean'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openWhatsApp(String phone, String name) async {
+    final clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final msg = Uri.encodeComponent(
+      'Hello $name, this is regarding your Campus Ambassador application for CampusSetu.',
+    );
+    final uri = Uri.parse('https://wa.me/$clean?text=$msg');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      await Clipboard.setData(ClipboardData(text: clean));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Phone copied to clipboard: $clean'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildEmptyState(bool isCompletelyEmpty) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _card,
+                shape: BoxShape.circle,
+                border: Border.all(color: _border),
+              ),
+              child: const Icon(
+                Icons.people_outline_rounded,
+                size: 40,
+                color: _textMuted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isCompletelyEmpty
+                  ? 'No Ambassador nominations yet'
+                  : 'No nominations match your search or filter',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isCompletelyEmpty
+                  ? 'Submissions from the student app will appear here in real time.'
+                  : 'Try modifying your search query or reset the filter status.',
+              style: const TextStyle(
+                color: _textMuted,
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getAvatarColor(String name) {
+    final colors = [
+      const Color(0xFF8B5CF6), // Purple
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF06B6D4), // Cyan
+      const Color(0xFF10B981), // Emerald
+      const Color(0xFFF59E0B), // Amber
+      const Color(0xFFEC4899), // Pink
+      const Color(0xFF6366F1), // Indigo
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
+  }
+}
+
+// ── Student Detail Bottom Sheet ──────────────────────────────────────────────
+class _StudentDetailSheet extends StatelessWidget {
+  final CampusAmbassadorModel app;
+  final ValueChanged<AmbassadorStatus> onUpdateStatus;
+  final VoidCallback onMakeCall;
+  final VoidCallback onWhatsApp;
+
+  const _StudentDetailSheet({
+    required this.app,
+    required this.onUpdateStatus,
+    required this.onMakeCall,
+    required this.onWhatsApp,
+  });
+
+  static const _sheetBg = Color(0xFF0D121E);
+  static const _sheetCard = Color(0xFF121725);
+  static const _sheetBorder = Color(0xFF1A2234);
+  static const _cyan = Color(0xFF38BDF8);
+  static const _green = Color(0xFF10B981);
+  static const _red = Color(0xFFEF4444);
+  static const _orange = Color(0xFFF59E0B);
+  static const _textMuted = Color(0xFF64748B);
+
+  @override
+  Widget build(BuildContext context) {
+    final appliedDateStr =
+        DateFormat('dd MMM yyyy, hh:mm a').format(app.createdAt);
+
+    Color statusColor;
+    String statusLabel;
+    switch (app.status) {
+      case AmbassadorStatus.accepted:
+        statusColor = _green;
+        statusLabel = 'Accepted';
+        break;
+      case AmbassadorStatus.rejected:
+        statusColor = _red;
+        statusLabel = 'Rejected';
+        break;
+      case AmbassadorStatus.pending:
+        statusColor = _orange;
+        statusLabel = 'Under Review';
+        break;
+    }
+
+    final avatarColor = _getAvatarColor(app.name);
+    final initial = app.name.trim().isNotEmpty
+        ? app.name.trim()[0].toUpperCase()
+        : 'S';
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      decoration: const BoxDecoration(
+        color: _sheetBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF334155),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+
+          // Scrollable Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Profile Header
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: avatarColor.withValues(alpha: 0.25),
+                        child: Text(
+                          initial,
+                          style: TextStyle(
+                            color: avatarColor,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              app.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              app.collegeName.isNotEmpty
+                                  ? app.collegeName
+                                  : 'College Not Specified',
+                              style: const TextStyle(
+                                color: _textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: _textMuted,
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Status & Applied Timestamp Row
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _sheetCard,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _sheetBorder),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Status: $statusLabel',
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          appliedDateStr,
+                          style: const TextStyle(
+                            color: _textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Quick Action Buttons (Call / WhatsApp / Copy)
+                  Row(
+                    children: [
+                      // Call
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onMakeCall,
+                          icon: const Icon(Icons.phone_rounded,
+                              size: 16, color: _green),
+                          label: const Text('Call'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _green,
+                            side: BorderSide(
+                              color: _green.withValues(alpha: 0.4),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // WhatsApp
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onWhatsApp,
+                          icon: const Icon(Icons.chat_bubble_outline_rounded,
+                              size: 16, color: _cyan),
+                          label: const Text('WhatsApp'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _cyan,
+                            side: BorderSide(
+                              color: _cyan.withValues(alpha: 0.4),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Copy Phone
+                      IconButton(
+                        tooltip: 'Copy details',
+                        onPressed: () {
+                          final text = '''
+Campus Ambassador Nomination:
+Name: ${app.name}
+College: ${app.collegeName}
+Degree: ${app.degree} (${app.currentYear})
+Phone: ${app.phone}
+Age: ${app.age}
+Statement / Experience: ${app.previousExperience}
+Status: ${app.status.label}
+''';
+                          Clipboard.setData(ClipboardData(text: text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Student details copied to clipboard'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded,
+                            color: _textMuted, size: 20),
+                        style: IconButton.styleFrom(
+                          backgroundColor: _sheetCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: const BorderSide(color: _sheetBorder),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ── Student Info Grid ──────────────────────────────────────
+                  const Text(
+                    'ACADEMIC & CONTACT INFO',
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _sheetCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _sheetBorder),
+                    ),
+                    child: Column(
+                      children: [
+                        _detailRow(
+                          Icons.school_outlined,
+                          'College',
+                          app.collegeName.isNotEmpty
+                              ? app.collegeName
+                              : 'Not provided',
+                        ),
+                        const Divider(color: _sheetBorder, height: 16),
+                        _detailRow(
+                          Icons.menu_book_outlined,
+                          'Degree & Year',
+                          '${app.degree.isNotEmpty ? app.degree : "N/A"} • Year ${app.currentYear.isNotEmpty ? app.currentYear : "N/A"}',
+                        ),
+                        const Divider(color: _sheetBorder, height: 16),
+                        _detailRow(
+                          Icons.phone_outlined,
+                          'Phone Number',
+                          app.phone.isNotEmpty ? app.phone : 'Not provided',
+                        ),
+                        const Divider(color: _sheetBorder, height: 16),
+                        _detailRow(
+                          Icons.cake_outlined,
+                          'Age',
+                          app.age.isNotEmpty ? '${app.age} yrs' : 'Not specified',
+                        ),
+                        const Divider(color: _sheetBorder, height: 16),
+                        _detailRow(
+                          Icons.fingerprint_rounded,
+                          'User ID',
+                          app.userId.isNotEmpty ? app.userId : app.id,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ── Student's Short Description / Experience ───────────────
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.format_quote_rounded,
+                        color: _cyan,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        "STUDENT'S STATEMENT & EXPERIENCE",
+                        style: TextStyle(
+                          color: _cyan,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _cyan.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Written by student',
+                          style: TextStyle(
+                            color: _cyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF090D16),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _cyan.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Text(
+                      app.previousExperience.trim().isNotEmpty
+                          ? app.previousExperience.trim()
+                          : 'The student did not provide any extra statement or previous experience with this application.',
+                      style: TextStyle(
+                        color: app.previousExperience.trim().isNotEmpty
+                            ? const Color(0xFFE2E8F0)
+                            : _textMuted,
+                        fontSize: 13,
+                        height: 1.5,
+                        fontStyle: app.previousExperience.trim().isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ),
+
+                  if (app.reviewNote != null &&
+                      app.reviewNote!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'ADMIN REMARKS',
+                      style: TextStyle(
+                        color: _textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _sheetCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _sheetBorder),
+                      ),
+                      child: Text(
+                        app.reviewNote!,
+                        style: const TextStyle(
+                          color: Color(0xFFCBD5E1),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // Bottom Action Decision Buttons
+                  Row(
+                    children: [
+                      // Reject
+                      Expanded(
+                        child: InkWell(
+                          onTap: () =>
+                              onUpdateStatus(AmbassadorStatus.rejected),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2C1518),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _red.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: const Text(
+                              'Reject Application',
+                              style: TextStyle(
+                                color: Color(0xFFF87171),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Accept
+                      Expanded(
+                        child: InkWell(
+                          onTap: () =>
+                              onUpdateStatus(AmbassadorStatus.accepted),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _cyan,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Accept as Ambassador',
+                              style: TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String title, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: _textMuted),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            color: _textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getAvatarColor(String name) {
+    final colors = [
+      const Color(0xFF8B5CF6), // Purple
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF06B6D4), // Cyan
+      const Color(0xFF10B981), // Emerald
+      const Color(0xFFF59E0B), // Amber
+      const Color(0xFFEC4899), // Pink
+      const Color(0xFF6366F1), // Indigo
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
   }
 }
