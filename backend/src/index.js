@@ -1,4 +1,4 @@
-// backend/src/index.js
+﻿// backend/src/index.js
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -54,13 +54,40 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Rate Limiting ──────────────────────────────────────────
+const { redis } = require('./config/redis');
+let rateLimitStore;
+try {
+  if (redis) {
+    const { RedisStore } = require('rate-limit-redis');
+    rateLimitStore = new RedisStore({
+      sendCommand: (...args) => redis.call(...args),
+      prefix: 'rl:global:',
+    });
+  }
+} catch {
+  // rate-limit-redis not installed - falls back to in-memory per worker
+}
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  store: rateLimitStore,
 });
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: rateLimitStore,
+  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+});
+
 app.use('/api', globalLimiter);
+app.use('/api/v1/users/login', authLimiter);
+app.use('/api/v1/users/register', authLimiter);
 
 // ── Static files (uploaded notes + quiz images) ───────────
 app.use('/uploads', express.static(path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads')));
