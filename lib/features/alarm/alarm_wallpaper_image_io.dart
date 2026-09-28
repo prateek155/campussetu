@@ -1,16 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:rive/rive.dart';
+import 'package:rive/rive.dart' hide LinearGradient, Image; // hide to avoid ambiguous imports
 import 'package:video_player/video_player.dart';
 
 // ── Path encoding helpers ─────────────────────────────────────────────────────
-// Built-in gradient:  "__builtin__:<id>"
-// Built-in image:     "__asset_img__:<assetPath>"
-// Built-in Rive:      "__asset_rive__:<assetPath>"
-// Built-in video:     "__asset_video__:<assetPath>"
-// Custom file:        absolute file-system path (user-picked)
-
 bool _isBuiltIn(String path) => path.startsWith('__builtin__:');
 bool _isAssetImg(String path) => path.startsWith('__asset_img__:');
 bool _isAssetRive(String path) => path.startsWith('__asset_rive__:');
@@ -19,7 +13,7 @@ bool _isAssetVideo(String path) => path.startsWith('__asset_video__:');
 String _stripPrefix(String path) => path.substring(path.indexOf(':') + 1);
 String _builtInId(String path) => path.replaceFirst('__builtin__:', '');
 
-// Must stay in sync with _builtInWallpapers in alarm_screen.dart
+// Must stay in sync with _gradientWallpapers in alarm_screen.dart
 final _builtInGradients = <String, List<Color>>{
   'aurora':   const [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
   'sunset':   const [Color(0xFFFF512F), Color(0xFFDD2476)],
@@ -45,18 +39,26 @@ class AlarmWallpaperImage extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1️⃣ Built-in gradient
     if (_isBuiltIn(path)) {
-      final colors = _builtInGradients[_builtInId(path)] ?? const [Color(0xFF232526), Color(0xFF414345)];
+      final colors = _builtInGradients[_builtInId(path)] ??
+          const [Color(0xFF232526), Color(0xFF414345)];
       return Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
       );
     }
 
     // 2️⃣ Asset image (JPG/PNG bundled in APK)
     if (_isAssetImg(path)) {
-      return Image.asset(_stripPrefix(path), fit: fit,
-          errorBuilder: (_, __, ___) => const _FallbackBg());
+      return Image.asset(
+        _stripPrefix(path),
+        fit: fit,
+        errorBuilder: (_, __, ___) => const _FallbackBg(),
+      );
     }
 
     // 3️⃣ Rive animated wallpaper
@@ -70,8 +72,12 @@ class AlarmWallpaperImage extends StatelessWidget {
     }
 
     // 5️⃣ Custom user-picked file
-    return Image.file(File(path), fit: fit, cacheWidth: 1440,
-        errorBuilder: (_, __, ___) => const _FallbackBg());
+    return Image.file(
+      File(path),
+      fit: fit,
+      cacheWidth: 1440,
+      errorBuilder: (_, __, ___) => const _FallbackBg(),
+    );
   }
 }
 
@@ -84,7 +90,7 @@ class _RiveWallpaper extends StatelessWidget {
   Widget build(BuildContext context) => RiveAnimation.asset(
     assetPath,
     fit: BoxFit.cover,
-    playsOnLoad: true,
+    // animations play automatically by default in Rive
   );
 }
 
@@ -109,7 +115,7 @@ class _VideoWallpaperState extends State<_VideoWallpaper> {
         if (!mounted) return;
         _controller
           ..setLooping(true)
-          ..setVolume(0)   // always muted — alarm sound is separate
+          ..setVolume(0) // always muted — alarm sound is separate
           ..play();
         setState(() => _ready = true);
       });
@@ -143,7 +149,8 @@ class _FallbackBg extends StatelessWidget {
     decoration: const BoxDecoration(
       gradient: LinearGradient(
         colors: [Color(0xFF232526), Color(0xFF414345)],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
     ),
   );
