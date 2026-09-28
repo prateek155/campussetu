@@ -26,12 +26,12 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
   static const _red = Color(0xFFEF4444);
   static const _orange = Color(0xFFF59E0B);
   static const _textMuted = Color(0xFF64748B);
-  static const _textLight = Color(0xFFE2E8F0);
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   AmbassadorStatus? _filterStatus;
   bool _isTogglingStatus = false;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -50,192 +50,286 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     super.dispose();
   }
 
+  Future<void> _handleRefresh() async {
+    setState(() => _isRefreshing = true);
+    ref.invalidate(adminAmbassadorsStreamProvider);
+    ref.invalidate(ambassadorProgramStatusProvider);
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (mounted) setState(() => _isRefreshing = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isProgramOpenAsync = ref.watch(ambassadorProgramStatusProvider);
     final isProgramOpen = isProgramOpenAsync.value ?? true;
+
     final applicationsAsync = ref.watch(adminAmbassadorsStreamProvider);
+    final allApplications = applicationsAsync.value ?? <CampusAmbassadorModel>[];
+    final isLoading = applicationsAsync.isLoading && allApplications.isEmpty;
+    final hasError = applicationsAsync.hasError && allApplications.isEmpty;
+
+    final pendingCount = allApplications
+        .where((a) => a.status == AmbassadorStatus.pending)
+        .length;
+    final acceptedCount = allApplications
+        .where((a) => a.status == AmbassadorStatus.accepted)
+        .length;
+    final rejectedCount = allApplications
+        .where((a) => a.status == AmbassadorStatus.rejected)
+        .length;
+    final totalCount = allApplications.length;
+
+    final filtered = allApplications.where((app) {
+      if (_filterStatus != null && app.status != _filterStatus) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final matchName = app.name.toLowerCase().contains(q);
+        final matchCollege = app.collegeName.toLowerCase().contains(q);
+        final matchDegree = app.degree.toLowerCase().contains(q);
+        final matchPhone = app.phone.contains(q);
+        return matchName || matchCollege || matchDegree || matchPhone;
+      }
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: applicationsAsync.when(
-          data: (allApplications) {
-            final pendingCount = allApplications
-                .where((a) => a.status == AmbassadorStatus.pending)
-                .length;
-            final acceptedCount = allApplications
-                .where((a) => a.status == AmbassadorStatus.accepted)
-                .length;
-            final rejectedCount = allApplications
-                .where((a) => a.status == AmbassadorStatus.rejected)
-                .length;
-            final totalCount = allApplications.length;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 700;
 
-            final filtered = allApplications.where((app) {
-              if (_filterStatus != null && app.status != _filterStatus) {
-                return false;
-              }
-              if (_searchQuery.isNotEmpty) {
-                final q = _searchQuery.toLowerCase();
-                final matchName = app.name.toLowerCase().contains(q);
-                final matchCollege = app.collegeName.toLowerCase().contains(q);
-                final matchDegree = app.degree.toLowerCase().contains(q);
-                final matchPhone = app.phone.contains(q);
-                return matchName || matchCollege || matchDegree || matchPhone;
-              }
-              return true;
-            }).toList();
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 700;
-
-                return CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // ── Header & Controls ────────────────────────────────────
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Title & Subtitle
-                            const Text(
-                              'Campus ambassadors',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Review student nominations and control who sees the program.',
-                              style: TextStyle(
-                                color: _textMuted,
-                                fontSize: 13,
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-
-                            // ── Program Status Killswitch Card ────────────────
-                            _buildProgramStatusCard(isProgramOpen),
-
-                            const SizedBox(height: 16),
-
-                            // ── 3-Column Stats Row ────────────────────────────
-                            _buildStatsRow(
-                              pending: pendingCount,
-                              accepted: acceptedCount,
-                              rejected: rejectedCount,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // ── Search Bar ────────────────────────────────────
-                            _buildSearchBar(),
-
-                            const SizedBox(height: 14),
-
-                            // ── Filter Pills ──────────────────────────────────
-                            _buildFilterPills(
-                              pendingCount: pendingCount,
-                              acceptedCount: acceptedCount,
-                              rejectedCount: rejectedCount,
-                              totalCount: totalCount,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // ── Submissions Cards ────────────────────────────────────
-                    if (filtered.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _buildEmptyState(allApplications.isEmpty),
-                      )
-                    else if (!isWide)
-                      // Mobile: single column list
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final app = filtered[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: _buildApplicantCard(app),
-                              );
-                            },
-                            childCount: filtered.length,
-                          ),
-                        ),
-                      )
-                    else
-                      // Wide Screen / Tablet: 2 columns pair-wise
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, rowIndex) {
-                              final firstIdx = rowIndex * 2;
-                              final secondIdx = firstIdx + 1;
-                              final app1 = filtered[firstIdx];
-                              final app2 = secondIdx < filtered.length
-                                  ? filtered[secondIdx]
-                                  : null;
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: Row(
+            return RefreshIndicator(
+              onRefresh: _handleRefresh,
+              color: _cyan,
+              backgroundColor: _card,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  // ── Header & Controls (ALWAYS VISIBLE IMMEDIATELY) ──────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title, Subtitle & Refresh Action
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Expanded(
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(child: _buildApplicantCard(app1)),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: app2 != null
-                                          ? _buildApplicantCard(app2)
-                                          : const SizedBox(),
+                                    Text(
+                                      'Campus ambassadors',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Review student nominations and control who sees the program.',
+                                      style: TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 13,
+                                        height: 1.3,
+                                      ),
                                     ),
                                   ],
                                 ),
-                              );
-                            },
-                            childCount: (filtered.length / 2).ceil(),
+                              ),
+                              IconButton(
+                                tooltip: 'Refresh data',
+                                onPressed: _isRefreshing ? null : _handleRefresh,
+                                icon: _isRefreshing
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _cyan,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.refresh_rounded,
+                                        color: _textMuted,
+                                        size: 22,
+                                      ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: _card,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: const BorderSide(color: _border),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // ── Program Status Killswitch Card ──────────────────
+                          _buildProgramStatusCard(isProgramOpen),
+
+                          const SizedBox(height: 16),
+
+                          // ── 3-Column Stats Row ──────────────────────────────
+                          _buildStatsRow(
+                            pending: pendingCount,
+                            accepted: acceptedCount,
+                            rejected: rejectedCount,
+                            isLoading: isLoading,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // ── Search Bar ──────────────────────────────────────
+                          _buildSearchBar(),
+
+                          const SizedBox(height: 14),
+
+                          // ── Filter Pills ────────────────────────────────────
+                          _buildFilterPills(
+                            pendingCount: pendingCount,
+                            acceptedCount: acceptedCount,
+                            rejectedCount: rejectedCount,
+                            totalCount: totalCount,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Submissions Section ─────────────────────────────────────
+                  if (isLoading)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildSkeletonCard(),
+                          childCount: 3,
+                        ),
+                      ),
+                    )
+                  else if (hasError)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.cloud_off_rounded,
+                                color: _red,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Unable to load nominations',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${applicationsAsync.error ?? "Please check your network connection."}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 18),
+                              ElevatedButton.icon(
+                                onPressed: _handleRefresh,
+                                icon: const Icon(Icons.refresh_rounded, size: 16),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _cyan,
+                                  foregroundColor: const Color(0xFF0F172A),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
-            );
-          },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: _cyan),
-          ),
-          error: (err, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline_rounded,
-                      color: _red, size: 48),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Error loading ambassador applications:\n$err',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: _red, fontSize: 13),
-                  ),
+                    )
+                  else if (filtered.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyState(allApplications.isEmpty),
+                    )
+                  else if (!isWide)
+                    // Mobile: 1 column
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final app = filtered[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: _buildApplicantCard(app),
+                            );
+                          },
+                          childCount: filtered.length,
+                        ),
+                      ),
+                    )
+                  else
+                    // Desktop / Tablet: 2 columns pair-wise
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, rowIndex) {
+                            final firstIdx = rowIndex * 2;
+                            final secondIdx = firstIdx + 1;
+                            final app1 = filtered[firstIdx];
+                            final app2 = secondIdx < filtered.length
+                                ? filtered[secondIdx]
+                                : null;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: _buildApplicantCard(app1)),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: app2 != null
+                                        ? _buildApplicantCard(app2)
+                                        : const SizedBox(),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          childCount: (filtered.length / 2).ceil(),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -370,13 +464,14 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     required int pending,
     required int accepted,
     required int rejected,
+    required bool isLoading,
   }) {
     return Row(
       children: [
         Expanded(
           child: _statBox(
             label: 'Pending',
-            value: pending.toString(),
+            value: isLoading ? '...' : pending.toString(),
             color: _orange,
           ),
         ),
@@ -384,7 +479,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
         Expanded(
           child: _statBox(
             label: 'Accepted',
-            value: accepted.toString(),
+            value: isLoading ? '...' : accepted.toString(),
             color: _green,
           ),
         ),
@@ -392,7 +487,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
         Expanded(
           child: _statBox(
             label: 'Rejected',
-            value: rejected.toString(),
+            value: isLoading ? '...' : rejected.toString(),
             color: _red,
           ),
         ),
@@ -836,6 +931,111 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Skeleton Loader Card ───────────────────────────────────────────────────
+  Widget _buildSkeletonCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1E293B),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 180,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF161F2E),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 60,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 12,
+            decoration: BoxDecoration(
+              color: const Color(0xFF161F2E),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: 200,
+            height: 12,
+            decoration: BoxDecoration(
+              color: const Color(0xFF161F2E),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
