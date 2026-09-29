@@ -337,6 +337,11 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> resolveReport(String reportId, String action) async {
+    final res = await _dio.post('/admin/reports/$reportId/resolve', data: {'action': action});
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getJobApprovalQueue() async {
     final res = await _dio.get('/admin/jobs/pending');
     if (res.data is List) return {'data': res.data};
@@ -521,8 +526,10 @@ class ApiService {
 
   Future<Map<String, dynamic>> getAdminUsers({
     int page = 1,
+    int limit = 20,
     String? q,
     bool? isBanned,
+    bool? incomplete,
     String? state,
     String? city,
     String? college,
@@ -531,8 +538,10 @@ class ApiService {
   }) async {
     final res = await _dio.get('/admin/users', queryParameters: {
       'page': page,
+      'limit': limit,
       if (q != null && q.isNotEmpty) 'q': q,
       if (isBanned != null) 'is_banned': isBanned.toString(),
+      if (incomplete == true) 'incomplete': 'true',
       if (state != null && state.isNotEmpty) 'state': state,
       if (city != null && city.isNotEmpty) 'city': city,
       if (college != null && college.isNotEmpty) 'college': college,

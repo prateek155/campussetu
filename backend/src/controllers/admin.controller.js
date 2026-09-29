@@ -38,17 +38,40 @@ exports.grantPoints = async (req, res) => {
 // ── GET /admin/stats ──────────────────────────────────────
 exports.getStats = async (req, res) => {
   try {
-    const [users, posts, reports, pendingJobs] = await Promise.all([
+    const [users, posts, reports, pendingJobs, incomplete, banned, authors, recentUsers, roles] = await Promise.all([
       db.query('SELECT COUNT(*) FROM users'),
       db.query('SELECT COUNT(*) FROM posts WHERE is_deleted = false'),
       db.query("SELECT COUNT(*) FROM reports WHERE status = 'pending'"),
       db.query("SELECT COUNT(*) FROM jobs WHERE is_approved = false"),
+      db.query(`SELECT COUNT(*) FROM users WHERE 
+        (college IS NULL OR TRIM(college) = '' 
+         OR state IS NULL OR TRIM(state) = '' 
+         OR city IS NULL OR TRIM(city) = ''
+         OR branch IS NULL OR TRIM(branch) = ''
+         OR year_of_study IS NULL OR TRIM(year_of_study) = '')`),
+      db.query('SELECT COUNT(*) FROM users WHERE is_banned = true'),
+      db.query('SELECT COUNT(DISTINCT author_id) FROM posts WHERE is_deleted = false'),
+      db.query('SELECT id, name, email, photo_url, role, is_admin FROM users ORDER BY created_at DESC LIMIT 10'),
+      db.query(`SELECT 
+        COUNT(*) FILTER (WHERE (role = 'student' OR role IS NULL) AND (is_admin = false OR is_admin IS NULL)) AS students,
+        COUNT(*) FILTER (WHERE role = 'faculty') AS faculty,
+        COUNT(*) FILTER (WHERE is_admin = true) AS admins
+        FROM users`),
     ]);
     res.json({
       total_users: parseInt(users.rows[0].count),
       total_posts: parseInt(posts.rows[0].count),
       pending_reports: parseInt(reports.rows[0].count),
       pending_jobs: parseInt(pendingJobs.rows[0].count),
+      incomplete_profiles: parseInt(incomplete.rows[0].count),
+      banned_users: parseInt(banned.rows[0].count),
+      total_authors: parseInt(authors.rows[0]?.count || 0),
+      recent_users: recentUsers.rows,
+      role_distribution: {
+        students: parseInt(roles.rows[0]?.students || 0),
+        faculty: parseInt(roles.rows[0]?.faculty || 0),
+        admins: parseInt(roles.rows[0]?.admins || 0),
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -60,8 +83,51 @@ exports.getReports = async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT r.*,
-         jsonb_build_object('id', u.id, 'name', u.name, 'email', u.email, 'photo_url', u.photo_url) AS reporter
-       FROM reports r JOIN users u ON u.id = r.reporter_id
+         jsonb_build_object(
+           'id', u.id, 
+           'name', u.name, 
+           'email', u.email, 
+           'photo_url', u.photo_url, 
+           'campus_id', u.campus_id
+         ) AS reporter,
+         CASE 
+           WHEN r.target_type = 'post' THEN (
+             SELECT jsonb_build_object(
+               'id', p.id,
+               'content', p.content,
+               'image_url', p.image_url,
+               'author_id', p.author_id,
+               'is_deleted', p.is_deleted,
+               'created_at', p.created_at,
+               'author', jsonb_build_object(
+                 'id', a.id, 
+                 'name', a.name, 
+                 'email', a.email, 
+                 'photo_url', a.photo_url, 
+                 'campus_id', a.campus_id,
+                 'college', a.college
+               )
+             )
+             FROM posts p
+             LEFT JOIN users a ON a.id = p.author_id
+             WHERE p.id = r.target_id
+           )
+           WHEN r.target_type = 'user' THEN (
+             SELECT jsonb_build_object(
+               'id', u2.id, 
+               'name', u2.name, 
+               'email', u2.email, 
+               'photo_url', u2.photo_url, 
+               'campus_id', u2.campus_id,
+               'college', u2.college
+             )
+             FROM users u2
+             WHERE u2.id = r.target_id
+           )
+           ELSE NULL
+         END AS target_details
+       FROM reports r 
+       JOIN users u ON u.id = r.reporter_id
        WHERE r.status = 'pending'
        ORDER BY r.created_at DESC LIMIT 50`
     );
@@ -74,8 +140,8 @@ exports.getReports = async (req, res) => {
 // ── POST /admin/reports/:id/resolve ───────────────────────
 exports.resolveReport = async (req, res) => {
   try {
-    const { action } = req.body; // 'dismiss' | 'delete_content' | 'ban_user'
-    if (!['dismiss', 'delete_content', 'ban_user'].includes(action)) {
+    const { action } = req.body; // 'dismiss' | 'delete_content' | 'ban_user' | 'delete_and_ban'
+    if (!['dismiss', 'delete_content', 'ban_user', 'delete_and_ban'].includes(action)) {
       return res.status(400).json({ error: 'Invalid report resolution action' });
     }
 
@@ -86,25 +152,28 @@ exports.resolveReport = async (req, res) => {
     const report = pendingReports[0];
     if (!report) return res.status(404).json({ error: 'Pending report not found' });
 
-    if (action === 'delete_content') {
-      if (report.target_type !== 'post') {
-        return res.status(400).json({ error: 'Only post reports can be resolved by deleting content' });
+    if (action === 'delete_content' || action === 'delete_and_ban') {
+      if (report.target_type === 'post') {
+        await db.query('UPDATE posts SET is_deleted = true WHERE id = $1', [report.target_id]);
       }
-      await db.query('UPDATE posts SET is_deleted = true WHERE id = $1', [report.target_id]);
     }
-    if (action === 'ban_user') {
-      const reportedUserId = report.reported_user_id ||
+    if (action === 'ban_user' || action === 'delete_and_ban') {
+      let reportedUserId = report.reported_user_id ||
         (report.target_type === 'user' ? report.target_id : null);
-      if (!reportedUserId) {
-        return res.status(400).json({ error: 'This report does not identify a user to ban' });
+      if (!reportedUserId && report.target_type === 'post') {
+        const { rows: postRows } = await db.query('SELECT author_id FROM posts WHERE id = $1', [report.target_id]);
+        if (postRows.length) reportedUserId = postRows[0].author_id;
       }
-      const { rows: users } = await db.query(
-        'UPDATE users SET is_banned = true WHERE id = $1 RETURNING firebase_uid',
-        [reportedUserId]
-      );
-      if (!users.length) return res.status(404).json({ error: 'Reported user not found' });
-      if (users[0].firebase_uid) {
-        await admin.auth().updateUser(users[0].firebase_uid, { disabled: true });
+      if (reportedUserId) {
+        const { rows: users } = await db.query(
+          'UPDATE users SET is_banned = true WHERE id = $1 RETURNING firebase_uid',
+          [reportedUserId]
+        );
+        if (users.length && users[0].firebase_uid) {
+          try {
+            await admin.auth().updateUser(users[0].firebase_uid, { disabled: true });
+          } catch (_) {}
+        }
       }
     }
 
@@ -166,7 +235,7 @@ exports.approveNote = async (req, res) => {
 // ── GET /admin/users?page=1&limit=20&q=&is_banned=&state=&city=&college= ──
 exports.getUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 20, q, is_banned, state, city, college, role, is_admin } = req.query;
+    const { page = 1, limit = 20, q, is_banned, state, city, college, role, is_admin, incomplete } = req.query;
     const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
@@ -181,6 +250,15 @@ exports.getUsers = async (req, res) => {
     }
     if (is_banned === 'true') conditions.push('u.is_banned = true');
     if (is_banned === 'false') conditions.push('u.is_banned = false');
+    if (incomplete === 'true') {
+      conditions.push(`(
+        u.college IS NULL OR TRIM(u.college) = '' 
+        OR u.state IS NULL OR TRIM(u.state) = '' 
+        OR u.city IS NULL OR TRIM(u.city) = ''
+        OR u.branch IS NULL OR TRIM(u.branch) = ''
+        OR u.year_of_study IS NULL OR TRIM(u.year_of_study) = ''
+      )`);
+    }
     if (state && state.trim().length > 0) {
       conditions.push(`u.state ILIKE $${pi}`);
       params.push(`%${state.trim()}%`);

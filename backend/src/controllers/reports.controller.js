@@ -45,6 +45,12 @@ exports.createReport = async (req, res) => {
       return res.status(400).json({ error: 'You cannot report your own account' });
     }
 
+    let reportedUserId = targetType === 'user' ? targetId : null;
+    if (targetType === 'post') {
+      const { rows: postRows } = await db.query('SELECT author_id FROM posts WHERE id = $1', [targetId]);
+      if (postRows.length) reportedUserId = postRows[0].author_id;
+    }
+
     const { rows } = await db.query(
       `INSERT INTO reports
          (reporter_id, target_type, target_id, reported_user_id, reason)
@@ -54,7 +60,7 @@ exports.createReport = async (req, res) => {
         reporters[0].id,
         targetType,
         targetId,
-        targetType === 'user' ? targetId : null,
+        reportedUserId,
         reason,
       ]
     );
