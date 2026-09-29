@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/services/api_service.dart';
+import 'widgets/admin_toast.dart';
 
 class AdminPulseScreen extends StatefulWidget {
   const AdminPulseScreen({super.key});
@@ -17,8 +18,6 @@ class _AdminPulseScreenState extends State<AdminPulseScreen>
     with TickerProviderStateMixin {
   // ── Palette ─────────────────────────────────────────────────
   static const _bg        = Color(0xFF0D0F1A);
-  static const _red       = Color(0xFFEF4444);
-  static const _orange    = Color(0xFFF59E0B);
 
   // ── State ────────────────────────────────────────────────────
   Map<String, dynamic> _stats      = {};
@@ -118,8 +117,7 @@ class _AdminPulseScreenState extends State<AdminPulseScreen>
         _incident = null;
         _actioning = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Account frozen — user blocked'), backgroundColor: _red));
+      if (mounted) AdminToast.error(context, 'Account frozen — user blocked');
     } catch (e) {
       if (mounted) setState(() => _actioning = false);
     }
@@ -138,8 +136,7 @@ class _AdminPulseScreenState extends State<AdminPulseScreen>
         _incident = null;
         _actioning = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Access restricted'), backgroundColor: _orange));
+      if (mounted) AdminToast.warning(context, 'Access restricted');
     } catch (e) {
       if (mounted) setState(() => _actioning = false);
     }

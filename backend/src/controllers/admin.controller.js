@@ -38,7 +38,7 @@ exports.grantPoints = async (req, res) => {
 // ── GET /admin/stats ──────────────────────────────────────
 exports.getStats = async (req, res) => {
   try {
-    const [users, posts, reports, pendingJobs, incomplete, banned, authors, recentUsers, roles] = await Promise.all([
+    const [users, posts, reports, pendingJobs, incomplete, banned, authors, recentUsers, roles, activeTodayRes] = await Promise.all([
       db.query('SELECT COUNT(*) FROM users'),
       db.query('SELECT COUNT(*) FROM posts WHERE is_deleted = false'),
       db.query("SELECT COUNT(*) FROM reports WHERE status = 'pending'"),
@@ -57,6 +57,7 @@ exports.getStats = async (req, res) => {
         COUNT(*) FILTER (WHERE role = 'faculty') AS faculty,
         COUNT(*) FILTER (WHERE is_admin = true) AS admins
         FROM users`),
+      db.query("SELECT COUNT(*) FROM users WHERE updated_at >= NOW() - INTERVAL '24 hours'"),
     ]);
     res.json({
       total_users: parseInt(users.rows[0].count),
@@ -66,6 +67,7 @@ exports.getStats = async (req, res) => {
       incomplete_profiles: parseInt(incomplete.rows[0].count),
       banned_users: parseInt(banned.rows[0].count),
       total_authors: parseInt(authors.rows[0]?.count || 0),
+      active_today: parseInt(activeTodayRes.rows[0]?.count || 0),
       recent_users: recentUsers.rows,
       role_distribution: {
         students: parseInt(roles.rows[0]?.students || 0),

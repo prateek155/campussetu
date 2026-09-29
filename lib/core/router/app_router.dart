@@ -26,6 +26,7 @@ import '../../features/deals/deals_screen.dart';
 import '../../features/flatmates/flatmates_screen.dart';
 import '../../features/startup/startup_screen.dart';
 import '../../features/admin/admin_shell.dart';
+import '../../features/admin/auth/admin_login_screen.dart';
 import '../../features/admin/add_deal_screen.dart';
 import '../../features/admin/add_event_screen.dart';
 import '../../features/events/events_screen.dart';
@@ -136,6 +137,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Admin shell (with its own 4-tab bottom nav)
+      GoRoute(path: '/admin-login', builder: (_, __) => const AdminLoginScreen()),
       GoRoute(path: AppRoutes.admin, builder: (_, __) => const AdminShell()),
       GoRoute(path: AppRoutes.adminAddDeal, builder: (_, __) => const AddDealScreen()),
       GoRoute(path: '/events/add', builder: (_, __) => const AddEventScreen()),

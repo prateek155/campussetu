@@ -51,26 +51,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        final token = await user.getIdToken();
-        if (token != null) ApiService().setToken(token);
+        final token = await user.getIdToken(true);
+        if (token != null && token.isNotEmpty) {
+          ApiService().setToken(token);
+        }
       }
-      final statsFuture = ApiService().getAdminStats();
-      final reportsFuture = ApiService().getReportsQueue();
 
-      final results = await Future.wait([statsFuture, reportsFuture]);
-      final stats = results[0];
-      final reportsData = results[1];
+      Map<String, dynamic>? stats;
+      List<Map<String, dynamic>> reports = [];
+      String? loadError;
 
-      final rawReports = reportsData['data'] ?? reportsData['reports'] ?? reportsData['items'] ?? [];
+      try {
+        stats = await ApiService().getAdminStats();
+      } catch (e) {
+        loadError = e.toString();
+        debugPrint('Admin stats fetch error: $e');
+      }
+
+      try {
+        final reportsData = await ApiService().getReportsQueue();
+        final rawReports = reportsData['data'] ?? reportsData['reports'] ?? reportsData['items'] ?? [];
+        if (rawReports is List) {
+          reports = rawReports.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      } catch (e) {
+        debugPrint('Admin reports fetch error: $e');
+      }
 
       if (mounted) {
-        setState(() {
-          _stats = stats;
-          _reports = (rawReports is List)
-              ? rawReports.map((e) => Map<String, dynamic>.from(e as Map)).toList()
-              : [];
-          _loading = false;
-        });
+        if (stats == null && loadError != null) {
+          setState(() {
+            _loading = false;
+            _error = loadError;
+          });
+        } else {
+          setState(() {
+            _stats = stats ?? {};
+            _reports = reports;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -117,10 +137,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _stats ?? {};
-    final totalUsers = (s['total_users'] ?? s['totalUsers'] ?? s['users'] ?? '5').toString();
-    final activeToday = (s['active_today'] ?? s['activeToday'] ?? '—').toString();
-    final totalPosts = (s['total_posts'] ?? s['totalPosts'] ?? '3').toString();
-    final totalAuthors = (s['total_authors'] ?? s['total_posts'] ?? totalPosts).toString();
+    final totalUsers = (s['total_users'] ?? s['totalUsers'] ?? s['users'] ?? '0').toString();
+    final activeToday = (s['active_today'] ?? s['activeToday'] ?? '0').toString();
+    final totalPosts = (s['total_posts'] ?? s['totalPosts'] ?? '0').toString();
+    final totalAuthors = (s['total_authors'] ?? totalPosts).toString();
     final pendingCount = int.tryParse((s['pending_reports'] ?? _reports.length).toString()) ?? _reports.length;
     final incompleteCount = int.tryParse((s['incomplete_profiles'] ?? '0').toString()) ?? 0;
     final bannedCount = int.tryParse((s['banned_users'] ?? '0').toString()) ?? 0;
@@ -128,7 +148,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final recentUsers = (s['recent_users'] is List) ? (s['recent_users'] as List) : [];
     final roleDist = (s['role_distribution'] is Map)
         ? Map<String, dynamic>.from(s['role_distribution'] as Map)
-        : {'students': 4, 'faculty': 1, 'admins': 1};
+        : {'students': 0, 'faculty': 0, 'admins': 0};
 
     return Scaffold(
       backgroundColor: _bg,

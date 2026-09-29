@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import 'widgets/admin_toast.dart';
 
 class AdminFacultyScreen extends StatefulWidget {
   const AdminFacultyScreen({super.key});
@@ -84,14 +85,12 @@ class _AdminFacultyScreenState extends State<AdminFacultyScreen> with SingleTick
       final dio = await _dio();
       await dio.post('/admin/faculty-requests/$id/approve');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ $name approved! Account created.'), backgroundColor: Colors.green),
-        );
+        AdminToast.success(context, '$name approved! Account created.');
       }
       _load();
     } on DioException catch (e) {
       final msg = e.response?.data?['error'] ?? 'Approval failed';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      if (mounted) AdminToast.error(context, msg);
     }
   }
 
@@ -117,11 +116,11 @@ class _AdminFacultyScreenState extends State<AdminFacultyScreen> with SingleTick
       final dio = await _dio();
       await dio.post('/admin/faculty-requests/$id/reject');
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request rejected')));
+      if (mounted) AdminToast.info(context, 'Request rejected');
       _load();
     } on DioException catch (e) {
       final msg = e.response?.data?['error'] ?? 'Failed';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      if (mounted) AdminToast.error(context, msg);
     }
   }
 

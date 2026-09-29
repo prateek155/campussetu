@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../ambassador/models/campus_ambassador_model.dart';
 import '../ambassador/services/campus_ambassador_service.dart';
+import 'widgets/admin_toast.dart';
 
 class AdminAmbassadorsScreen extends ConsumerStatefulWidget {
   const AdminAmbassadorsScreen({super.key});
@@ -424,30 +425,15 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
                       await CampusAmbassadorService.instance
                           .setProgramStatus(val);
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              val
-                                  ? 'Ambassador Program opened for students!'
-                                  : 'Ambassador Program paused and hidden from student app.',
-                            ),
-                            backgroundColor: val ? _green : _orange,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        );
+                        if (val) {
+                          AdminToast.success(context, 'Ambassador Program opened for students!');
+                        } else {
+                          AdminToast.warning(context, 'Ambassador Program paused and hidden from student app.');
+                        }
                       }
                     } catch (e) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to update program status: $e'),
-                            backgroundColor: _red,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        AdminToast.error(context, 'Failed to update program status: $e');
                       }
                     } finally {
                       if (mounted) setState(() => _isTogglingStatus = false);
@@ -1072,46 +1058,16 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
       );
       if (mounted) {
         final isAccepted = newStatus == AmbassadorStatus.accepted;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  isAccepted
-                      ? Icons.check_circle_rounded
-                      : Icons.cancel_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${app.name} application marked as ${newStatus == AmbassadorStatus.accepted ? "Accepted" : "Rejected"}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: isAccepted ? _green : _red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        final msg = '${app.name} application marked as ${isAccepted ? "Accepted" : "Rejected"}';
+        if (isAccepted) {
+          AdminToast.success(context, msg);
+        } else {
+          AdminToast.warning(context, msg);
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update status: $e'),
-            backgroundColor: _red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AdminToast.error(context, 'Failed to update status: $e');
       }
     }
   }
@@ -1125,12 +1081,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     } else {
       await Clipboard.setData(ClipboardData(text: clean));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Phone number copied to clipboard: $clean'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AdminToast.info(context, 'Phone copied: $clean');
       }
     }
   }
@@ -1146,12 +1097,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
     } else {
       await Clipboard.setData(ClipboardData(text: clean));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Phone copied to clipboard: $clean'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AdminToast.info(context, 'Phone copied: $clean');
       }
     }
   }
@@ -1461,12 +1407,7 @@ Statement / Experience: ${app.previousExperience}
 Status: ${app.status.label}
 ''';
                           Clipboard.setData(ClipboardData(text: text));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Student details copied to clipboard'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          AdminToast.info(context, 'Student details copied to clipboard');
                         },
                         icon: const Icon(Icons.copy_rounded,
                             color: _textMuted, size: 20),

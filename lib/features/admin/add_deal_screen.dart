@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/services/api_service.dart';
 
+import 'widgets/admin_toast.dart';
+
 class AddDealScreen extends StatefulWidget {
   const AddDealScreen({super.key});
 
@@ -58,9 +60,11 @@ class _AddDealScreenState extends State<AddDealScreen> {
   }
 
   void _snack(String msg, Color bg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating),
-    );
+    if (bg == _green) {
+      AdminToast.success(context, msg);
+    } else {
+      AdminToast.error(context, msg);
+    }
   }
 
   @override

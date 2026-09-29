@@ -15,7 +15,9 @@ class AdminToast {
     Duration duration = const Duration(seconds: 3),
   }) {
     _timer?.cancel();
-    _activeEntry?.remove();
+    if (_activeEntry != null && _activeEntry!.mounted) {
+      _activeEntry!.remove();
+    }
     _activeEntry = null;
 
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
@@ -30,7 +32,9 @@ class AdminToast {
         onDismiss: () {
           _timer?.cancel();
           if (_activeEntry == entry) {
-            entry.remove();
+            if (entry.mounted) {
+              entry.remove();
+            }
             _activeEntry = null;
           }
         },
@@ -42,7 +46,9 @@ class AdminToast {
 
     _timer = Timer(duration, () {
       if (_activeEntry == entry) {
-        entry.remove();
+        if (entry.mounted) {
+          entry.remove();
+        }
         _activeEntry = null;
       }
     });

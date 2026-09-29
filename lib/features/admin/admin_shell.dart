@@ -1,10 +1,9 @@
 // lib/features/admin/admin_shell.dart
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
-import '../../core/services/api_service.dart';
+import '../../core/services/auth_service.dart';
 import 'widgets/admin_toast.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_users_screen.dart';
@@ -76,15 +75,22 @@ class _AdminShellState extends State<AdminShell> {
 
     if (shouldSignOut == true && context.mounted) {
       try {
-        await FirebaseAuth.instance.signOut();
-        ApiService().clearToken();
+        await AuthService().signOut();
         if (context.mounted) {
           AdminToast.success(context, 'Signed out successfully');
-          context.go(AppRoutes.welcome);
+          try {
+            context.go('/admin-login');
+          } catch (_) {
+            context.go(AppRoutes.welcome);
+          }
         }
       } catch (e) {
         if (context.mounted) {
-          context.go(AppRoutes.welcome);
+          try {
+            context.go('/admin-login');
+          } catch (_) {
+            context.go(AppRoutes.welcome);
+          }
         }
       }
     }

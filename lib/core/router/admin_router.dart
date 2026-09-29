@@ -27,6 +27,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
+        path: '/',
+        redirect: (_, __) => '/admin-login',
+      ),
+      GoRoute(
         path: '/admin-login',
         builder: (_, __) => const AdminLoginScreen(),
       ),

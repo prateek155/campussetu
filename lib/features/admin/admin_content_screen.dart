@@ -1,4 +1,4 @@
-﻿// lib/features/admin/admin_content_screen.dart
+// lib/features/admin/admin_content_screen.dart
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
@@ -7,9 +7,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import '../alarm/alarm_wallpaper_image.dart';
 import '../../core/services/api_service.dart';
 import '../../core/router/app_router.dart';
+import 'widgets/admin_toast.dart';
 
 class AdminContentScreen extends StatefulWidget {
   const AdminContentScreen({super.key});
@@ -373,9 +373,11 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
   }
 
   void _snack(String msg, Color bg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating),
-    );
+    if (bg == _green) {
+      AdminToast.success(context, msg);
+    } else {
+      AdminToast.error(context, msg);
+    }
   }
 
   @override
@@ -1085,9 +1087,7 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
       if (mounted) {
         Navigator.pop(context);
         widget.onSubmitted?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Flatmate listing added!'), backgroundColor: Color(0xFF22C55E), behavior: SnackBarBehavior.floating),
-        );
+        AdminToast.success(context, 'Flatmate listing added!');
       }
     } catch (e) {
       if (mounted) _snack('Error: $e', _red);
@@ -1096,10 +1096,8 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
     }
   }
 
-  void _snack(String msg, Color bg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating),
-    );
+  void _snack(String msg, [Color? bg]) {
+    AdminToast.error(context, msg);
   }
 
   @override
