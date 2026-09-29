@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
+import 'widgets/admin_toast.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -17,10 +18,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   static const _cardAlt  = Color(0xFF121725);
   static const _border   = Color(0xFF1A2234);
   static const _cyan     = Color(0xFF38BDF8);
-  static const _green    = Color(0xFF10B981);
   static const _red      = Color(0xFFEF4444);
-  static const _orange   = Color(0xFFF59E0B);
-  static const _purple   = Color(0xFF818CF8);
   static const _textMuted= Color(0xFF64748B);
   static const _textLight= Color(0xFFE2E8F0);
 
@@ -152,15 +150,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       }
       _fetchUsers(reset: true);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isBanned == true ? 'User unblocked successfully' : 'User blocked successfully'),
-          backgroundColor: isBanned == true ? _green : _red,
-          behavior: SnackBarBehavior.floating,
-        ));
+        if (isBanned == true) {
+          AdminToast.success(context, 'User unblocked successfully');
+        } else {
+          AdminToast.warning(context, 'User blocked successfully');
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating));
+        AdminToast.error(context, 'Error: $e');
       }
     }
   }

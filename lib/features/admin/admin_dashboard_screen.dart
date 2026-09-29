@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/api_service.dart';
 import '../../core/router/app_router.dart';
+import 'widgets/admin_toast.dart';
 import 'admin_content_screen.dart' show AddFlatmateSheet;
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -139,57 +140,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // Top Bar with Exit
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: _cyan.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: _cyan.withValues(alpha: 0.25)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.shield_outlined, color: _cyan, size: 14),
-                            SizedBox(width: 6),
-                            Text(
-                              'ADMIN CONSOLE',
-                              style: TextStyle(color: _cyan, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => context.go(AppRoutes.home),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _cardAlt,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _border),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.exit_to_app_rounded, color: _textLight, size: 14),
-                              SizedBox(width: 6),
-                              Text('Exit App', style: TextStyle(color: _textLight, fontSize: 12, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Greeting & Subtitle
+              // Greeting & Subtitle (matching Image 1)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
@@ -703,25 +654,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () async {
               final text = ctrl.text.trim();
               if (text.isEmpty) return;
-              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(ctx);
               try {
                 await ApiService().broadcast(text);
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Announcement broadcasted successfully!'),
-                    backgroundColor: _green,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                if (context.mounted) {
+                  AdminToast.success(context, 'Announcement broadcasted successfully!');
+                }
               } catch (_) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to broadcast message.'),
-                    backgroundColor: _red,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                if (context.mounted) {
+                  AdminToast.error(context, 'Failed to broadcast message.');
+                }
               }
             },
             child: const Text('Broadcast', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -1012,20 +954,14 @@ class _ReportsModalSheetState extends State<_ReportsModalSheet> {
                 : action == 'delete_and_ban'
                     ? 'Post removed and user banned.'
                     : 'Report dismissed.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          AdminToast.success(context, msg);
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _actingReportId = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e'), backgroundColor: const Color(0xFFEF4444)),
-        );
+        AdminToast.error(context, 'Action failed: $e');
       }
     }
   }
@@ -1346,9 +1282,7 @@ class _IncompleteProfilesModalSheetState extends State<_IncompleteProfilesModalS
     } else {
       await Clipboard.setData(ClipboardData(text: email));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Email copied to clipboard: $email'), behavior: SnackBarBehavior.floating),
-        );
+        AdminToast.info(context, 'Email copied to clipboard: $email');
       }
     }
   }
@@ -1569,20 +1503,14 @@ class _BannedUsersModalSheetState extends State<_BannedUsersModalSheet> {
           _actingUserId = null;
         });
         widget.onRefreshNeeded();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name has been unblocked.'),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          AdminToast.success(context, '$name has been unblocked.');
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _actingUserId = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to unblock: $e'), backgroundColor: const Color(0xFFEF4444)),
-        );
+        AdminToast.error(context, 'Failed to unblock: $e');
       }
     }
   }
