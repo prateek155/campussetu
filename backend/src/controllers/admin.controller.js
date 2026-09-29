@@ -48,7 +48,7 @@ exports.getStats = async (req, res) => {
          OR state IS NULL OR TRIM(state) = '' 
          OR city IS NULL OR TRIM(city) = ''
          OR branch IS NULL OR TRIM(branch) = ''
-         OR year_of_study IS NULL OR TRIM(year_of_study) = '')`),
+         OR year_of_study IS NULL)`),
       db.query('SELECT COUNT(*) FROM users WHERE is_banned = true'),
       db.query('SELECT COUNT(DISTINCT author_id) FROM posts WHERE is_deleted = false'),
       db.query('SELECT id, name, email, photo_url, role, is_admin FROM users ORDER BY created_at DESC LIMIT 10'),
@@ -258,7 +258,7 @@ exports.getUsers = async (req, res) => {
         OR u.state IS NULL OR TRIM(u.state) = '' 
         OR u.city IS NULL OR TRIM(u.city) = ''
         OR u.branch IS NULL OR TRIM(u.branch) = ''
-        OR u.year_of_study IS NULL OR TRIM(u.year_of_study) = ''
+        OR u.year_of_study IS NULL
       )`);
     }
     if (state && state.trim().length > 0) {

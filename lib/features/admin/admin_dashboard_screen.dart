@@ -102,6 +102,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  String _formatErrorMessage(String? err) {
+    if (err == null) return 'Something went wrong';
+    if (err.contains('500')) {
+      return 'Server is updating or encountered a temporary error. Please tap below to retry.';
+    }
+    if (err.contains('401') || err.contains('403')) {
+      return 'Session expired or admin privileges required. Please sign in again.';
+    }
+    if (err.contains('SocketException') || err.contains('connection refused') || err.contains('timeout')) {
+      return 'Network connection issue. Please check your internet connection and try again.';
+    }
+    return err;
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
@@ -209,7 +223,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           const SizedBox(height: 14),
                           const Text('Failed to load dashboard data', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 6),
-                          Text(_error!, style: const TextStyle(color: _textMuted, fontSize: 12), textAlign: TextAlign.center),
+                          Text(_formatErrorMessage(_error), style: const TextStyle(color: _textMuted, fontSize: 13), textAlign: TextAlign.center),
                           const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: _load,
