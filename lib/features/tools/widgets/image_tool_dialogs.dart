@@ -42,6 +42,21 @@ class ImageToolDialogs {
     );
   }
 
+  /// Offline, on-device background cleanup for plain or near-uniform backgrounds.
+  static void showBackgroundRemoverDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _ToolModalShell(
+        title: 'Background Remover',
+        icon: Icons.auto_awesome_rounded,
+        color: Colors.teal,
+        child: _BackgroundRemoverContent(),
+      ),
+    );
+  }
+
   /// 3. WATERMARK REMOVER
   static void showWatermarkRemoverDialog(BuildContext context) {
     showModalBottomSheet(
@@ -220,6 +235,180 @@ class _ToolModalShell extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BackgroundRemoverContent extends StatefulWidget {
+  const _BackgroundRemoverContent();
+
+  @override
+  State<_BackgroundRemoverContent> createState() => _BackgroundRemoverContentState();
+}
+
+class _BackgroundRemoverContentState extends State<_BackgroundRemoverContent> {
+  Uint8List? _inputBytes;
+  Uint8List? _outputBytes;
+  String? _fileName;
+  double _tolerance = 36;
+  bool _processing = false;
+
+  Future<void> _pickImage() async {
+    final selection = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+      allowMultiple: false,
+    );
+    if (selection == null || selection.files.isEmpty) return;
+
+    final file = selection.files.first;
+    var bytes = file.bytes;
+    if (bytes == null && !kIsWeb && file.path != null) {
+      bytes = await File(file.path!).readAsBytes();
+    }
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not read this image from the device.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _inputBytes = bytes;
+      _fileName = file.name;
+      _outputBytes = null;
+    });
+  }
+
+  Future<void> _removeBackground() async {
+    final bytes = _inputBytes;
+    if (bytes == null || _processing) return;
+    setState(() => _processing = true);
+    try {
+      final output = await ImageToolsService.removeBackground(
+        bytes,
+        tolerance: _tolerance.round(),
+      );
+      if (mounted) setState(() => _outputBytes = output);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Background removal failed: $error'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final output = _outputBytes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        NeuCard(
+          padding: const EdgeInsets.all(20),
+          onTap: _processing ? null : _pickImage,
+          child: Column(
+            children: [
+              const Icon(Icons.add_photo_alternate_outlined, size: 40, color: Colors.teal),
+              const SizedBox(height: 8),
+              Text(_fileName ?? 'Choose an image', style: AppTypography.interBody(weight: FontWeight.w600)),
+              Text(
+                'Processed on this device. Best for a plain or solid background.',
+                textAlign: TextAlign.center,
+                style: AppTypography.interCaption(color: AppColors.inkSoft),
+              ),
+            ],
+          ),
+        ),
+        if (_inputBytes != null) ...[
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(child: Text('Background tolerance', style: AppTypography.interLabel())),
+              Text('${_tolerance.round()}', style: AppTypography.interLabel(color: AppColors.cyanDeep)),
+            ],
+          ),
+          Slider(
+            value: _tolerance,
+            min: 8,
+            max: 110,
+            divisions: 102,
+            activeColor: AppColors.cyanDeep,
+            onChanged: _processing
+                ? null
+                : (value) => setState(() {
+                      _tolerance = value;
+                      _outputBytes = null;
+                    }),
+          ),
+          Text(
+            'Higher tolerance removes more similar colors and may soften subject edges. Images are limited to 6 megapixels for offline processing.',
+            style: AppTypography.interCaption(color: AppColors.inkSoft),
+          ),
+          const SizedBox(height: 12),
+          if (_processing)
+            const Padding(
+              padding: EdgeInsets.all(18),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            _ToolActionButton(
+              text: 'Remove Background',
+              icon: Icons.auto_awesome_rounded,
+              onPressed: _removeBackground,
+            ),
+          if (output != null) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 240,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(painter: _TransparencyCheckerPainter()),
+                    Image.memory(output, fit: BoxFit.contain),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ToolActionButton(
+              text: 'Download Transparent PNG',
+              icon: Icons.download_rounded,
+              onPressed: () async {
+                final baseName = (_fileName ?? 'image').split('.').first;
+                await saveAndDownloadFile(output, '${baseName}_no_background.png');
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _TransparencyCheckerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const tile = 16.0;
+    final light = Paint()..color = const Color(0xFFF4F5F7);
+    final dark = Paint()..color = const Color(0xFFD7DBE0);
+    for (var y = 0.0; y < size.height; y += tile) {
+      for (var x = 0.0; x < size.width; x += tile) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, tile, tile),
+          ((x ~/ tile) + (y ~/ tile)).isEven ? light : dark,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── 1. IMAGE CONVERTER CONTENT ─────────────────────────────────

@@ -9,11 +9,9 @@ const CACHE_KEY = 'alarm:wallpapers:list';
 // 30 Days Cache TTL (since wallpapers change weekly or monthly)
 const CACHE_TTL = 30 * 24 * 60 * 60; // 30 days (2,592,000 seconds)
 
-/**
- * Helper to query DB and immediately warm the Redis cache.
- * Ensures Redis ALWAYS has the latest data ready for thousands of users without hitting PostgreSQL.
- */
+/** Query PostgreSQL and replace the current Redis wallpaper snapshot. */
 async function warmWallpaperCache() {
+  await cache.invalidateJson(CACHE_KEY);
   const { rows } = await db.query(`
     SELECT id, type, label, url, thumbnail_url, sort_order, created_at
     FROM alarm_wallpapers
@@ -32,20 +30,24 @@ async function warmWallpaperCache() {
 }
 
 // ── GET /api/v1/alarm-wallpapers ─────────────────────────────────────────────
-// Serves 100% from Redis memory in <1ms. Database is NEVER hit by normal users.
+// Serves from Redis after the first read; a cold cache or unavailable Redis
+// safely falls back to PostgreSQL.
 exports.list = async (req, res) => {
   try {
-    const cached = await cache.getCache(CACHE_KEY);
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour HTTP client cache
-      return res.json(JSON.parse(cached));
-    }
-
-    // Cache Miss (first time server starts) -> Warm cache from DB
-    res.setHeader('X-Cache', 'MISS');
-    const grouped = await warmWallpaperCache();
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const grouped = await cache.getOrLoadJson(CACHE_KEY, CACHE_TTL, async () => {
+      const { rows } = await db.query(`
+        SELECT id, type, label, url, thumbnail_url, sort_order, created_at
+        FROM alarm_wallpapers
+        ORDER BY sort_order ASC, created_at DESC
+      `);
+      return {
+        image: rows.filter((row) => row.type === 'image'),
+        animated: rows.filter((row) => row.type === 'animated'),
+        video: rows.filter((row) => row.type === 'video'),
+        cached_at: new Date().toISOString(),
+      };
+    });
+    res.setHeader('Cache-Control', 'private, no-store');
     res.json(grouped);
   } catch (err) {
     console.error('[AlarmWallpaper] list error:', err.message);

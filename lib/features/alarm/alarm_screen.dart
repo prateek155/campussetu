@@ -729,8 +729,6 @@ class _AlarmEditorState extends State<_AlarmEditor> {
     final hour12 = _time.hour == 0 ? 12 : (_time.hour > 12 ? _time.hour - 12 : _time.hour);
     final minuteStr = _time.minute.toString().padLeft(2, '0');
     final period = _time.hour >= 12 ? 'PM' : 'AM';
-    final timeStr = '$hour12:$minuteStr $period';
-
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -1363,8 +1361,6 @@ class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with Singl
   List<dynamic> _remoteImages = [];
   List<dynamic> _remoteAnimated = [];
   List<dynamic> _remoteVideos = [];
-  bool _loadingRemote = true;
-
   @override
   void initState() {
     super.initState();
@@ -1384,7 +1380,6 @@ class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with Singl
           _remoteImages = (data['image'] as List<dynamic>?) ?? [];
           _remoteAnimated = (data['animated'] as List<dynamic>?) ?? [];
           _remoteVideos = (data['video'] as List<dynamic>?) ?? [];
-          _loadingRemote = false;
         });
       }
     } catch (_) {}
@@ -1397,12 +1392,10 @@ class _WallpaperPickerSheetState extends State<_WallpaperPickerSheet> with Singl
         _remoteImages = (data['image'] as List<dynamic>?) ?? [];
         _remoteAnimated = (data['animated'] as List<dynamic>?) ?? [];
         _remoteVideos = (data['video'] as List<dynamic>?) ?? [];
-        _loadingRemote = false;
       });
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('cached_remote_alarm_wallpapers', jsonEncode(data));
     } catch (_) {
-      if (mounted) setState(() => _loadingRemote = false);
     }
   }
 

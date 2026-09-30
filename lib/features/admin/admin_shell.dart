@@ -96,6 +96,11 @@ class _AdminShellState extends State<AdminShell> {
     }
   }
 
+  void _showUsers() {
+    if (!mounted || _tab == 1) return;
+    setState(() => _tab = 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
@@ -348,13 +353,13 @@ class _AdminShellState extends State<AdminShell> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: const [
-                  AdminDashboardScreen(),
-                  AdminUsersScreen(),
-                  AdminAmbassadorsScreen(),
-                  AdminContentScreen(),
-                  AdminPulseScreen(),
-                  AdminFacultyScreen(),
+                children: [
+                  AdminDashboardScreen(onNavigateToUsers: _showUsers),
+                  const AdminUsersScreen(),
+                  const AdminAmbassadorsScreen(),
+                  const AdminContentScreen(),
+                  const AdminPulseScreen(),
+                  const AdminFacultyScreen(),
                 ],
               ),
             ),
@@ -380,13 +385,13 @@ class _AdminShellState extends State<AdminShell> {
       ),
       body: IndexedStack(
         index: _tab,
-        children: const [
-          AdminDashboardScreen(),
-          AdminUsersScreen(),
-          AdminAmbassadorsScreen(),
-          AdminContentScreen(),
-          AdminPulseScreen(),
-          AdminFacultyScreen(),
+        children: [
+          AdminDashboardScreen(onNavigateToUsers: _showUsers),
+          const AdminUsersScreen(),
+          const AdminAmbassadorsScreen(),
+          const AdminContentScreen(),
+          const AdminPulseScreen(),
+          const AdminFacultyScreen(),
         ],
       ),
       bottomNavigationBar: Container(

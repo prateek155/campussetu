@@ -3,6 +3,13 @@ const db = require('../config/db');
 const admin = require('../config/firebase');
 const { v4: uuidv4 } = require('uuid');
 const activityLog = require('../middleware/activityLogger');
+const cache = require('../config/redis');
+
+async function invalidateUserProfileCaches(userId, firebaseUid) {
+  const updates = [cache.invalidateUser(userId)];
+  if (firebaseUid) updates.push(cache.invalidateJson(`user:me:${firebaseUid}`));
+  await Promise.all(updates);
+}
 
 // ── POST /admin/points {user_id | campus_id, amount, reason?} ──
 // Admin can grant (or revoke with negative amount) any points
@@ -21,13 +28,17 @@ exports.grantPoints = async (req, res) => {
     }
     if (!targetId) return res.status(400).json({ error: 'user_id or campus_id required' });
 
-    const { rows: u } = await db.query('SELECT id, name FROM users WHERE id = $1', [targetId]);
+    const { rows: u } = await db.query('SELECT id, name, firebase_uid FROM users WHERE id = $1', [targetId]);
     if (!u.length) return res.status(404).json({ error: 'Student not found' });
 
     await db.query(
       `INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`,
       [uuidv4(), targetId, pts, `admin_grant:${(reason || 'reward').toString().slice(0, 60)}`]
     );
+    await Promise.all([
+      invalidateUserProfileCaches(targetId, u[0].firebase_uid),
+      cache.invalidateLeaderboard(),
+    ]);
     const { rows: b } = await db.query('SELECT COALESCE(SUM(amount),0)::int AS bal FROM points_ledger WHERE user_id = $1', [targetId]);
     res.json({ user_id: targetId, name: u[0].name, granted: pts, new_balance: b[0].bal });
   } catch (err) {
@@ -172,6 +183,7 @@ exports.resolveReport = async (req, res) => {
           [reportedUserId]
         );
         if (users.length && users[0].firebase_uid) {
+          await invalidateUserProfileCaches(reportedUserId, users[0].firebase_uid);
           try {
             await admin.auth().updateUser(users[0].firebase_uid, { disabled: true });
           } catch (_) {}
@@ -377,6 +389,7 @@ exports.blockUser = async (req, res) => {
         [req.params.id]
       );
       if (u.length && u[0].firebase_uid) {
+        await invalidateUserProfileCaches(rows[0].id, u[0].firebase_uid);
         await admin.auth().updateUser(u[0].firebase_uid, { disabled: true });
       }
     } catch (_) {}
@@ -403,6 +416,7 @@ exports.unblockUser = async (req, res) => {
         [req.params.id]
       );
       if (u.length && u[0].firebase_uid) {
+        await invalidateUserProfileCaches(rows[0].id, u[0].firebase_uid);
         await admin.auth().updateUser(u[0].firebase_uid, { disabled: false });
       }
     } catch (_) {}
@@ -423,6 +437,7 @@ exports.freezeUser = async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
     try {
       if (rows[0].firebase_uid) {
+        await invalidateUserProfileCaches(rows[0].id, rows[0].firebase_uid);
         await admin.auth().updateUser(rows[0].firebase_uid, { disabled: true });
       }
     } catch (_) {}
@@ -436,9 +451,12 @@ exports.freezeUser = async (req, res) => {
 // ── POST /admin/users/:id/restrict ───────────────────────
 exports.restrictUser = async (req, res) => {
   try {
-    await db.query('UPDATE users SET is_premium = false WHERE id = $1', [
-      req.params.id,
-    ]);
+    const { rows } = await db.query(
+      'UPDATE users SET is_premium = false WHERE id = $1 RETURNING id, firebase_uid',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    await invalidateUserProfileCaches(rows[0].id, rows[0].firebase_uid);
     activityLog.dismissActivity(req.params.id);
     res.json({ restricted: true, user_id: req.params.id });
   } catch (err) {

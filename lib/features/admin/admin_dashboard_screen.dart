@@ -10,7 +10,9 @@ import 'widgets/admin_toast.dart';
 import 'admin_content_screen.dart' show AddFlatmateSheet;
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  final VoidCallback onNavigateToUsers;
+
+  const AdminDashboardScreen({super.key, required this.onNavigateToUsers});
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
@@ -32,7 +34,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   static const _textLight = Color(0xFF94A3B8);
 
   Map<String, dynamic>? _stats;
-  List<Map<String, dynamic>> _reports = [];
   bool _loading = true;
   String? _error;
 
@@ -51,46 +52,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        final token = await user.getIdToken(true);
+        // Let Firebase reuse its still-valid cached token. Forcing a token
+        // refresh on every dashboard load adds a network round-trip.
+        final token = await user.getIdToken();
         if (token != null && token.isNotEmpty) {
           ApiService().setToken(token);
         }
       }
 
-      Map<String, dynamic>? stats;
-      List<Map<String, dynamic>> reports = [];
-      String? loadError;
-
-      try {
-        stats = await ApiService().getAdminStats();
-      } catch (e) {
-        loadError = e.toString();
-        debugPrint('Admin stats fetch error: $e');
-      }
-
-      try {
-        final reportsData = await ApiService().getReportsQueue();
-        final rawReports = reportsData['data'] ?? reportsData['reports'] ?? reportsData['items'] ?? [];
-        if (rawReports is List) {
-          reports = rawReports.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        }
-      } catch (e) {
-        debugPrint('Admin reports fetch error: $e');
-      }
+      // The stats endpoint already returns pending_reports. Loading the full
+      // report queue here is unnecessary; fetch those rows only when the
+      // moderator opens the reports sheet.
+      final stats = await ApiService().getAdminStats();
 
       if (mounted) {
-        if (stats == null && loadError != null) {
-          setState(() {
-            _loading = false;
-            _error = loadError;
-          });
-        } else {
-          setState(() {
-            _stats = stats ?? {};
-            _reports = reports;
-            _loading = false;
-          });
-        }
+        setState(() {
+          _stats = stats;
+          _loading = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -155,7 +134,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final activeToday = (s['active_today'] ?? s['activeToday'] ?? '0').toString();
     final totalPosts = (s['total_posts'] ?? s['totalPosts'] ?? '0').toString();
     final totalAuthors = (s['total_authors'] ?? totalPosts).toString();
-    final pendingCount = int.tryParse((s['pending_reports'] ?? _reports.length).toString()) ?? _reports.length;
+    final pendingCount = int.tryParse((s['pending_reports'] ?? 0).toString()) ?? 0;
     final incompleteCount = int.tryParse((s['incomplete_profiles'] ?? '0').toString()) ?? 0;
     final bannedCount = int.tryParse((s['banned_users'] ?? '0').toString()) ?? 0;
 
@@ -250,7 +229,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         totalUsers: totalUsers,
                         recentUsers: recentUsers,
                         roleDist: roleDist,
-                        onTap: () => context.push('/admin/users'),
+                        onTap: widget.onNavigateToUsers,
                       ),
                       const SizedBox(height: 16),
 
@@ -606,7 +585,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _ReportsModalSheet(
-        reports: _reports,
         onRefreshNeeded: _load,
       ),
     );
@@ -952,23 +930,53 @@ class _AttentionRow extends StatelessWidget {
 // 1. REPORTS MODERATION MODAL SHEET
 // ═════════════════════════════════════════════════════════════════════════════
 class _ReportsModalSheet extends StatefulWidget {
-  final List<Map<String, dynamic>> reports;
   final VoidCallback onRefreshNeeded;
 
-  const _ReportsModalSheet({required this.reports, required this.onRefreshNeeded});
+  const _ReportsModalSheet({required this.onRefreshNeeded});
 
   @override
   State<_ReportsModalSheet> createState() => _ReportsModalSheetState();
 }
 
 class _ReportsModalSheetState extends State<_ReportsModalSheet> {
-  late List<Map<String, dynamic>> _list;
+  List<Map<String, dynamic>> _list = [];
   String? _actingReportId;
+  String? _loadError;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _list = List.from(widget.reports);
+    _loadReports();
+  }
+
+  Future<void> _loadReports() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final response = await ApiService().getReportsQueue();
+      final rawReports = response['data'] ?? response['reports'] ?? response['items'] ?? [];
+      final reports = rawReports is List
+          ? rawReports.whereType<Map>().map((report) => Map<String, dynamic>.from(report)).toList()
+          : <Map<String, dynamic>>[];
+      if (mounted) {
+        setState(() {
+          _list = reports;
+          _loading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadError = error.toString();
+          _loading = false;
+        });
+      }
+    }
   }
 
   Future<void> _handleResolve(String reportId, String action) async {
@@ -1062,7 +1070,31 @@ class _ReportsModalSheetState extends State<_ReportsModalSheet> {
 
           // Content
           Expanded(
-            child: _list.isEmpty
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFEF4444)))
+                : _loadError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cloud_off_rounded, color: Color(0xFFEF4444), size: 40),
+                              const SizedBox(height: 12),
+                              const Text('Could not load reports', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 8),
+                              Text(_loadError!, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12), textAlign: TextAlign.center),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: _loadReports,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                : _list.isEmpty
                 ? const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

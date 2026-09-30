@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/welcome_screen.dart';
 import '../../features/auth/auth_confirm_screen.dart';
 import '../../features/auth/profile_setup_screen.dart';
+import '../../features/auth/email_auth_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/connect/connect_screen.dart';
 import '../../features/connect/invitation_manager_screen.dart';
@@ -21,7 +22,9 @@ import '../../features/points/transfer_points_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/products/product_detail_screen.dart';
 import '../../features/resume/resume_screen.dart';
+import '../../features/resume/resume_editor_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/profile/account_password_screen.dart';
 import '../../features/deals/deals_screen.dart';
 import '../../features/flatmates/flatmates_screen.dart';
 import '../../features/startup/startup_screen.dart';
@@ -48,12 +51,13 @@ import '../../features/ambassador/screens/campus_ambassador_screen.dart';
 import '../../features/alarm/alarm_screen.dart';
 import '../shell/main_shell.dart';
 
-
-final authStateProvider = StreamProvider<User?>((ref) => FirebaseAuth.instance.authStateChanges());
+final authStateProvider =
+    StreamProvider<User?>((ref) => FirebaseAuth.instance.authStateChanges());
 
 class AppRoutes {
   static const welcome = '/';
   static const login = '/login';
+  static const emailLogin = '/email-login';
   static const authConfirm = '/auth-confirm';
   static const profileSetup = '/profile-setup';
   static const home = '/home';
@@ -69,7 +73,9 @@ class AppRoutes {
   static const deals = '/deals';
   static const flatmates = '/flatmates';
   static const resume = '/resume';
+  static const resumeEditor = '/resume/:templateId';
   static const profile = '/profile';
+  static const accountPassword = '/profile/password';
   static const startup = '/startup';
   static const admin = '/admin';
   static const adminAddDeal = '/admin/add-deal';
@@ -99,23 +105,45 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final isOnAuthRoute = loc == AppRoutes.welcome ||
           loc == AppRoutes.login ||
+          loc == AppRoutes.emailLogin ||
           loc == AppRoutes.authConfirm ||
           loc == AppRoutes.profileSetup ||
           loc == '/alarm/ring';
+      final hasResumeHandoff = loc.startsWith('/resume/') &&
+          (state.uri.queryParameters['handoff']?.isNotEmpty ?? false);
+      final isPasswordReset = loc == AppRoutes.emailLogin &&
+          state.uri.queryParameters['mode'] == 'forgot';
 
-      if (user == null && !isOnAuthRoute) return AppRoutes.welcome;
-      if (user != null && (loc == AppRoutes.welcome || loc == AppRoutes.login)) return AppRoutes.home;
+      if (user == null && !isOnAuthRoute && !hasResumeHandoff)
+        return AppRoutes.welcome;
+      if (user != null &&
+          (loc == AppRoutes.welcome ||
+              loc == AppRoutes.login ||
+              (loc == AppRoutes.emailLogin && !isPasswordReset)))
+        return AppRoutes.home;
       return null;
     },
     routes: [
       // Auth routes (no shell)
       GoRoute(
         path: AppRoutes.welcome,
-        builder: (_, __) => kIsWeb ? const WebLandingScreen() : const WelcomeScreen(),
+        builder: (_, __) =>
+            kIsWeb ? const WebLandingScreen() : const WelcomeScreen(),
       ),
       GoRoute(
         path: AppRoutes.login,
         builder: (_, __) => const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.emailLogin,
+        builder: (_, state) => EmailAuthScreen(
+          startPasswordReset: state.uri.queryParameters['mode'] == 'forgot',
+          initialEmail: state.uri.queryParameters['email'],
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.accountPassword,
+        builder: (_, __) => const AccountPasswordScreen(),
       ),
       GoRoute(
         path: AppRoutes.authConfirm,
@@ -124,72 +152,146 @@ final routerProvider = Provider<GoRouter>((ref) {
           return AuthConfirmScreen(userData: extra ?? {});
         },
       ),
-      GoRoute(path: AppRoutes.profileSetup, builder: (_, __) => const ProfileSetupScreen()),
+      GoRoute(
+          path: AppRoutes.profileSetup,
+          builder: (_, __) => const ProfileSetupScreen()),
 
-      GoRoute(path: AppRoutes.privacy, builder: (_, __) => const PrivacyScreen()),
+      GoRoute(
+          path: AppRoutes.privacy, builder: (_, __) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.terms, builder: (_, __) => const TermsScreen()),
-      GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, __) => const NotificationsScreen()),
       GoRoute(
         path: '/alarm/ring',
         builder: (_, state) => AlarmRingingScreen(
-          alarmId: int.tryParse(state.uri.queryParameters['alarmId'] ?? '') ?? -1,
+          alarmId:
+              int.tryParse(state.uri.queryParameters['alarmId'] ?? '') ?? -1,
         ),
       ),
 
       // Admin shell (with its own 4-tab bottom nav)
-      GoRoute(path: '/admin-login', builder: (_, __) => const AdminLoginScreen()),
+      GoRoute(
+          path: '/admin-login', builder: (_, __) => const AdminLoginScreen()),
       GoRoute(path: AppRoutes.admin, builder: (_, __) => const AdminShell()),
-      GoRoute(path: AppRoutes.adminAddDeal, builder: (_, __) => const AddDealScreen()),
+      GoRoute(
+        path: AppRoutes.resumeEditor,
+        builder: (_, state) => ResumeEditorScreen(
+          templateId: state.pathParameters['templateId']!,
+          resumeId: state.uri.queryParameters['resumeId'],
+          handoffCode: state.uri.queryParameters['handoff'],
+          downloadIntent: state.uri.queryParameters['intent'] == 'download',
+        ),
+      ),
+      GoRoute(
+          path: AppRoutes.adminAddDeal,
+          builder: (_, __) => const AddDealScreen()),
       GoRoute(path: '/events/add', builder: (_, __) => const AddEventScreen()),
       GoRoute(path: '/travel', builder: (_, __) => const TravelScreen()),
       GoRoute(path: '/travel/add', builder: (_, __) => const AddTravelScreen()),
-      GoRoute(path: AppRoutes.tools, builder: (_, __) => const ToolsHomeScreen()),
-      GoRoute(path: '/tools/pdf', builder: (_, __) => const ToolsCategoryScreen(category: ToolCategory.pdf)),
-      GoRoute(path: '/tools/image', builder: (_, __) => const ToolsCategoryScreen(category: ToolCategory.image)),
+      GoRoute(
+          path: AppRoutes.tools, builder: (_, __) => const ToolsHomeScreen()),
+      GoRoute(
+          path: '/tools/pdf',
+          builder: (_, __) =>
+              const ToolsCategoryScreen(category: ToolCategory.pdf)),
+      GoRoute(
+          path: '/tools/image',
+          builder: (_, __) =>
+              const ToolsCategoryScreen(category: ToolCategory.image)),
       GoRoute(
         path: '/tools/workspace',
-        builder: (_, state) => ToolWorkspaceScreen(toolId: state.uri.queryParameters['toolId'] ?? 'image_convert'),
+        builder: (_, state) => ToolWorkspaceScreen(
+            toolId: state.uri.queryParameters['toolId'] ?? 'image_convert'),
       ),
-      GoRoute(path: AppRoutes.ambassador, builder: (_, __) => const CampusAmbassadorScreen()),
+      GoRoute(
+          path: AppRoutes.ambassador,
+          builder: (_, __) => const CampusAmbassadorScreen()),
 
       // Main app shell with bottom nav
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
-          GoRoute(path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
-          GoRoute(path: AppRoutes.connect, builder: (_, __) => const ConnectScreen()),
-          GoRoute(path: AppRoutes.chat, builder: (_, __) => const ChatListScreen()),
+          GoRoute(
+              path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
+          GoRoute(
+              path: AppRoutes.connect,
+              builder: (_, __) => const ConnectScreen()),
+          GoRoute(
+              path: AppRoutes.chat, builder: (_, __) => const ChatListScreen()),
           GoRoute(
             path: AppRoutes.chatDetail,
-            builder: (_, state) => ChatDetailScreen(chatId: state.pathParameters['chatId']!),
+            builder: (_, state) {
+              final rawExtra = state.extra;
+              final chat = rawExtra is Map
+                  ? Map<String, dynamic>.from(rawExtra)
+                  : <String, dynamic>{};
+              final otherUser = chat['other_user'] is Map
+                  ? Map<String, dynamic>.from(chat['other_user'] as Map)
+                  : <String, dynamic>{};
+              return ChatDetailScreen(
+                chatId: state.pathParameters['chatId']!,
+                displayName: (chat['name'] ??
+                        otherUser['name'] ??
+                        chat['group_name'] ??
+                        'Conversation')
+                    .toString(),
+                avatarUrl: (chat['avatar_url'] ??
+                        chat['photo_url'] ??
+                        otherUser['photo_url'])
+                    ?.toString(),
+              );
+            },
           ),
-          GoRoute(path: AppRoutes.tshare, builder: (_, __) => const TshareScreen()),
+          GoRoute(
+              path: AppRoutes.tshare, builder: (_, __) => const TshareScreen()),
           GoRoute(
             path: AppRoutes.jobs,
-            builder: (_, state) => JobsScreen(initialTab: state.uri.queryParameters['tab'] == 'helping' ? 1 : 0),
+            builder: (_, state) => JobsScreen(
+                initialTab:
+                    state.uri.queryParameters['tab'] == 'helping' ? 1 : 0),
           ),
-          GoRoute(path: AppRoutes.helping, builder: (_, __) => const JobsScreen(initialTab: 1)),
-          GoRoute(path: AppRoutes.helpingDetail, builder: (_, state) => HelpingTaskDetailScreen(taskId: state.pathParameters['taskId']!)),
+          GoRoute(
+              path: AppRoutes.helping,
+              builder: (_, __) => const JobsScreen(initialTab: 1)),
+          GoRoute(
+              path: AppRoutes.helpingDetail,
+              builder: (_, state) => HelpingTaskDetailScreen(
+                  taskId: state.pathParameters['taskId']!)),
           GoRoute(
             path: AppRoutes.pointsTransfer,
             builder: (_, state) {
               final extra = state.extra as Map<String, dynamic>?;
-              return TransferPointsScreen(toCampusId: extra?['toCampusId']?.toString(), toName: extra?['toName']?.toString());
+              return TransferPointsScreen(
+                  toCampusId: extra?['toCampusId']?.toString(),
+                  toName: extra?['toName']?.toString());
             },
           ),
-          GoRoute(path: AppRoutes.products, builder: (_, __) => const ProductsScreen()),
-          GoRoute(path: AppRoutes.deals, builder: (_, __) => const DealsScreen()),
-          GoRoute(path: AppRoutes.flatmates, builder: (_, __) => const FlatmatesScreen()),
+          GoRoute(
+              path: AppRoutes.products,
+              builder: (_, __) => const ProductsScreen()),
+          GoRoute(
+              path: AppRoutes.deals, builder: (_, __) => const DealsScreen()),
+          GoRoute(
+              path: AppRoutes.flatmates,
+              builder: (_, __) => const FlatmatesScreen()),
           GoRoute(
             path: AppRoutes.productDetail,
-            builder: (_, state) =>
-                ProductDetailScreen(productId: state.pathParameters['productId']!),
+            builder: (_, state) => ProductDetailScreen(
+                productId: state.pathParameters['productId']!),
           ),
-          GoRoute(path: AppRoutes.resume, builder: (_, __) => const ResumeScreen()),
-          GoRoute(path: AppRoutes.invitations, builder: (_, __) => const InvitationManagerScreen()),
-          GoRoute(path: AppRoutes.manageNetwork, builder: (_, __) => const ManageNetworkScreen()),
-          GoRoute(path: AppRoutes.connections, builder: (_, __) => const ConnectionsScreen()),
+          GoRoute(
+              path: AppRoutes.resume, builder: (_, __) => const ResumeScreen()),
+          GoRoute(
+              path: AppRoutes.invitations,
+              builder: (_, __) => const InvitationManagerScreen()),
+          GoRoute(
+              path: AppRoutes.manageNetwork,
+              builder: (_, __) => const ManageNetworkScreen()),
+          GoRoute(
+              path: AppRoutes.connections,
+              builder: (_, __) => const ConnectionsScreen()),
           GoRoute(
             path: AppRoutes.profile,
             builder: (_, state) {
@@ -197,7 +299,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               return ProfileScreen(userId: userId);
             },
           ),
-          GoRoute(path: AppRoutes.startup, builder: (_, __) => const StartupScreen()),
+          GoRoute(
+              path: AppRoutes.startup,
+              builder: (_, __) => const StartupScreen()),
         ],
       ),
       GoRoute(
@@ -211,10 +315,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Quiz routes ─────────────────────────────────────────
       GoRoute(path: '/quiz', builder: (_, __) => const QuizListScreen()),
       GoRoute(path: '/tests', builder: (_, __) => const PaperTestsScreen()),
-      GoRoute(path: '/tests/:testId', builder: (_, state) => PaperTestAttemptScreen(testId: state.pathParameters['testId']!)),
+      GoRoute(
+          path: '/tests/:testId',
+          builder: (_, state) =>
+              PaperTestAttemptScreen(testId: state.pathParameters['testId']!)),
       GoRoute(
         path: '/quiz/join',
-        builder: (_, state) => QuizJoinScreen(quizData: state.extra as Map<String, dynamic>?),
+        builder: (_, state) =>
+            QuizJoinScreen(quizData: state.extra as Map<String, dynamic>?),
       ),
       GoRoute(
         path: '/quiz/play',
@@ -227,7 +335,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-
     ],
     errorBuilder: (context, state) => Scaffold(
       backgroundColor: const Color(0xFFE9EBEE),

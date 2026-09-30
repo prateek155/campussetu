@@ -1,5 +1,6 @@
 // lib/features/chat/chat_detail_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
@@ -10,7 +11,14 @@ import '../../core/widgets/user_avatar.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
-  const ChatDetailScreen({super.key, required this.chatId});
+  final String displayName;
+  final String? avatarUrl;
+  const ChatDetailScreen({
+    super.key,
+    required this.chatId,
+    this.displayName = 'Conversation',
+    this.avatarUrl,
+  });
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -19,7 +27,7 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  final _myUid = 'uid'; // Replace with actual auth uid
+  bool _sending = false;
 
   CollectionReference get _messagesRef => FirebaseFirestore.instance
       .collection('chats')
@@ -29,23 +37,53 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _sendMessage() async {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
-    _msgCtrl.clear();
-    await _messagesRef.add({
-      'text': text,
-      'sender_uid': _myUid,
-      'type': 'text',
-      'created_at': FieldValue.serverTimestamp(),
-    });
-    // Scroll to bottom
-    Future.delayed(300.ms, () {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: 300.ms,
-          curve: Curves.easeOut,
+    if (_sending) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to send a message.')),
+      );
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      await _messagesRef.add({
+        'text': text,
+        'sender_uid': user.uid,
+        'sender_name': user.displayName ?? '',
+        'sender_photo_url': user.photoURL,
+        'type': 'text',
+        'created_at': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      if (_msgCtrl.text.trim() == text) _msgCtrl.clear();
+
+      Future.delayed(300.ms, () {
+        if (_scrollCtrl.hasClients) {
+          _scrollCtrl.animateTo(
+            _scrollCtrl.position.maxScrollExtent,
+            duration: 300.ms,
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } on FirebaseException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message could not be sent. Please try again.')),
         );
       }
-    });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message could not be sent. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -72,24 +110,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ),
         title: Row(
           children: [
-            const UserAvatar(name: 'Priya Nair', size: 36),
+            UserAvatar(name: widget.displayName, imageUrl: widget.avatarUrl, size: 36),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Priya Nair', style: AppTypography.interButton(color: AppColors.ink, size: 14)),
-                Text('Online', style: AppTypography.interCaption(color: AppColors.success)),
+                Text(widget.displayName, style: AppTypography.interButton(color: AppColors.ink, size: 14)),
+                Text('Conversation', style: AppTypography.interCaption(color: AppColors.inkSoft)),
               ],
             ),
           ],
         ),
-        actions: const [
-          NeuCard(
-            margin: EdgeInsets.only(right: 16, top: 12, bottom: 12),
-            padding: EdgeInsets.all(8),
-            child: Icon(Icons.video_call_outlined, size: 20, color: AppColors.cyanDeep),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -104,15 +135,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   return const Center(child: CircularProgressIndicator(color: AppColors.cyanDeep));
                 }
 
-                // Fallback mock messages when Firestore unavailable
+                if (snap.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Messages could not be loaded. Check your connection and try again.',
+                        style: AppTypography.interBody(color: AppColors.inkSoft),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
                 final docs = snap.data?.docs ?? [];
-                final mockMessages = [
-                  {'text': 'Hey! Did you see the OS assignment?', 'sender_uid': 'other', 'created_at': null},
-                  {'text': 'Yes! The one on process scheduling 😅', 'sender_uid': _myUid, 'created_at': null},
-                  {'text': 'Want to study together tomorrow?', 'sender_uid': 'other', 'created_at': null},
-                  {'text': 'Sure! Library at 10am?', 'sender_uid': _myUid, 'created_at': null},
-                ];
-                final messages = docs.isEmpty ? mockMessages : docs.map((d) => d.data() as Map<String, dynamic>).toList();
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No messages yet. Send a hello to start.',
+                      style: AppTypography.interBody(color: AppColors.inkSoft),
+                    ),
+                  );
+                }
+                final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                final messages = docs.map((d) => d.data() as Map<String, dynamic>).toList();
 
                 return ListView.builder(
                   controller: _scrollCtrl,
@@ -120,8 +166,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   itemCount: messages.length,
                   itemBuilder: (ctx, i) {
                     final msg = messages[i];
-                    final isMe = msg['sender_uid'] == _myUid;
-                    return _MessageBubble(text: msg['text'] ?? '', isMe: isMe)
+                    final isMe = currentUid != null && msg['sender_uid'] == currentUid;
+                    return _MessageBubble(text: msg['text']?.toString() ?? '', isMe: isMe)
                         .animate(delay: (i * 40).ms)
                         .fadeIn(duration: 200.ms)
                         .slideX(begin: isMe ? 0.05 : -0.05);
@@ -143,15 +189,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       controller: _msgCtrl,
                       maxLines: 4,
                       textInputAction: TextInputAction.newline,
-                      prefixIcon: GestureDetector(
-                        onTap: () {},
-                        child: Icon(Icons.add_circle_outline, color: AppColors.inkSoft, size: 20),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   GestureDetector(
-                    onTap: _sendMessage,
+                    onTap: _sending ? null : _sendMessage,
                     child: Container(
                       width: 48, height: 48,
                       decoration: BoxDecoration(

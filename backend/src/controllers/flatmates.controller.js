@@ -2,6 +2,8 @@
 const db = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 const cache = require('../config/redis');
+const FLATMATES_CACHE_KEY = 'flatmates:active';
+const FLATMATES_CACHE_TTL = 120;
 
 function fullUrl(req, p) {
   if (!p) return null;
@@ -9,29 +11,53 @@ function fullUrl(req, p) {
   return `${req.protocol}://${req.get('host')}${p}`;
 }
 
+async function queryActiveFlatmates() {
+  const { rows } = await db.query(
+    `SELECT f.*, u.name AS poster_name, u.college, u.photo_url AS avatar
+     FROM flatmates f
+     LEFT JOIN users u ON u.id = f.poster_id
+     WHERE f.status = 'active'
+     ORDER BY f.created_at DESC
+     LIMIT 50`
+  );
+  return rows;
+}
+
+function withPublicPhotoUrls(req, rows) {
+  return rows.map((row) => ({
+    ...row,
+    photo_url_1: fullUrl(req, row.photo_url_1),
+    photo_url_2: fullUrl(req, row.photo_url_2),
+    avatar: fullUrl(req, row.avatar),
+  }));
+}
+
+async function refreshActiveFlatmates() {
+  await cache.invalidateJson(FLATMATES_CACHE_KEY);
+  const result = { data: await queryActiveFlatmates() };
+  await cache.setJson(FLATMATES_CACHE_KEY, result, FLATMATES_CACHE_TTL);
+  return result;
+}
+
+async function invalidateAndWarmFlatmates() {
+  try {
+    await refreshActiveFlatmates();
+  } catch (error) {
+    // Keep successful listing changes successful if the optional cache cannot warm.
+    console.warn('[Flatmates] cache refresh deferred:', error.message);
+  }
+}
+
 // GET /flatmates  — public, active listings only
 exports.getFlatmates = async (req, res) => {
   try {
-    const cached = await cache.getCache('flatmates:active');
-    if (cached) {
-      try { return res.json(JSON.parse(cached)); } catch (_) {}
-    }
-
-    const { rows } = await db.query(
-      `SELECT f.*, u.name AS poster_name, u.college, u.photo_url AS avatar
-       FROM flatmates f
-       LEFT JOIN users u ON u.id = f.poster_id
-       WHERE f.status = 'active'
-       ORDER BY f.created_at DESC
-       LIMIT 50`
+    res.setHeader('Cache-Control', 'private, no-store');
+    const result = await cache.getOrLoadJson(
+      FLATMATES_CACHE_KEY,
+      FLATMATES_CACHE_TTL,
+      async () => ({ data: await queryActiveFlatmates() }),
     );
-    rows.forEach((r) => {
-      r.photo_url_1 = fullUrl(req, r.photo_url_1);
-      r.photo_url_2 = fullUrl(req, r.photo_url_2);
-    });
-    const result = { data: rows };
-    await cache.setCache('flatmates:active', JSON.stringify(result), 120);
-    res.json(result);
+    res.json({ data: withPublicPhotoUrls(req, result.data || []) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -79,7 +105,8 @@ exports.createFlatmate = async (req, res) => {
 
     rows[0].photo_url_1 = fullUrl(req, rows[0].photo_url_1);
     rows[0].photo_url_2 = fullUrl(req, rows[0].photo_url_2);
-    await cache.delCache('flatmates:active', 'home:counts');
+    await invalidateAndWarmFlatmates();
+    await cache.delCache('home:counts');
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -107,7 +134,8 @@ exports.deleteFlatmate = async (req, res) => {
         .status(404)
         .json({ error: 'Listing not found or not authorized' });
     }
-    await cache.delCache('flatmates:active', 'home:counts');
+    await invalidateAndWarmFlatmates();
+    await cache.delCache('home:counts');
     res.json({ deleted: req.params.id });
 
   } catch (err) {

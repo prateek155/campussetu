@@ -5,7 +5,6 @@ const multer = require('multer');
 const path = require('path');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const dealsController = require('../controllers/deals.controller');
-const { cacheRoute, invalidateCache } = require('../middleware/cacheMiddleware');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) =>
@@ -30,11 +29,12 @@ const upload = multer({
 
 router.use(requireAuth);
 
-// GET deals — cached 3 minutes (deals rarely change)
-router.get('/', cacheRoute(180, () => 'deals:list'), dealsController.getDeals);
+// The controller caches only the public deal catalog, avoiding duplicate
+// response caches with conflicting invalidation rules.
+router.get('/', dealsController.getDeals);
 
-// Admin mutations — invalidate cache
-router.post('/', requireAdmin, upload.single('image'), invalidateCache('deals:*'), dealsController.createDeal);
-router.delete('/:id', requireAdmin, invalidateCache('deals:*'), dealsController.deleteDeal);
+// Admin mutations update PostgreSQL first, then refresh the catalog cache.
+router.post('/', requireAdmin, upload.single('image'), dealsController.createDeal);
+router.delete('/:id', requireAdmin, dealsController.deleteDeal);
 
 module.exports = router;

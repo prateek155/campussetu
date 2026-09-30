@@ -27,6 +27,7 @@ jobs:
         run: |
           echo "API_BASE_URL=https://campussetu-lvlq.onrender.com/api/v1" > .env
           echo "API_HEALTH_URL=https://campussetu-lvlq.onrender.com/health" >> .env
+          echo "USER_WEB_BASE_URL=https://campussetu-user.pages.dev" >> .env
 
       - name: Install dependencies
         run: flutter pub get

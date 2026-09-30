@@ -22,6 +22,19 @@ async function awardLikeMilestones(postId, authorId) {
         if (rows.length) awarded += 20;
       } catch (e) { if (e.code !== '23505') throw e; }
     }
+    if (awarded > 0) {
+      const { rows: author } = await db.query(
+        'SELECT firebase_uid FROM users WHERE id = $1',
+        [authorId]
+      );
+      await Promise.all([
+        cache.invalidateUser(authorId),
+        author[0]?.firebase_uid
+          ? cache.invalidateJson(`user:me:${author[0].firebase_uid}`)
+          : Promise.resolve(),
+        cache.invalidateLeaderboard(),
+      ]);
+    }
     return awarded;
   } catch (_) { return 0; }
 }

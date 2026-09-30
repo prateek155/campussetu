@@ -27,6 +27,7 @@ const flatmatesRouter = require('./routes/flatmates.routes');
 const quizRouter = require('./routes/quiz.routes');
 const reportsRouter = require('./routes/reports.routes');
 const alarmWallpaperRouter = require('./routes/alarmWallpaper.routes');
+const resumesRouter = require('./routes/resumes.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -111,6 +112,7 @@ app.use('/api/v1/flatmates', flatmatesRouter);
 app.use('/api/v1/quiz', quizRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/alarm-wallpapers', alarmWallpaperRouter);
+app.use('/api/v1/resumes', resumesRouter);
 
 // ── Admin: Faculty request endpoints ──────────────────────
 const { requireAuth, requireAdmin } = require('./middleware/auth');
@@ -397,6 +399,43 @@ app.use((err, req, res, next) => {
         event_type TEXT NOT NULL CHECK (event_type IN ('tab_switch')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`);
+
+      // User-owned resume documents and short-lived mobile-to-web editor links.
+      await db.query(`CREATE TABLE IF NOT EXISTS resume_documents (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        firebase_uid TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 100),
+        template_id TEXT NOT NULL,
+        content JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_resume_documents_owner_updated
+        ON resume_documents (firebase_uid, updated_at DESC)`);
+      await db.query(`CREATE TABLE IF NOT EXISTS resume_browser_handoffs (
+        code_hash CHAR(64) PRIMARY KEY,
+        firebase_uid TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_resume_handoffs_expiry
+        ON resume_browser_handoffs (expires_at)`);
+
+      // Temporary account recovery state. Passwords remain managed by Firebase Auth.
+      await db.query(`CREATE TABLE IF NOT EXISTS password_reset_otps (
+        firebase_uid TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        otp_hash TEXT,
+        reset_token_hash CHAR(64) UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 5),
+        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        window_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        requests_in_window SMALLINT NOT NULL DEFAULT 1 CHECK (requests_in_window BETWEEN 1 AND 3),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expiry
+        ON password_reset_otps (expires_at)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email))`);
 
       // Indexes
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quizzes_status ON quizzes (status, created_at DESC)`);

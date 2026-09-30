@@ -25,15 +25,15 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
     ApiService().warmup();
   }
 
-  static const _bg          = Color(0xFF090B14);
-  static const _card        = Color(0xFF121526);
-  static const _cardBorder  = Color(0xFF222640);
-  static const _cyan        = Color(0xFF3FD8F5);
-  static const _purple      = Color(0xFF8B5CF6);
-  static const _green       = Color(0xFF22C55E);
-  static const _orange      = Color(0xFFF59E0B);
-  static const _ink         = Color(0xFFE9EBEE);
-  static const _inkSoft     = Color(0xFF9CA3AF);
+  static const _bg = Color(0xFF090B14);
+  static const _card = Color(0xFF121526);
+  static const _cardBorder = Color(0xFF222640);
+  static const _cyan = Color(0xFF3FD8F5);
+  static const _purple = Color(0xFF8B5CF6);
+  static const _green = Color(0xFF22C55E);
+  static const _orange = Color(0xFFF59E0B);
+  static const _ink = Color(0xFFE9EBEE);
+  static const _inkSoft = Color(0xFF9CA3AF);
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isSigningIn = true);
@@ -49,10 +49,12 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sign-in failed: ${e.toString()}', style: const TextStyle(color: Colors.white)),
+          content: Text('Sign-in failed: ${e.toString()}',
+              style: const TextStyle(color: Colors.white)),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -63,7 +65,8 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
   void _scrollTo(GlobalKey key) {
     final ctx = key.currentContext;
     if (ctx != null) {
-      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
     }
   }
 
@@ -148,29 +151,51 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                                   ),
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
-                                    BoxShadow(color: _cyan.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 2)),
+                                    BoxShadow(
+                                        color: _cyan.withValues(alpha: 0.3),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 2)),
                                   ],
                                 ),
-                                child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+                                child: const Icon(Icons.school_rounded,
+                                    color: Colors.white, size: 22),
                               ),
                               const SizedBox(width: 10),
                               RichText(
                                 text: const TextSpan(
                                   children: [
-                                    TextSpan(text: 'Campus', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                                    TextSpan(text: 'Setu', style: TextStyle(color: _cyan, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                                    TextSpan(
+                                        text: 'Campus',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.5)),
+                                    TextSpan(
+                                        text: 'Setu',
+                                        style: TextStyle(
+                                            color: _cyan,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.5)),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: _cyan.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: _cyan.withValues(alpha: 0.3)),
+                                  border: Border.all(
+                                      color: _cyan.withValues(alpha: 0.3)),
                                 ),
-                                child: const Text('WEB', style: TextStyle(color: _cyan, fontSize: 10, fontWeight: FontWeight.w700)),
+                                child: const Text('WEB',
+                                    style: TextStyle(
+                                        color: _cyan,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700)),
                               ),
                             ],
                           ),
@@ -179,9 +204,13 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
 
                           // Nav Links (visible on desktop)
                           if (MediaQuery.of(context).size.width >= 780) ...[
-                            _NavBtn(label: 'Features', onTap: () => _scrollTo(_featuresKey)),
+                            _NavBtn(
+                                label: 'Features',
+                                onTap: () => _scrollTo(_featuresKey)),
                             const SizedBox(width: 20),
-                            _NavBtn(label: 'Ecosystem', onTap: () => _scrollTo(_ecosystemKey)),
+                            _NavBtn(
+                                label: 'Ecosystem',
+                                onTap: () => _scrollTo(_ecosystemKey)),
                             const SizedBox(width: 20),
                             _NavBtn(
                               label: 'Portals',
@@ -195,17 +224,28 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _cyan,
                               foregroundColor: const Color(0xFF0D0F1A),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                               elevation: 2,
                             ),
-                            onPressed: _isSigningIn ? null : _handleGoogleSignIn,
+                            onPressed:
+                                _isSigningIn ? null : _handleGoogleSignIn,
                             icon: _isSigningIn
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0D0F1A)))
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF0D0F1A)))
                                 : const Icon(Icons.login_rounded, size: 18),
                             label: Text(
-                              _isSigningIn ? 'Signing in...' : 'Sign In with Google',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                              _isSigningIn
+                                  ? 'Signing in...'
+                                  : 'Sign In with Google',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 14),
                             ),
                           ),
                         ],
@@ -226,20 +266,26 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                         children: [
                           // Pill Badge
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 7),
                             decoration: BoxDecoration(
                               color: _cyan.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(30),
-                              border: Border.all(color: _cyan.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                  color: _cyan.withValues(alpha: 0.3)),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.bolt_rounded, color: _cyan, size: 16),
+                                Icon(Icons.bolt_rounded,
+                                    color: _cyan, size: 16),
                                 SizedBox(width: 6),
                                 Text(
                                   "India's Unified Student Campus Network",
-                                  style: TextStyle(color: _cyan, fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                      color: _cyan,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -274,7 +320,8 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                             child: const Text(
                               'Connect with verified college peers, earn cash or points with Helping Hand, swap notes instantly, carpool together, find student flatmates, and compete in live faculty quizzes.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 17, height: 1.55, color: _inkSoft),
+                              style: TextStyle(
+                                  fontSize: 17, height: 1.55, color: _inkSoft),
                             ),
                           ),
 
@@ -291,11 +338,14 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   foregroundColor: const Color(0xFF0D0F1A),
-                                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 28, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
                                   elevation: 4,
                                 ),
-                                onPressed: _isSigningIn ? null : _handleGoogleSignIn,
+                                onPressed:
+                                    _isSigningIn ? null : _handleGoogleSignIn,
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -303,14 +353,44 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                                       'https://lh3.googleusercontent.com/COxitqgJr1sJnIDe8-jiKhxDx1FrYbtRHKJ9zOIoTQPdMK5AEnhETractivity1=s96',
                                       width: 22,
                                       height: 22,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 26),
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.g_mobiledata_rounded,
+                                          color: Color(0xFF4285F4),
+                                          size: 26),
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
-                                      _isSigningIn ? 'Connecting...' : 'Continue with Google',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0D0F1A)),
+                                      _isSigningIn
+                                          ? 'Connecting...'
+                                          : 'Continue with Google',
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0D0F1A)),
                                     ),
                                   ],
+                                ),
+                              ),
+
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _cyan,
+                                  side: BorderSide(
+                                      color: _cyan.withValues(alpha: 0.55),
+                                      width: 1.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
+                                ),
+                                onPressed: () =>
+                                    context.push(AppRoutes.emailLogin),
+                                icon: const Icon(Icons.email_outlined),
+                                label: const Text(
+                                  'Sign in with email',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600),
                                 ),
                               ),
 
@@ -318,17 +398,24 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                               OutlinedButton(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: _ink,
-                                  side: const BorderSide(color: _cardBorder, width: 1.5),
-                                  padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  side: const BorderSide(
+                                      color: _cardBorder, width: 1.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 26, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
                                 ),
                                 onPressed: () => _scrollTo(_featuresKey),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('Explore Features', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                    Text('Explore Features',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600)),
                                     SizedBox(width: 8),
-                                    Icon(Icons.arrow_downward_rounded, size: 16),
+                                    Icon(Icons.arrow_downward_rounded,
+                                        size: 16),
                                   ],
                                 ),
                               ),
@@ -339,13 +426,17 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
 
                           // Live Highlights Banner
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 20),
                             decoration: BoxDecoration(
                               color: _card.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: _cardBorder),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 10)),
+                                BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 10)),
                               ],
                             ),
                             child: LayoutBuilder(
@@ -354,26 +445,42 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                                 if (isSmall) {
                                   return Column(
                                     children: const [
-                                      _MetricItem(label: 'College Campuses', value: '50+'),
+                                      _MetricItem(
+                                          label: 'College Campuses',
+                                          value: '50+'),
                                       Divider(color: _cardBorder, height: 24),
-                                      _MetricItem(label: 'Active Peers', value: '10,000+'),
+                                      _MetricItem(
+                                          label: 'Active Peers',
+                                          value: '10,000+'),
                                       Divider(color: _cardBorder, height: 24),
-                                      _MetricItem(label: 'Tasks Solved', value: '5,000+'),
+                                      _MetricItem(
+                                          label: 'Tasks Solved',
+                                          value: '5,000+'),
                                       Divider(color: _cardBorder, height: 24),
-                                      _MetricItem(label: 'Cost to Students', value: '100% Free'),
+                                      _MetricItem(
+                                          label: 'Cost to Students',
+                                          value: '100% Free'),
                                     ],
                                   );
                                 }
                                 return Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
                                   children: const [
-                                    _MetricItem(label: 'College Campuses', value: '50+'),
+                                    _MetricItem(
+                                        label: 'College Campuses',
+                                        value: '50+'),
                                     _MetricDivider(),
-                                    _MetricItem(label: 'Active Peers', value: '10,000+'),
+                                    _MetricItem(
+                                        label: 'Active Peers',
+                                        value: '10,000+'),
                                     _MetricDivider(),
-                                    _MetricItem(label: 'Tasks Solved', value: '5,000+'),
+                                    _MetricItem(
+                                        label: 'Tasks Solved', value: '5,000+'),
                                     _MetricDivider(),
-                                    _MetricItem(label: 'Cost to Students', value: '100% Free'),
+                                    _MetricItem(
+                                        label: 'Cost to Students',
+                                        value: '100% Free'),
                                   ],
                                 );
                               },
@@ -399,12 +506,20 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                         children: [
                           const Text(
                             'BUILT FOR CAMPUS REALITY',
-                            style: TextStyle(color: _cyan, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5),
+                            style: TextStyle(
+                                color: _cyan,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                letterSpacing: 1.5),
                           ),
                           const SizedBox(height: 8),
                           const Text(
                             'Supercharge Every Aspect of Your Student Life',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 32, letterSpacing: -0.5),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 32,
+                                letterSpacing: -0.5),
                           ),
                           const SizedBox(height: 12),
                           const Text(
@@ -416,50 +531,61 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                           // Feature Cards Grid
                           LayoutBuilder(
                             builder: (context, constraints) {
-                              final crossAxisCount = constraints.maxWidth > 950 ? 3 : constraints.maxWidth > 650 ? 2 : 1;
+                              final crossAxisCount = constraints.maxWidth > 950
+                                  ? 3
+                                  : constraints.maxWidth > 650
+                                      ? 2
+                                      : 1;
                               return GridView.count(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 crossAxisCount: crossAxisCount,
                                 mainAxisSpacing: 18,
                                 crossAxisSpacing: 18,
-                                childAspectRatio: constraints.maxWidth > 950 ? 1.25 : 1.4,
+                                childAspectRatio:
+                                    constraints.maxWidth > 950 ? 1.25 : 1.4,
                                 children: const [
                                   _FeatureCard(
                                     icon: Icons.people_alt_rounded,
                                     iconColor: _cyan,
                                     title: 'Campus Peer Network',
-                                    description: 'Connect with students across India filtered by college, city, branch, or year. Expand your academic and professional circle.',
+                                    description:
+                                        'Connect with students across India filtered by college, city, branch, or year. Expand your academic and professional circle.',
                                   ),
                                   _FeatureCard(
                                     icon: Icons.volunteer_activism_rounded,
                                     iconColor: _orange,
                                     title: 'Helping Hand Tasks',
-                                    description: 'Need assistance with an assignment, moving, or notes? Post a task with real rewards or earn points by helping your peers.',
+                                    description:
+                                        'Need assistance with an assignment, moving, or notes? Post a task with real rewards or earn points by helping your peers.',
                                   ),
                                   _FeatureCard(
                                     icon: Icons.share_rounded,
                                     iconColor: _purple,
                                     title: 'TShare & Notes Vault',
-                                    description: 'Instantly transfer code snippets and verified lecture notes using 4-character secret keys and secure cloud storage.',
+                                    description:
+                                        'Instantly transfer code snippets and verified lecture notes using 4-character secret keys and secure cloud storage.',
                                   ),
                                   _FeatureCard(
                                     icon: Icons.hotel_rounded,
                                     iconColor: _green,
                                     title: 'Flatmates & Rooms',
-                                    description: 'Looking for a roommate or PG near campus? Search and connect with fellow students looking for flat shares.',
+                                    description:
+                                        'Looking for a roommate or PG near campus? Search and connect with fellow students looking for flat shares.',
                                   ),
                                   _FeatureCard(
                                     icon: Icons.directions_car_rounded,
                                     iconColor: Color(0xFF38BDF8),
                                     title: 'Campus Travel & Carpools',
-                                    description: 'Share autos, cabs, and weekend rides home. Save money on daily commutes with verified classmates.',
+                                    description:
+                                        'Share autos, cabs, and weekend rides home. Save money on daily commutes with verified classmates.',
                                   ),
                                   _FeatureCard(
                                     icon: Icons.quiz_rounded,
                                     iconColor: Color(0xFFEC4899),
                                     title: 'Live Interactive Quizzes',
-                                    description: 'Compete in fast-paced real-time quizzes hosted by faculty and student clubs with live scoreboards.',
+                                    description:
+                                        'Compete in fast-paced real-time quizzes hosted by faculty and student clubs with live scoreboards.',
                                   ),
                                 ],
                               );
@@ -492,19 +618,27 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: _cyan.withValues(alpha: 0.3)),
+                          border:
+                              Border.all(color: _cyan.withValues(alpha: 0.3)),
                         ),
                         child: Column(
                           children: [
                             const Text(
                               'The Entire Ecosystem',
-                              style: TextStyle(color: _cyan, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5),
+                              style: TextStyle(
+                                  color: _cyan,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  letterSpacing: 1.5),
                             ),
                             const SizedBox(height: 8),
                             const Text(
                               'Built for Students, Faculty & Enterprise Partners',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 28),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 28),
                             ),
                             const SizedBox(height: 12),
                             const Text(
@@ -520,24 +654,29 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                               children: [
                                 _PortalLinkCard(
                                   title: 'Student Portal',
-                                  desc: 'Social feed, connections, tasks, notes, carpools',
+                                  desc:
+                                      'Social feed, connections, tasks, notes, carpools',
                                   url: 'https://campussetu-user.pages.dev',
                                   isCurrent: true,
                                 ),
                                 _PortalLinkCard(
                                   title: 'Admin Portal',
-                                  desc: 'City/State user segregation, content moderation, pulse stats',
+                                  desc:
+                                      'City/State user segregation, content moderation, pulse stats',
                                   url: 'https://campussetu-admin.pages.dev',
                                 ),
                                 _PortalLinkCard(
                                   title: 'Faculty Portal',
-                                  desc: 'Create real-time PIN quizzes, evaluate results, view boards',
+                                  desc:
+                                      'Create real-time PIN quizzes, evaluate results, view boards',
                                   url: 'https://campussetu-faculty.pages.dev',
                                 ),
                                 _PortalLinkCard(
                                   title: 'Enterprise Portal',
-                                  desc: 'Partner deal redemptions, student vouchers, QR verification',
-                                  url: 'https://campussetu-enterprise.pages.dev',
+                                  desc:
+                                      'Partner deal redemptions, student vouchers, QR verification',
+                                  url:
+                                      'https://campussetu-enterprise.pages.dev',
                                 ),
                               ],
                             ),
@@ -556,7 +695,8 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                     color: Color(0xFF07080F),
                     border: Border(top: BorderSide(color: _cardBorder)),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1200),
@@ -574,22 +714,33 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
                                       color: _cyan,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Icon(Icons.school_rounded, color: Color(0xFF090B14), size: 18),
+                                    child: const Icon(Icons.school_rounded,
+                                        color: Color(0xFF090B14), size: 18),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text('CampusSetu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const Text('CampusSetu',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16)),
                                 ],
                               ),
                               Row(
                                 children: [
                                   TextButton(
-                                    onPressed: () => context.push(AppRoutes.privacy),
-                                    child: const Text('Privacy Policy', style: TextStyle(color: _inkSoft, fontSize: 13)),
+                                    onPressed: () =>
+                                        context.push(AppRoutes.privacy),
+                                    child: const Text('Privacy Policy',
+                                        style: TextStyle(
+                                            color: _inkSoft, fontSize: 13)),
                                   ),
                                   const SizedBox(width: 12),
                                   TextButton(
-                                    onPressed: () => context.push(AppRoutes.terms),
-                                    child: const Text('Terms of Service', style: TextStyle(color: _inkSoft, fontSize: 13)),
+                                    onPressed: () =>
+                                        context.push(AppRoutes.terms),
+                                    child: const Text('Terms of Service',
+                                        style: TextStyle(
+                                            color: _inkSoft, fontSize: 13)),
                                   ),
                                 ],
                               ),
@@ -620,18 +771,25 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: _card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _cardBorder)),
-        title: const Text('CampusSetu Portals', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: _cardBorder)),
+        title: const Text('CampusSetu Portals',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _dialogPortalRow('🎓 Student Portal', 'https://campussetu-user.pages.dev'),
+            _dialogPortalRow(
+                '🎓 Student Portal', 'https://campussetu-user.pages.dev'),
             const SizedBox(height: 10),
-            _dialogPortalRow('🛡️ Admin Portal', 'https://campussetu-admin.pages.dev'),
+            _dialogPortalRow(
+                '🛡️ Admin Portal', 'https://campussetu-admin.pages.dev'),
             const SizedBox(height: 10),
-            _dialogPortalRow('👨‍🏫 Faculty Portal', 'https://campussetu-faculty.pages.dev'),
+            _dialogPortalRow(
+                '👨‍🏫 Faculty Portal', 'https://campussetu-faculty.pages.dev'),
             const SizedBox(height: 10),
-            _dialogPortalRow('🏢 Enterprise Portal', 'https://campussetu-enterprise.pages.dev'),
+            _dialogPortalRow('🏢 Enterprise Portal',
+                'https://campussetu-enterprise.pages.dev'),
           ],
         ),
         actions: [
@@ -654,8 +812,14 @@ class _WebLandingScreenState extends State<WebLandingScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14))),
-          Text(url.replaceFirst('https://', ''), style: const TextStyle(color: _cyan, fontSize: 12)),
+          Expanded(
+              child: Text(name,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14))),
+          Text(url.replaceFirst('https://', ''),
+              style: const TextStyle(color: _cyan, fontSize: 12)),
         ],
       ),
     );
@@ -679,7 +843,10 @@ class _NavBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Text(
           label,
-          style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 14, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              color: Color(0xFFE9EBEE),
+              fontSize: 14,
+              fontWeight: FontWeight.w500),
         ),
       ),
     );
@@ -697,12 +864,18 @@ class _MetricItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(color: Color(0xFF3FD8F5), fontSize: 28, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+              color: Color(0xFF3FD8F5),
+              fontSize: 28,
+              fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 13,
+              fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -760,12 +933,14 @@ class _FeatureCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
             description,
-            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13, height: 1.5),
+            style: const TextStyle(
+                color: Color(0xFF9CA3AF), fontSize: 13, height: 1.5),
           ),
         ],
       ),
@@ -802,19 +977,37 @@ class _PortalLinkCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14))),
+              Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14))),
               if (isCurrent)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: cyan.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('Live', style: TextStyle(color: cyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: cyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6)),
+                  child: const Text('Live',
+                      style: TextStyle(
+                          color: cyan,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(desc, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11, height: 1.4)),
+          Text(desc,
+              style: const TextStyle(
+                  color: Color(0xFF9CA3AF), fontSize: 11, height: 1.4)),
           const SizedBox(height: 10),
-          Text(url.replaceFirst('https://', ''), style: TextStyle(color: isCurrent ? cyan : const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500)),
+          Text(url.replaceFirst('https://', ''),
+              style: TextStyle(
+                  color: isCurrent ? cyan : const Color(0xFF64748B),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );

@@ -2,6 +2,7 @@
 const db = require('../config/db');
 const admin = require('../config/firebase');
 const { v4: uuidv4 } = require('uuid');
+const cache = require('../config/redis');
 
 async function deleteFirebaseUserQuietly(uid) {
   if (!uid) return;
@@ -175,10 +176,11 @@ exports.approveFacultyRequest = async (req, res) => {
     await admin.auth().updateUser(request.firebase_uid, { disabled: false });
     enabledFirebaseUid = request.firebase_uid;
     const userId = uuidv4();
-    await client.query(
+    const { rows: facultyUser } = await client.query(
       `INSERT INTO users (id, firebase_uid, name, email, role, college_name, subject)
        VALUES ($1, $2, $3, $4, 'faculty', $5, $6)
-       ON CONFLICT (firebase_uid) DO UPDATE SET role = 'faculty', college_name = $5, subject = $6`,
+       ON CONFLICT (firebase_uid) DO UPDATE SET role = 'faculty', college_name = $5, subject = $6
+       RETURNING id`,
       [userId, request.firebase_uid, request.name, request.email, request.college_name, request.subject]
     );
     await client.query(
@@ -191,6 +193,11 @@ exports.approveFacultyRequest = async (req, res) => {
     );
     await client.query('COMMIT');
     committed = true;
+
+    await Promise.all([
+      cache.invalidateUser(facultyUser[0].id),
+      cache.invalidateJson(`user:me:${request.firebase_uid}`),
+    ]);
 
     res.json({ message: `Faculty account approved for ${request.name}`, email: request.email });
   } catch (err) {

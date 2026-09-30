@@ -2,6 +2,7 @@ const db = require('../config/db');
 const cache = require('../config/redis');
 
 const EVENTS_CACHE_KEY = 'events:all:v2';
+const EVENTS_CACHE_TTL = 300;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isUuid(value) {
@@ -40,6 +41,48 @@ async function findInternalEvent(eventId) {
   return rows[0] ?? null;
 }
 
+async function queryEventCatalog() {
+  const { rows } = await db.query(
+    `SELECT e.id, e.name, e.description, e.place, e.time_date,
+       COALESCE(e.registration_mode, 'external') AS registration_mode,
+       e.registration_link, e.picture_url, e.created_at,
+       COALESCE(r.registration_count, 0)::int AS registration_count
+     FROM (
+       SELECT id, name, description, place, time_date, registration_mode,
+         registration_link, picture_url, created_at
+       FROM events
+       ORDER BY created_at DESC
+       LIMIT 50
+     ) e
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS registration_count
+       FROM event_registrations er
+       WHERE er.event_id = e.id
+     ) r ON TRUE
+     ORDER BY e.created_at DESC`
+  );
+  return { events: rows };
+}
+
+async function refreshEventCatalog() {
+  const catalog = await queryEventCatalog();
+  await cache.setCache(EVENTS_CACHE_KEY, JSON.stringify(catalog), EVENTS_CACHE_TTL);
+  return catalog.events;
+}
+
+async function invalidateAndWarmEvents({ updateHomeCounts = false } = {}) {
+  await cache.invalidateJson(EVENTS_CACHE_KEY);
+  await cache.delCache('events:list');
+  if (updateHomeCounts) await cache.delCache('home:counts');
+  try {
+    await refreshEventCatalog();
+  } catch (error) {
+    // A successful registration/event write must not turn into an API error
+    // just because Redis warming could not complete.
+    console.warn('[Events] cache refresh deferred:', error.message);
+  }
+}
+
 exports.createEvent = async (req, res) => {
   try {
     const name = readText(req.body.name, 160);
@@ -74,7 +117,7 @@ exports.createEvent = async (req, res) => {
       [name, description, place, timeDate, registrationMode, registrationLink, pictureUrl]
     );
 
-    await cache.delCache(EVENTS_CACHE_KEY);
+    await invalidateAndWarmEvents({ updateHomeCounts: true });
     return res.status(201).json({ event: { ...rows[0], registration_count: 0, is_registered: false } });
   } catch (error) {
     console.error('Error creating event:', error);
@@ -90,7 +133,7 @@ exports.deleteEvent = async (req, res) => {
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Event not found' });
-    await cache.delCache(EVENTS_CACHE_KEY);
+    await invalidateAndWarmEvents({ updateHomeCounts: true });
     return res.json({ deleted: req.params.id });
   } catch (error) {
     console.error('Error deleting event:', error);
@@ -100,40 +143,9 @@ exports.deleteEvent = async (req, res) => {
 
 exports.getEvents = async (req, res) => {
   try {
-    let events;
-    const cached = await cache.getCache(EVENTS_CACHE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed.events)) events = parsed.events;
-      } catch {
-        // Bad/stale cache data falls back to PostgreSQL below.
-      }
-    }
-
-    if (!events) {
-      const { rows } = await db.query(
-        `SELECT e.id, e.name, e.description, e.place, e.time_date,
-           COALESCE(e.registration_mode, 'external') AS registration_mode,
-           e.registration_link, e.picture_url, e.created_at,
-           COALESCE(r.registration_count, 0)::int AS registration_count
-         FROM (
-           SELECT id, name, description, place, time_date, registration_mode,
-             registration_link, picture_url, created_at
-           FROM events
-           ORDER BY created_at DESC
-           LIMIT 50
-         ) e
-         LEFT JOIN LATERAL (
-           SELECT COUNT(*)::int AS registration_count
-           FROM event_registrations er
-           WHERE er.event_id = e.id
-         ) r ON TRUE
-         ORDER BY e.created_at DESC`
-      );
-      events = rows;
-      await cache.setCache(EVENTS_CACHE_KEY, JSON.stringify({ events }), 300);
-    }
+    res.setHeader('Cache-Control', 'private, no-store');
+    const cachedCatalog = await cache.getOrLoadJson(EVENTS_CACHE_KEY, EVENTS_CACHE_TTL, queryEventCatalog);
+    const events = Array.isArray(cachedCatalog?.events) ? cachedCatalog.events : [];
 
     const ids = events.map((event) => event.id).filter(isUuid);
     let registeredIds = new Set();
@@ -185,7 +197,7 @@ exports.registerForEvent = async (req, res) => {
       [eventId, userId]
     );
     if (rows.length) {
-      await cache.delCache(EVENTS_CACHE_KEY);
+      await invalidateAndWarmEvents();
       return res.status(201).json({ registered: true, already_registered: false, registered_at: rows[0].registered_at });
     }
 
@@ -224,7 +236,7 @@ exports.cancelEventRegistration = async (req, res) => {
       'DELETE FROM event_registrations WHERE event_id = $1 AND user_id = $2',
       [eventId, userId]
     );
-    await cache.delCache(EVENTS_CACHE_KEY);
+    await invalidateAndWarmEvents();
     return res.json({ registered: false });
   } catch (error) {
     console.error('Error cancelling event registration:', error);

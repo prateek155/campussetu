@@ -16,7 +16,8 @@ class WelcomeScreen extends ConsumerStatefulWidget {
   ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTickerProviderStateMixin {
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
 
   @override
@@ -39,10 +40,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sign-in failed: ${e.toString()}', style: AppTypography.interBody(color: Colors.white)),
+          content: Text('Sign-in failed: ${e.toString()}',
+              style: AppTypography.interBody(color: Colors.white)),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -64,7 +67,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
               // ── Brand Orb Hero ───────────────────────────
               _BrandOrb()
                   .animate()
-                  .scale(begin: const Offset(0.6, 0.6), duration: 800.ms, curve: Curves.elasticOut)
+                  .scale(
+                      begin: const Offset(0.6, 0.6),
+                      duration: 800.ms,
+                      curve: Curves.elasticOut)
                   .fadeIn(duration: 600.ms),
 
               const SizedBox(height: 32),
@@ -72,7 +78,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
               // ── Brand Name (Caveat) ───────────────────────
               Text(
                 'CampusSetu',
-                style: AppTypography.caveatBrand(size: 42, color: AppColors.ink),
+                style:
+                    AppTypography.caveatBrand(size: 42, color: AppColors.ink),
               )
                   .animate(delay: 300.ms)
                   .slideY(begin: 0.3, duration: 600.ms, curve: Curves.easeOut)
@@ -81,7 +88,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
               const SizedBox(height: 8),
               Text(
                 'India\'s student network',
-                style: AppTypography.interBody(color: AppColors.inkSoft, size: 15),
+                style:
+                    AppTypography.interBody(color: AppColors.inkSoft, size: 15),
               ).animate(delay: 400.ms).fadeIn(duration: 500.ms),
 
               const Spacer(flex: 2),
@@ -89,16 +97,21 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
               // ── Feature Strips ────────────────────────────
               Column(
                 children: [
-                  const _FeatureRow(Icons.people_rounded, 'Connect with students across India'),
+                  const _FeatureRow(Icons.people_rounded,
+                      'Connect with students across India'),
                   const SizedBox(height: 12),
-                  const _FeatureRow(Icons.work_rounded, 'Discover jobs & internships'),
+                  const _FeatureRow(
+                      Icons.work_rounded, 'Discover jobs & internships'),
                   const SizedBox(height: 12),
-                  const _FeatureRow(Icons.share_rounded, 'Share code snippets instantly with Tshare'),
+                  const _FeatureRow(Icons.share_rounded,
+                      'Share code snippets instantly with Tshare'),
                   const SizedBox(height: 12),
-                  const _FeatureRow(Icons.store_rounded, 'Campus marketplace for your city'),
+                  const _FeatureRow(
+                      Icons.store_rounded, 'Campus marketplace for your city'),
                 ]
                     .animate(interval: 100.ms, delay: 500.ms)
-                    .slideX(begin: -0.2, duration: 500.ms, curve: Curves.easeOut)
+                    .slideX(
+                        begin: -0.2, duration: 500.ms, curve: Curves.easeOut)
                     .fadeIn(duration: 500.ms),
               ),
 
@@ -112,6 +125,15 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with SingleTicker
                   .animate(delay: 800.ms)
                   .slideY(begin: 0.4, duration: 600.ms, curve: Curves.easeOut)
                   .fadeIn(duration: 600.ms),
+
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => context.push(AppRoutes.emailLogin),
+                icon: const Icon(Icons.email_outlined, size: 18),
+                label: const Text('Sign in with email and password'),
+              ),
 
               const SizedBox(height: 16),
               Text(
@@ -135,15 +157,17 @@ class _BrandOrb extends StatefulWidget {
   State<_BrandOrb> createState() => _BrandOrbState();
 }
 
-class _BrandOrbState extends State<_BrandOrb> with SingleTickerProviderStateMixin {
+class _BrandOrbState extends State<_BrandOrb>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _pulse;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
+    _ctrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat(reverse: true);
     _pulse = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
     );
@@ -167,14 +191,21 @@ class _BrandOrbState extends State<_BrandOrb> with SingleTickerProviderStateMixi
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(color: AppColors.shadowDark, offset: const Offset(12, 12), blurRadius: 24),
-              BoxShadow(color: AppColors.shadowLight, offset: const Offset(-12, -12), blurRadius: 24),
+              BoxShadow(
+                  color: AppColors.shadowDark,
+                  offset: const Offset(12, 12),
+                  blurRadius: 24),
+              BoxShadow(
+                  color: AppColors.shadowLight,
+                  offset: const Offset(-12, -12),
+                  blurRadius: 24),
             ],
             color: AppColors.bg,
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: Image.asset('assets/images/app_icon.png', fit: BoxFit.contain),
+            child:
+                Image.asset('assets/images/app_icon.png', fit: BoxFit.contain),
           ),
         ),
       ),
@@ -203,7 +234,8 @@ class _FeatureRow extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Text(label, style: AppTypography.interBody(color: AppColors.ink, size: 14)),
+          child: Text(label,
+              style: AppTypography.interBody(color: AppColors.ink, size: 14)),
         ),
       ],
     );
@@ -238,7 +270,8 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton> {
         decoration: BoxDecoration(
           color: AppColors.bg,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: _pressed ? AppColors.neuInsetShadows : AppColors.neuRaisedShadows,
+          boxShadow:
+              _pressed ? AppColors.neuInsetShadows : AppColors.neuRaisedShadows,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -257,12 +290,18 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton> {
               const SizedBox(
                 width: 28,
                 height: 28,
-                child: Center(child: Text('G', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4285F4), fontSize: 22))),
+                child: Center(
+                    child: Text('G',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF4285F4),
+                            fontSize: 22))),
               ),
               const SizedBox(width: 12),
               Text(
                 'Continue with Google',
-                style: AppTypography.interButton(color: AppColors.ink, size: 16),
+                style:
+                    AppTypography.interButton(color: AppColors.ink, size: 16),
               ),
             ],
           ],

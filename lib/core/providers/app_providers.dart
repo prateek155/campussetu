@@ -99,13 +99,9 @@ final productsProvider = FutureProvider.family<List<Map<String, dynamic>>, Strin
 });
 
 final chatThreadsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  try {
-    await _ensureToken();
-    final list = await ApiService().getChats();
-    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-  } catch (_) {
-    return [];
-  }
+  await _ensureToken();
+  final list = await ApiService().getChats();
+  return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 });
 
 final chatUnreadCountProvider = FutureProvider<int>((ref) async {

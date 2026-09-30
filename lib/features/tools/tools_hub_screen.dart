@@ -94,7 +94,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                 ),
                 Tab(
                   icon: Icon(Icons.photo_library_rounded, size: 18),
-                  text: 'Image Tools (5)',
+                  text: 'Image Tools (6)',
                 ),
               ],
             ),
@@ -216,6 +216,14 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                             icon: Icons.photo_size_select_small_rounded,
                             iconColor: Colors.orange,
                             onTap: () => ImageToolDialogs.showCompressImageDialog(context),
+                          ),
+                          _ToolItem(
+                            title: 'Background Remover',
+                            description: 'Remove a plain or near-solid image background offline on your device.',
+                            icon: Icons.auto_awesome_rounded,
+                            iconColor: Colors.teal,
+                            badge: 'OFFLINE',
+                            onTap: () => ImageToolDialogs.showBackgroundRemoverDialog(context),
                           ),
                           _ToolItem(
                             title: 'Watermark Remover',

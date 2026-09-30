@@ -40,8 +40,46 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS deal_code TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_deal_code ON users (deal_code) WHERE deal_code IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users (firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
 CREATE INDEX IF NOT EXISTS idx_users_state_city   ON users (state, city);
 CREATE INDEX IF NOT EXISTS idx_users_skills        ON users USING GIN (skills);
+
+-- ── RESUME BUILDER ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS resume_documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  firebase_uid TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 100),
+  template_id TEXT NOT NULL,
+  content JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_resume_documents_owner_updated
+  ON resume_documents (firebase_uid, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS resume_browser_handoffs (
+  code_hash CHAR(64) PRIMARY KEY,
+  firebase_uid TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_resume_handoffs_expiry
+  ON resume_browser_handoffs (expires_at);
+
+-- Short-lived OTP and one-time reset token state; password credentials remain in Firebase Auth.
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+  firebase_uid        TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,
+  otp_hash            TEXT,
+  reset_token_hash    CHAR(64) UNIQUE,
+  expires_at          TIMESTAMPTZ NOT NULL,
+  attempts            SMALLINT NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 5),
+  sent_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  window_started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  requests_in_window  SMALLINT NOT NULL DEFAULT 1 CHECK (requests_in_window BETWEEN 1 AND 3),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expiry
+  ON password_reset_otps (expires_at);
 
 -- ─────────────────────────────────────────────────────────
 -- CONNECTIONS

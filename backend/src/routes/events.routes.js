@@ -5,7 +5,6 @@ const multer = require('multer');
 const { randomUUID } = require('crypto');
 const { requireAuth, requireAdmin, requireStudent } = require('../middleware/auth');
 const eventsController = require('../controllers/events.controller');
-const { cacheRoute, invalidateCache } = require('../middleware/cacheMiddleware');
 
 const imageExtensions = {
   'image/jpeg': '.jpg',
@@ -34,15 +33,16 @@ const upload = multer({
 
 router.use(requireAuth);
 
-// GET events — cached 2 minutes (same for all users)
-router.get('/', cacheRoute(120, () => 'events:list'), eventsController.getEvents);
+// The controller caches the shared catalog, then adds each user's registration
+// state separately so one student's response can never be served to another.
+router.get('/', eventsController.getEvents);
 
-router.post('/:id/register', requireStudent, invalidateCache('events:*'), eventsController.registerForEvent);
-router.delete('/:id/register', requireStudent, invalidateCache('events:*'), eventsController.cancelEventRegistration);
+router.post('/:id/register', requireStudent, eventsController.registerForEvent);
+router.delete('/:id/register', requireStudent, eventsController.cancelEventRegistration);
 router.get('/:id/registrations', requireAdmin, eventsController.getEventRegistrations);
 
 // Admin mutations — invalidate cache on change
-router.post('/', requireAdmin, upload.single('image'), invalidateCache('events:*'), eventsController.createEvent);
-router.delete('/:id', requireAdmin, invalidateCache('events:*'), eventsController.deleteEvent);
+router.post('/', requireAdmin, upload.single('image'), eventsController.createEvent);
+router.delete('/:id', requireAdmin, eventsController.deleteEvent);
 
 module.exports = router;

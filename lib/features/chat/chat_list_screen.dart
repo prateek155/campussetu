@@ -23,13 +23,21 @@ class ChatListScreen extends ConsumerWidget {
             child: Row(children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Messages', style: AppTypography.soraDisplay(size: 26)), Text('Stay connected', style: AppTypography.interBody(color: AppColors.inkSoft))]),
               const Spacer(),
-              NeuCard(padding: const EdgeInsets.all(12), onTap: () {}, child: const Icon(Icons.edit_outlined, size: 20, color: AppColors.cyanDeep)),
+              NeuCard(
+                padding: const EdgeInsets.all(12),
+                onTap: () => context.go('/connect'),
+                child: const Icon(Icons.person_search_outlined, size: 20, color: AppColors.cyanDeep),
+              ),
             ]),
           ),
           Expanded(
             child: asyncChats.when(
               data: (threads) {
-                if (threads.isEmpty) {
+                final validThreads = threads.where((thread) {
+                  final id = thread['id'] ?? thread['chat_id'];
+                  return id != null && id.toString().trim().isNotEmpty;
+                }).toList();
+                if (validThreads.isEmpty) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32),
@@ -49,15 +57,26 @@ class ChatListScreen extends ConsumerWidget {
                   onRefresh: () async => ref.invalidate(chatThreadsProvider),
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    itemCount: threads.length,
+                    itemCount: validThreads.length,
                     itemBuilder: (ctx, i) {
-                      final t = threads[i];
-                      final id = (t['id'] ?? t['chat_id'] ?? '$i').toString();
-                      final name = (t['name'] ?? t['other_user']?['name'] ?? t['group_name'] ?? 'Chat').toString();
+                      final t = validThreads[i];
+                      final id = (t['id'] ?? t['chat_id'] ?? '').toString();
+                      final rawOtherUser = t['other_user'];
+                      final otherUser = rawOtherUser is Map ? rawOtherUser : const <String, dynamic>{};
+                      final name = (t['name'] ?? otherUser['name'] ?? t['group_name'] ?? 'Chat').toString();
                       final lastMsg = (t['last_message'] ?? t['lastMessage'] ?? '').toString();
                       final time = (t['time'] ?? t['updated_at'] ?? '').toString();
-                      final unread = (t['unread'] ?? t['unread_count'] ?? 0) as int;
-                      return _ThreadCard(name: name, lastMessage: lastMsg.isEmpty ? 'Tap to open' : lastMsg, time: time.length > 10 ? time.substring(11, 16) : time, unread: unread, onTap: () => context.go('/chat/$id')).animate(delay: (i * 60).ms).fadeIn(duration: 300.ms).slideX(begin: -0.05);
+                      final unreadValue = t['unread'] ?? t['unread_count'] ?? 0;
+                      final unread = unreadValue is num
+                          ? unreadValue.toInt()
+                          : int.tryParse(unreadValue.toString()) ?? 0;
+                      return _ThreadCard(
+                        name: name,
+                        lastMessage: lastMsg.isEmpty ? 'Tap to open' : lastMsg,
+                        time: time.length > 10 ? time.substring(11, 16) : time,
+                        unread: unread,
+                        onTap: () => context.push('/chat/$id', extra: t),
+                      ).animate(delay: (i * 60).ms).fadeIn(duration: 300.ms).slideX(begin: -0.05);
                     },
                   ),
                 );

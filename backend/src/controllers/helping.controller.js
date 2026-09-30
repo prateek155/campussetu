@@ -1,6 +1,7 @@
 // backend/src/controllers/helping.controller.js
 const db = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
+const cache = require('../config/redis');
 
 async function meId(firebaseUid) {
   const { rows } = await db.query('SELECT id FROM users WHERE firebase_uid = $1', [firebaseUid]);
@@ -213,7 +214,22 @@ exports.completeTask = async (req, res) => {
         await client.query(`INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`, [uuidv4(), task.assignee_id, task.points, `helping_reward_received:${task.id}`]);
       }
       await client.query(`UPDATE helping_tasks SET status='completed' WHERE id=$1`, [task.id]);
+      const affectedUsers = task.type === 'points'
+        ? (await client.query(
+            'SELECT id, firebase_uid FROM users WHERE id = ANY($1::uuid[])',
+            [[uid, task.assignee_id]],
+          )).rows
+        : [];
       await client.query('COMMIT');
+      if (affectedUsers.length) {
+        await Promise.all([
+          ...affectedUsers.flatMap((user) => [
+            cache.invalidateUser(user.id),
+            cache.invalidateJson(`user:me:${user.firebase_uid}`),
+          ]),
+          cache.invalidateLeaderboard(),
+        ]);
+      }
       res.json({ task_id: task.id, status: 'completed', transferred_points: task.type === 'points' ? task.points : 0 });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
   } catch (err) { res.status(500).json({ error: err.message }); }

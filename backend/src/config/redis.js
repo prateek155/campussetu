@@ -1,5 +1,6 @@
 // backend/src/config/redis.js
 const Redis = require('ioredis');
+const { randomUUID } = require('crypto');
 
 let client = null;
 let isReady = false;
@@ -122,6 +123,102 @@ async function setJson(key, value, ttlSeconds = 60) {
   await setCache(key, JSON.stringify(value), ttlSeconds);
 }
 
+async function invalidateJson(key) {
+  if (!client || !isReady || !key) return;
+  try {
+    const versionKey = `cache-version:${key}`;
+    await client.multi()
+      .incr(versionKey)
+      .pexpire(versionKey, 24 * 60 * 60 * 1000)
+      .del(key)
+      .exec();
+  } catch {}
+}
+
+async function getJsonVersion(key) {
+  if (!client || !isReady) return null;
+  try {
+    return (await client.get(`cache-version:${key}`)) || '0';
+  } catch {
+    return null;
+  }
+}
+
+async function setJsonIfVersionUnchanged(key, value, ttlSeconds, version) {
+  const currentVersion = await getJsonVersion(key);
+  if (currentVersion !== version) {
+    const currentValue = await getJson(key);
+    return currentValue === null ? value : currentValue;
+  }
+  await setJson(key, value, ttlSeconds);
+  return value;
+}
+
+const localLoads = new Map();
+
+/**
+ * Read-through JSON cache with per-process single-flight and a short Redis
+ * lease, so concurrent cold/expired reads do not all query PostgreSQL.
+ * If Redis is unavailable, the loader still runs and the endpoint remains
+ * available through its normal database path.
+ */
+async function getOrLoadJson(key, ttlSeconds, loader) {
+  const cached = await getJson(key);
+  if (cached !== null) return cached;
+
+  if (localLoads.has(key)) return localLoads.get(key);
+
+  const pending = (async () => {
+    if (!client || !isReady) return loader();
+
+    const lockKey = `cache-lock:${key}`;
+    const token = randomUUID();
+    let ownsLock = false;
+    try {
+      ownsLock = (await client.set(lockKey, token, 'PX', 10000, 'NX')) === 'OK';
+    } catch {
+      return loader();
+    }
+
+    if (!ownsLock) {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 75));
+        const value = await getJson(key);
+        if (value !== null) return value;
+        if (!isReady) return loader();
+      }
+      // A slow DB query should not make this request wait indefinitely.
+      const version = await getJsonVersion(key);
+      const value = await loader();
+      return setJsonIfVersionUnchanged(key, value, ttlSeconds, version);
+    }
+
+    try {
+      const valueAfterLock = await getJson(key);
+      if (valueAfterLock !== null) return valueAfterLock;
+      const version = await getJsonVersion(key);
+      const value = await loader();
+      return setJsonIfVersionUnchanged(key, value, ttlSeconds, version);
+    } finally {
+      try {
+        await client.eval(
+          "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+          1,
+          lockKey,
+          token,
+        );
+      } catch {}
+    }
+  })();
+
+  localLoads.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    if (localLoads.get(key) === pending) localLoads.delete(key);
+  }
+}
+
 // ── User-specific helpers ─────────────────────────────────────────────────────
 
 /** Get full cached user profile. Returns object or null. */
@@ -140,11 +237,10 @@ async function setUserProfile(uid, profileObj) {
 
 /** Invalidate all user-related caches (call on profile update). */
 async function invalidateUser(uid) {
-  await delCache(
-    KEYS.userProfile(uid),
-    KEYS.userPoints(uid),
-    KEYS.userAvatar(uid),
-  );
+  await Promise.all([
+    invalidateJson(KEYS.userProfile(uid)),
+    delCache(KEYS.userPoints(uid), KEYS.userAvatar(uid)),
+  ]);
 }
 
 /** Get cached points. Returns number or null. */
@@ -246,6 +342,8 @@ module.exports = {
   delPattern,
   getJson,
   setJson,
+  invalidateJson,
+  getOrLoadJson,
   pipeline,
 
   // User profile caching

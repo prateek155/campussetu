@@ -1,11 +1,26 @@
 // backend/src/routes/users.routes.js
 const router = require('express').Router();
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 const c = require('../controllers/users.controller');
+const passwordReset = require('../controllers/passwordReset.controller');
 const { requireAuth } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validate');
+
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many reset requests. Please wait and try again.' },
+});
+
+router.use('/password-reset', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  next();
+});
 
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -26,6 +41,9 @@ const upload = multer({
 });
 
 router.get('/me', requireAuth, c.getMe);
+router.post('/password-reset/request', passwordResetRequestLimiter, passwordReset.requestOtp);
+router.post('/password-reset/verify', passwordReset.verifyOtp);
+router.post('/password-reset/complete', passwordReset.complete);
 router.get('/home-counts', requireAuth, c.getHomeCounts);
 router.get('/discover', requireAuth, c.discoverStudents);
 router.get('/by-campus/:campusId', requireAuth, c.getByCampusId);

@@ -56,11 +56,12 @@ async function ensureDealCode(userId, name) {
 
 // Awards 25 signup bonus once (unique index makes concurrent calls safe)
 async function ensureSignupBonus(userId) {
-  await db.query(
+  const { rowCount } = await db.query(
     `INSERT INTO points_ledger (id, user_id, amount, reason)
-     VALUES ($1, $2, 25, 'signup_bonus') ON CONFLICT DO NOTHING`,
+     VALUES ($1, $2, 25, 'signup_bonus') ON CONFLICT DO NOTHING RETURNING id`,
     [uuidv4(), userId]
   );
+  if (rowCount) await cache.invalidateLeaderboard();
 }
 
 function parseStrictAmount(v) {
@@ -70,35 +71,82 @@ function parseStrictAmount(v) {
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
+async function loadMeProfile(firebaseUid) {
+  const { rows } = await db.query(
+    `SELECT u.*,
+      (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+      (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+      (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+     FROM users u WHERE u.firebase_uid = $1`,
+    [firebaseUid]
+  );
+  return rows[0] || null;
+}
+
+async function loadOrCreateMeProfile(firebaseUid, claims = {}) {
+  const { rows: existing } = await db.query(
+    'SELECT id, name FROM users WHERE firebase_uid = $1 LIMIT 1',
+    [firebaseUid]
+  );
+
+  if (existing.length) {
+    await ensureCampusId(existing[0].id);
+    await ensureDealCode(existing[0].id, existing[0].name);
+    await ensureSignupBonus(existing[0].id);
+    return loadMeProfile(firebaseUid);
+  }
+
+  const email = claims.email || '';
+  const name = claims.name || claims.displayName || email.split('@')[0] || 'User';
+  const photo = claims.picture || claims.photoURL || claims.photo_url || null;
+  const { rows: created } = await db.query(
+    `INSERT INTO users (firebase_uid, email, name, photo_url)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (firebase_uid) DO UPDATE SET email = EXCLUDED.email
+     RETURNING id, name`,
+    [firebaseUid, email, name, photo]
+  );
+  await ensureCampusId(created[0].id);
+  await ensureDealCode(created[0].id, created[0].name);
+  await ensureSignupBonus(created[0].id);
+  return loadMeProfile(firebaseUid);
+}
+
+const USER_ME_CACHE_TTL = 10 * 60;
+
+async function refreshMeCache(firebaseUid) {
+  const profile = await loadMeProfile(firebaseUid);
+  if (profile) {
+    await cache.setCache(`user:me:${firebaseUid}`, JSON.stringify(profile), USER_ME_CACHE_TTL);
+  }
+  return profile;
+}
+
 // ── GET /users/:id ──────────────────────────────────────
 exports.getUser = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Serve from Redis cache (10 min TTL)
-    const cached = await cache.getUserProfile(id);
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
-    }
-
-    const { rows } = await db.query(
-      `SELECT u.id, u.name, u.photo_url, u.college, u.state, u.city, u.course,
-        u.branch, u.year_of_study, u.bio, u.skills, u.profile_complete,
-        u.campus_id, u.is_verified, u.is_premium,
-        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
-        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
-        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
-       FROM users u WHERE u.id = $1`,
-      [id]
+    const profile = await cache.getOrLoadJson(
+      cache.KEYS.userProfile(id),
+      cache.TTL.USER_PROFILE,
+      async () => {
+        const { rows } = await db.query(
+          `SELECT u.id, u.name, u.photo_url, u.college, u.state, u.city, u.course,
+            u.branch, u.year_of_study, u.bio, u.skills, u.profile_complete,
+            u.campus_id, u.is_verified, u.is_premium,
+            (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
+            (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
+            (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
+           FROM users u WHERE u.id = $1`,
+          [id]
+        );
+        if (!rows.length) return null;
+        if (!rows[0].campus_id) rows[0].campus_id = await ensureCampusId(id);
+        return rows[0];
+      },
     );
-    if (!rows.length) return res.status(404).json({ error: 'User not found' });
-    if (!rows[0].campus_id) rows[0].campus_id = await ensureCampusId(id);
-
-    // Cache public profile
-    await cache.setUserProfile(id, rows[0]);
-    res.setHeader('X-Cache', 'MISS');
-    res.json(rows[0]);
+    if (!profile) return res.status(404).json({ error: 'User not found' });
+    return res.json(profile);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -109,60 +157,14 @@ exports.getUser = async (req, res) => {
 // ── GET /users/me ────────────────────────────────────────
 exports.getMe = async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'private, no-store');
     const cacheKey = `user:me:${req.user.uid}`;
-    const cached = await cache.getCache(cacheKey);
-    if (cached) {
-      try { return res.json(JSON.parse(cached)); } catch (_) {}
-    }
-
-    const { rows } = await db.query(
-      `SELECT u.*,
-        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
-        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
-        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
-       FROM users u WHERE u.firebase_uid = $1`,
-      [req.user.uid]
+    const profile = await cache.getOrLoadJson(
+      cacheKey,
+      USER_ME_CACHE_TTL,
+      () => loadOrCreateMeProfile(req.user.uid, req.user),
     );
-    if (rows.length) {
-      await ensureCampusId(rows[0].id);
-      await ensureDealCode(rows[0].id, rows[0].name);
-      await ensureSignupBonus(rows[0].id);
-      const { rows: fresh } = await db.query(
-        `SELECT u.*,
-          (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
-          (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
-          (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
-         FROM users u WHERE u.firebase_uid = $1`,
-        [req.user.uid]
-      );
-      const userObj = fresh[0] || rows[0];
-      await cache.setCache(cacheKey, JSON.stringify(userObj), 120); // 2 min
-      return res.json(userObj);
-    }
-
-
-    const email = req.user.email || '';
-    const name = req.user.name || req.user.displayName || email.split('@')[0] || 'User';
-    const photo = req.user.picture || req.user.photoURL || req.user.photo_url || null;
-
-    const { rows: created } = await db.query(
-      `INSERT INTO users (firebase_uid, email, name, photo_url)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (firebase_uid) DO UPDATE SET email = EXCLUDED.email RETURNING *`,
-      [req.user.uid, email, name, photo]
-    );
-    await ensureCampusId(created[0].id);
-    await ensureDealCode(created[0].id, created[0].name);
-    await ensureSignupBonus(created[0].id);
-    const { rows: withCounts } = await db.query(
-      `SELECT u.*,
-        (SELECT COUNT(*) FROM connections c WHERE (c.requester_id = u.id OR c.receiver_id = u.id) AND c.status = 'accepted') AS connections_count,
-        (SELECT COUNT(*) FROM notes n WHERE n.uploader_id = u.id AND n.is_approved = true) AS notes_count,
-        (SELECT COALESCE(SUM(amount), 0) FROM points_ledger pl WHERE pl.user_id = u.id) AS points
-       FROM users u WHERE u.id = $1`,
-      [created[0].id]
-    );
-    return res.json(withCounts[0] || created[0]);
+    return res.json(profile);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -231,10 +233,12 @@ exports.updateProfile = async (req, res) => {
     );
 
     // Invalidate all caches for this user (profile, points, avatar)
-    await cache.invalidateUser(user[0].id);
-    await cache.delCache(`user:me:${firebaseUid}`);
-
-    res.json(rows[0]);
+    await Promise.all([
+      cache.invalidateUser(user[0].id),
+      cache.invalidateJson(`user:me:${firebaseUid}`),
+    ]);
+    const profile = await refreshMeCache(firebaseUid);
+    res.json(profile || rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -281,7 +285,7 @@ exports.transferPoints = async (req, res) => {
     if (!me.length) return res.status(404).json({ error: 'User not found' });
     const senderId = me[0].id;
 
-    const { rows: recv } = await db.query('SELECT id, name FROM users WHERE UPPER(campus_id) = $1', [toCampusId]);
+    const { rows: recv } = await db.query('SELECT id, name, firebase_uid FROM users WHERE UPPER(campus_id) = $1', [toCampusId]);
     if (!recv.length) return res.status(404).json({ error: 'Receiver not found' });
     if (recv[0].id === senderId) return res.status(400).json({ error: 'Cannot transfer to yourself' });
 
@@ -353,7 +357,9 @@ exports.transferPoints = async (req, res) => {
     await Promise.all([
       cache.invalidateUser(senderId),
       cache.invalidateUser(recv[0].id),
-      cache.delCache(`user:me:${req.user.uid}`),
+      cache.invalidateJson(`user:me:${req.user.uid}`),
+      cache.invalidateJson(`user:me:${recv[0].firebase_uid}`),
+      cache.invalidateLeaderboard(),
     ]);
     res.json(result);
 
@@ -377,7 +383,11 @@ exports.uploadPhoto = async (req, res) => {
       [fileUrl, firebaseUid]
     );
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
-    await cache.delCache(`user:me:${firebaseUid}`);
+    await Promise.all([
+      cache.invalidateUser(rows[0].id),
+      cache.invalidateJson(`user:me:${firebaseUid}`),
+    ]);
+    await refreshMeCache(firebaseUid);
     const host = `${req.protocol}://${req.get('host')}`;
     const fullUrl = `${host}${fileUrl}`;
     res.json({ ...rows[0], photo_url: fullUrl, file_url: fullUrl });
