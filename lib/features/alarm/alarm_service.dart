@@ -78,12 +78,18 @@ class AlarmService {
     final notification = await Permission.notification.request();
     if (!notification.isGranted) return false;
     final exact = await _bridge.invokeMethod<bool>('requestExactAlarmAccess') ?? false;
-    return exact;
+    if (!exact) return false;
+    return await _bridge.invokeMethod<bool>('requestFullScreenAlarmAccess') ?? false;
   }
 
   static Future<bool> hasExactAlarmAccess() async {
     if (kIsWeb) return false;
     return await _bridge.invokeMethod<bool>('hasExactAlarmAccess') ?? false;
+  }
+
+  static Future<bool> hasFullScreenAlarmAccess() async {
+    if (kIsWeb) return false;
+    return await _bridge.invokeMethod<bool>('hasFullScreenAlarmAccess') ?? false;
   }
 
   static Future<Map<String, String>?> pickSound({String currentUri = ''}) async {

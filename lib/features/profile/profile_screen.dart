@@ -815,7 +815,6 @@ class _SettingsSheet extends ConsumerStatefulWidget {
 }
 
 class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
-  bool _notif = true;
   String _appVersion = 'v1.0.0';
   UpdateInfo? _updateInfo;
   bool _checking = true;
@@ -905,10 +904,11 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
             _tile(
                 Icons.notifications_outlined,
                 'Notifications',
-                Switch(
-                    value: _notif,
-                    onChanged: (v) => setState(() => _notif = v),
-                    activeThumbColor: AppColors.cyanDeep)),
+                const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.notificationPreferences);
+                }),
             _tile(
                 Icons.dark_mode_outlined,
                 'Dark Mode',

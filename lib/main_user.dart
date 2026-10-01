@@ -6,6 +6,7 @@ import 'app.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'features/alarm/alarm_service.dart';
+import 'features/notifications/notification_preferences_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -27,5 +28,6 @@ void main() async {
   ));
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await AlarmService.initialize();
+  await NotificationPreferencesService.instance.initialize();
   runApp(const ProviderScope(child: CampusSetuApp()));
 }

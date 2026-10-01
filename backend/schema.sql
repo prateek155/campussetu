@@ -6,6 +6,25 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- for ILIKE trigram index
 
+-- Login cooldown state is keyed by a SHA-256 of normalized email + client IP.
+CREATE TABLE IF NOT EXISTS auth_login_attempts (
+  attempt_key CHAR(64) PRIMARY KEY,
+  failure_count SMALLINT NOT NULL DEFAULT 0,
+  window_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  locked_until TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_updated ON auth_login_attempts (updated_at);
+
+-- One new account signup per persisted app installation identifier.
+-- Store only a server-side hash, never the installation identifier.
+CREATE TABLE IF NOT EXISTS auth_device_signups (
+  device_hash CHAR(64) PRIMARY KEY,
+  firebase_uid TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ─────────────────────────────────────────────────────────
 -- USERS
 -- ─────────────────────────────────────────────────────────

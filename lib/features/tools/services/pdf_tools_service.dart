@@ -18,6 +18,69 @@ class PdfExtractionResult {
 }
 
 class PdfToolsService {
+  static Future<Uint8List> mergePdfFiles(List<Uint8List> files) async {
+    if (files.length < 2) {
+      throw ArgumentError('Select at least two PDF files to merge.');
+    }
+    final output = PdfDocument();
+    try {
+      for (final bytes in files) {
+        final source = PdfDocument(inputBytes: bytes);
+        try {
+          for (var i = 0; i < source.pages.count; i++) {
+            final template = source.pages[i].createTemplate();
+            final page = output.pages.add();
+            page.graphics.drawPdfTemplate(template, Offset.zero);
+          }
+        } finally {
+          source.dispose();
+        }
+      }
+      return Uint8List.fromList(output.saveSync());
+    } finally {
+      output.dispose();
+    }
+  }
+
+  static Future<Uint8List> extractPdfPages(
+      Uint8List pdfBytes, List<int> pageNumbers) async {
+    final source = PdfDocument(inputBytes: pdfBytes);
+    final output = PdfDocument();
+    try {
+      final pages = pageNumbers.toSet().toList()..sort();
+      if (pages.isEmpty || pages.any((p) => p < 1 || p > source.pages.count)) {
+        throw ArgumentError('Select at least one valid page.');
+      }
+      for (final pageNumber in pages) {
+        final template = source.pages[pageNumber - 1].createTemplate();
+        output.pages.add().graphics.drawPdfTemplate(template, Offset.zero);
+      }
+      return Uint8List.fromList(output.saveSync());
+    } finally {
+      source.dispose();
+      output.dispose();
+    }
+  }
+
+  static Future<Uint8List> htmlToPdf(String html, {String title = 'Document'}) async {
+    var text = html
+        .replaceAll(RegExp(r'<!--[\s\S]*?-->'), '')
+        .replaceAll(RegExp(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'<br\s*/?>|</(p|div|h[1-6]|li|tr|section|article)>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll(RegExp(r'[ \t]+\n'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+    if (text.isEmpty) throw ArgumentError('The HTML has no readable text.');
+    return wordToPdf(text, title: title);
+  }
+
   /// 1. PDF TO WORD (.docx)
   /// Extracts text from PDF and packages it into a valid OpenXML .docx file in pure memory.
   static Future<PdfExtractionResult> pdfToWordDocx(Uint8List pdfBytes) async {
@@ -44,44 +107,35 @@ class PdfToolsService {
     );
   }
 
-  /// 2. PDF WATERMARK REMOVER
-  /// Clears/overlays clean background box over watermark locations across pages.
-  static Future<Uint8List> removePdfWatermark(
+  /// Adds a visible, semi-transparent text watermark locally on every page.
+  static Future<Uint8List> addPdfWatermark(
     Uint8List pdfBytes, {
-    required Rect relativeArea, // Values 0.0 to 1.0 representing percentage of page
-    List<int>? targetPages, // 1-indexed. If null, applies to all pages
-    Color coverColor = Colors.white,
+    required String watermark,
   }) async {
+    final label = watermark.trim();
+    if (label.isEmpty) throw ArgumentError('Enter watermark text.');
     final document = PdfDocument(inputBytes: pdfBytes);
-    final totalPages = document.pages.count;
-    final pagesToProcess = targetPages ?? List.generate(totalPages, (i) => i + 1);
-
-    final r = (coverColor.r * 255.0).round().clamp(0, 255);
-    final g = (coverColor.g * 255.0).round().clamp(0, 255);
-    final b = (coverColor.b * 255.0).round().clamp(0, 255);
-    final brush = PdfSolidBrush(PdfColor(r, g, b));
-
-    for (final pageNum in pagesToProcess) {
-      if (pageNum < 1 || pageNum > totalPages) continue;
-      final page = document.pages[pageNum - 1];
-      final pageSize = page.size;
-
-      final rect = Rect.fromLTWH(
-        relativeArea.left * pageSize.width,
-        relativeArea.top * pageSize.height,
-        relativeArea.width * pageSize.width,
-        relativeArea.height * pageSize.height,
-      );
-
-      page.graphics.drawRectangle(
-        brush: brush,
-        bounds: rect,
-      );
+    try {
+      final font = PdfStandardFont(PdfFontFamily.helvetica, 24);
+      final brush = PdfSolidBrush(PdfColor(125, 125, 125));
+      for (var index = 0; index < document.pages.count; index++) {
+        final graphics = document.pages[index].graphics;
+        final size = graphics.clientSize;
+        final state = graphics.save();
+        graphics.setTransparency(0.25);
+        graphics.drawString(
+          label,
+          font,
+          brush: brush,
+          bounds: Rect.fromLTWH(12, size.height * 0.48, size.width - 24, 36),
+          format: PdfStringFormat(alignment: PdfTextAlignment.center),
+        );
+        graphics.restore(state);
+      }
+      return Uint8List.fromList(document.saveSync());
+    } finally {
+      document.dispose();
     }
-
-    final outputBytes = Uint8List.fromList(document.saveSync());
-    document.dispose();
-    return outputBytes;
   }
 
   /// 3. WORD / TEXT TO PDF

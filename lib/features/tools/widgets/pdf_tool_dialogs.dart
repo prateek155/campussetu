@@ -26,16 +26,16 @@ class PdfToolDialogs {
     );
   }
 
-  /// 2. PDF WATERMARK REMOVER
+  /// 2. ADD A TEXT WATERMARK
   static void showPdfWatermarkDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const _ToolModalShell(
-        title: 'PDF Watermark Remover',
-        icon: Icons.layers_clear_rounded,
-        color: Colors.redAccent,
+        title: 'Add PDF Watermark',
+        icon: Icons.branding_watermark_rounded,
+        color: Colors.blueAccent,
         child: _PdfWatermarkContent(),
       ),
     );
@@ -385,7 +385,7 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
   }
 }
 
-// ── 2. PDF WATERMARK REMOVER CONTENT ───────────────────────────
+// ── 2. ADD PDF WATERMARK CONTENT ───────────────────────────────
 class _PdfWatermarkContent extends StatefulWidget {
   const _PdfWatermarkContent();
   @override
@@ -396,9 +396,15 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
   Uint8List? _pdfBytes;
   String? _fileName;
   int _totalPages = 0;
-  String _selectedPreset = 'center'; // 'center', 'header', 'footer', 'all'
+  final TextEditingController _watermarkCtrl = TextEditingController();
   bool _isProcessing = false;
-  Uint8List? _cleanedBytes;
+  Uint8List? _watermarkedBytes;
+
+  @override
+  void dispose() {
+    _watermarkCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
@@ -419,38 +425,23 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
       _pdfBytes = bytes;
       _fileName = file.name;
       _totalPages = count;
-      _cleanedBytes = null;
+      _watermarkedBytes = null;
     });
   }
 
-  Future<void> _applyWatermarkRemoval() async {
-    if (_pdfBytes == null) return;
+  Future<void> _applyWatermark() async {
+    if (_pdfBytes == null || _watermarkCtrl.text.trim().isEmpty) return;
     setState(() => _isProcessing = true);
-
-    Rect area;
-    switch (_selectedPreset) {
-      case 'header':
-        area = const Rect.fromLTWH(0.05, 0.02, 0.90, 0.12);
-        break;
-      case 'footer':
-        area = const Rect.fromLTWH(0.05, 0.88, 0.90, 0.10);
-        break;
-      case 'all':
-        area = const Rect.fromLTWH(0.05, 0.02, 0.90, 0.96);
-        break;
-      case 'center':
-      default:
-        area = const Rect.fromLTWH(0.15, 0.35, 0.70, 0.30);
-        break;
-    }
-
     try {
-      final cleaned = await PdfToolsService.removePdfWatermark(_pdfBytes!, relativeArea: area);
-      setState(() => _cleanedBytes = cleaned);
+      final watermarked = await PdfToolsService.addPdfWatermark(
+        _pdfBytes!,
+        watermark: _watermarkCtrl.text,
+      );
+      setState(() => _watermarkedBytes = watermarked);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error removing watermark: $e'),
+          content: Text('Could not add the watermark: $e'),
           backgroundColor: AppColors.error,
         ));
       }
@@ -472,7 +463,7 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
               const Icon(Icons.picture_as_pdf_outlined, size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
               Text(
-                _fileName ?? 'Select PDF with Watermark',
+                _fileName ?? 'Select a PDF file',
                 style: AppTypography.interBody(weight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
@@ -483,34 +474,35 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
         ),
         if (_pdfBytes != null) ...[
           const SizedBox(height: 16),
-          Text('Select Watermark Location:', style: AppTypography.interLabel()),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _presetChip('Center Diagonal', 'center'),
-              _presetChip('Header Area', 'header'),
-              _presetChip('Footer Area', 'footer'),
-            ],
+          TextField(
+            controller: _watermarkCtrl,
+            maxLength: 80,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Watermark text',
+              hintText: 'For example: DRAFT',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
           ),
+          Text('This adds a translucent overlay. It does not redact or protect the source content.', style: AppTypography.interCaption(color: AppColors.inkSoft)),
           const SizedBox(height: 16),
           if (_isProcessing)
             const Center(child: CircularProgressIndicator())
-          else
+          else if (_watermarkCtrl.text.trim().isNotEmpty)
             _ToolActionButton(
-              text: 'Clean & Remove Watermark',
-              icon: Icons.cleaning_services_rounded,
-              onPressed: _applyWatermarkRemoval,
+              text: 'Add watermark to every page',
+              icon: Icons.branding_watermark_rounded,
+              onPressed: _applyWatermark,
             ),
-          if (_cleanedBytes != null) ...[
+          if (_watermarkedBytes != null) ...[
             const SizedBox(height: 16),
             _ToolActionButton(
-              text: 'Download Cleaned PDF',
+              text: 'Download Watermarked PDF',
               icon: Icons.download_rounded,
               onPressed: () async {
-                final name = (_fileName ?? 'cleaned').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                await saveAndDownloadFile(_cleanedBytes!, '${name}_clean.pdf');
+                final name = (_fileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                await saveAndDownloadFile(_watermarkedBytes!, '${name}_watermarked.pdf');
               },
             ),
           ],
@@ -519,15 +511,6 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
     );
   }
 
-  Widget _presetChip(String label, String value) {
-    final isSelected = _selectedPreset == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => setState(() => _selectedPreset = value),
-      selectedColor: AppColors.cyanDeep.withValues(alpha: 0.2),
-    );
-  }
 }
 
 // ── 3. WORD / TEXT TO PDF CONTENT ──────────────────────────────

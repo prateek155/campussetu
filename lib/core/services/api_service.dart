@@ -85,6 +85,68 @@ class ApiService {
     return res.data;
   }
 
+  Future<dynamic> put(String path, {dynamic data}) async {
+    final res = await _dio.put(path, data: data);
+    return res.data;
+  }
+
+  Future<int> checkLoginWaitSeconds(String email) async {
+    try {
+      final res = await _dio.post('/users/login/check', data: {'email': email});
+      return ((res.data as Map?)?['wait_seconds'] as num?)?.toInt() ?? 0;
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      if (error.response?.statusCode == 429 && data is Map) {
+        final responseWait = (data['wait_seconds'] as num?)?.toInt();
+        final headerWait = int.tryParse(
+          error.response?.headers.value('retry-after') ?? '',
+        );
+        return responseWait ?? headerWait ?? 120;
+      }
+      rethrow;
+    }
+  }
+
+  Future<int> recordLoginFailure(String email) async {
+    final res = await _dio.post('/users/login/failure', data: {'email': email});
+    return ((res.data as Map?)?['wait_seconds'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> clearLoginFailures() async {
+    await _dio.post('/users/login/success');
+  }
+
+  Future<void> registerSignupDevice(String deviceId) async {
+    await _dio.post('/users/signup-device', data: {'device_id': deviceId});
+  }
+
+  Future<bool> getAmbassadorProgramStatus() async {
+    final res = await _dio.get('/ambassador/program/status');
+    return (res.data as Map)['is_open'] == true;
+  }
+
+  Future<Map<String, dynamic>?> getMyAmbassadorApplication() async {
+    final res = await _dio.get('/ambassador/application/me');
+    final value = (res.data as Map)['application'];
+    return value is Map ? Map<String, dynamic>.from(value) : null;
+  }
+
+  Future<void> submitAmbassadorApplication(Map<String, dynamic> data) async {
+    try {
+      await _dio.post('/ambassador/application', data: data);
+    } on DioException catch (error) {
+      final response = error.response?.data;
+      final message = response is Map && response['error'] is String
+          ? response['error'] as String
+          : 'Could not submit the application.';
+      throw Exception(message);
+    }
+  }
+
+  Future<void> setAmbassadorProgramStatus(bool isOpen) async {
+    await _dio.put('/admin/ambassador/program', data: {'is_open': isOpen});
+  }
+
   // Quiz API
   Future<List<dynamic>> getLiveQuizzes() async {
     final res = await _dio.get('/quiz/live');

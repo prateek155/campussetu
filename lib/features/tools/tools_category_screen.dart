@@ -15,6 +15,17 @@ class ToolDefinition {
   final Color iconBgColor;
   final Color iconColor;
   final ToolCategory category;
+  String get group => switch (id) {
+        'merge_pdf' || 'split_pdf' || 'extract_pdf_pages' || 'delete_pages' || 'organize_pdf' => 'Organize & split',
+        'word_to_pdf' || 'html_to_pdf' || 'ppt_to_pdf' || 'pptx_to_pdf' || 'csv_to_excel_pdf' || 'txt_to_word_pdf' || 'image_to_pdf' || 'scan_to_pdf' => 'Create PDF',
+        'pdf_to_word' || 'pdf_to_pptx' => 'Convert from PDF',
+        'compress_pdf' || 'add_pdf_watermark' => 'Optimize & edit',
+        'pdf_to_jpg' => 'Export PDF pages as images',
+        'image_convert' || 'compress_image' || 'image_watermark' || 'background_remover' => 'Edit images',
+        'image_ocr_to_pdf_word' => 'Extract text',
+        'qr_generator' || 'barcode_generator' => 'Create codes',
+        _ => 'Other tools',
+      };
 
   const ToolDefinition({
     required this.id,
@@ -39,10 +50,10 @@ class ToolsData {
       category: ToolCategory.pdf,
     ),
     ToolDefinition(
-      id: 'pdf_watermark',
-      name: 'Watermark Remover',
-      description: 'Cleanly erase watermarks, stamps & headers from pages',
-      icon: Icons.layers_clear_rounded,
+      id: 'add_pdf_watermark',
+      name: 'Add Watermark',
+      description: 'Add a visible, translucent text watermark to every page locally',
+      icon: Icons.branding_watermark_rounded,
       iconBgColor: Color(0xFF7F1D1D),
       iconColor: Color(0xFFF87171),
       category: ToolCategory.pdf,
@@ -137,9 +148,63 @@ class ToolsData {
       iconColor: Color(0xFFFB923C),
       category: ToolCategory.pdf,
     ),
+    ToolDefinition(
+      id: 'merge_pdf',
+      name: 'Merge PDFs',
+      description: 'Combine selected PDF files into one document on this device',
+      icon: Icons.merge_rounded,
+      iconBgColor: Color(0xFF312E81),
+      iconColor: Color(0xFF818CF8),
+      category: ToolCategory.pdf,
+    ),
+    ToolDefinition(
+      id: 'split_pdf',
+      name: 'Split PDF',
+      description: 'Export selected pages as a separate document',
+      icon: Icons.call_split_rounded,
+      iconBgColor: Color(0xFF065F46),
+      iconColor: Color(0xFF34D399),
+      category: ToolCategory.pdf,
+    ),
+    ToolDefinition(
+      id: 'extract_pdf_pages',
+      name: 'Extract Pages',
+      description: 'Keep selected pages and download them as a separate PDF',
+      icon: Icons.file_copy_outlined,
+      iconBgColor: Color(0xFF134E4A),
+      iconColor: Color(0xFF2DD4BF),
+      category: ToolCategory.pdf,
+    ),
+    ToolDefinition(
+      id: 'html_to_pdf',
+      name: 'HTML to PDF',
+      description: 'Create a text-based PDF from HTML markup locally; no AI or upload',
+      icon: Icons.code_rounded,
+      iconBgColor: Color(0xFF7C2D12),
+      iconColor: Color(0xFFFB923C),
+      category: ToolCategory.pdf,
+    ),
   ];
 
   static const List<ToolDefinition> imageTools = [
+    ToolDefinition(
+      id: 'scan_to_pdf',
+      name: 'Scan to PDF',
+      description: 'Capture a page with your camera and save it as a local PDF',
+      icon: Icons.document_scanner_rounded,
+      iconBgColor: Color(0xFF065F46),
+      iconColor: Color(0xFF34D399),
+      category: ToolCategory.image,
+    ),
+    ToolDefinition(
+      id: 'pdf_to_jpg',
+      name: 'PDF to JPG',
+      description: 'Render each PDF page to a downloadable image locally',
+      icon: Icons.photo_library_rounded,
+      iconBgColor: Color(0xFF1E3A8A),
+      iconColor: Color(0xFF60A5FA),
+      category: ToolCategory.image,
+    ),
     ToolDefinition(
       id: 'image_convert',
       name: 'Image Converter',
@@ -156,6 +221,15 @@ class ToolsData {
       icon: Icons.photo_size_select_small_rounded,
       iconBgColor: Color(0xFF7C2D12),
       iconColor: Color(0xFFFB923C),
+      category: ToolCategory.image,
+    ),
+    ToolDefinition(
+      id: 'background_remover',
+      name: 'Background Remover',
+      description: 'Remove a plain or near-uniform background locally; best with clear subject edges',
+      icon: Icons.auto_awesome_rounded,
+      iconBgColor: Color(0xFF134E4A),
+      iconColor: Color(0xFF2DD4BF),
       category: ToolCategory.image,
     ),
     ToolDefinition(
@@ -246,10 +320,10 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
       return t.name.toLowerCase().contains(q) || t.description.toLowerCase().contains(q);
     }).toList();
 
-    final width = MediaQuery.of(context).size.width;
-    final isDesktop = width > 900;
-    final isTablet = width > 600 && width <= 900;
-    final crossAxisCount = isDesktop ? 3 : (isTablet ? 3 : 2);
+    final groups = <String, List<ToolDefinition>>{};
+    for (final tool in filtered) {
+      groups.putIfAbsent(tool.group, () => []).add(tool);
+    }
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -391,81 +465,38 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── 2-Column Grid (Matching Screenshot 1) ───────
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    mainAxisExtent: 140,
+                for (final entry in groups.entries) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Icon(isPdf ? Icons.folder_copy_outlined : Icons.photo_library_outlined, color: const Color(0xFF38BDF8)),
+                          const SizedBox(width: 9),
+                          Expanded(child: Text(entry.key, style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w800))),
+                          Text(entry.value.length.toString(), style: TextStyle(color: textMuted, fontSize: 12)),
+                        ]),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: entry.value.map((tool) => ActionChip(
+                            avatar: Icon(tool.icon, size: 16, color: tool.iconColor),
+                            label: Text(tool.name),
+                            onPressed: () => context.push('/tools/workspace?toolId=' + tool.id),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
                   ),
-                  itemCount: filtered.length,
-                  itemBuilder: (ctx, i) {
-                    final tool = filtered[i];
-                    return InkWell(
-                      onTap: () => context.push('/tools/workspace?toolId=${tool.id}'),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: cardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-                              blurRadius: 14,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: isDark ? tool.iconBgColor : tool.iconBgColor.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                tool.icon,
-                                color: isDark ? tool.iconColor : tool.iconBgColor,
-                                size: 20,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              tool.name,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              tool.description,
-                              style: TextStyle(
-                                fontSize: 11,
-                                height: 1.25,
-                                color: textMuted,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 30),
+                ],                const SizedBox(height: 30),
               ],
             ),
           ),

@@ -1,6 +1,7 @@
 package com.campussetu.campussetu
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
@@ -10,6 +11,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -18,11 +20,19 @@ import java.util.TimeZone
 
 class MainActivity : FlutterActivity() {
     private var exactPermissionResult: MethodChannel.Result? = null
+    private var fullScreenPermissionResult: MethodChannel.Result? = null
     private var ringtoneResult: MethodChannel.Result? = null
     private var alarmEventSink: EventChannel.EventSink? = null
     private var motionSink: EventChannel.EventSink? = null
     private lateinit var sensorManager: SensorManager
     private var accelerometerListener: SensorEventListener? = null
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        if ((intent?.getIntExtra(AlarmRingService.EXTRA_ALARM_ID, -1) ?: -1) > 0) {
+            setAlarmWindowMode(true)
+        }
+    }
 
     override fun getInitialRoute(): String {
         val id = intent?.getIntExtra(AlarmRingService.EXTRA_ALARM_ID, -1) ?: -1
@@ -50,10 +60,16 @@ class MainActivity : FlutterActivity() {
                     "getAlarms" -> result.success(AlarmScheduler.read(this))
                     "hasExactAlarmAccess" -> result.success(AlarmScheduler.hasExactAccess(this))
                     "requestExactAlarmAccess" -> requestExactAlarmAccess(result)
+                    "hasFullScreenAlarmAccess" -> result.success(hasFullScreenAlarmAccess())
+                    "requestFullScreenAlarmAccess" -> requestFullScreenAlarmAccess(result)
+                    "getSignupDeviceId" -> result.success(
+                        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                    )
                     "pickAlarmSound" -> pickAlarmSound(call.arguments as? String ?: "", result)
                     "stopAlarm" -> {
                         val id = (call.arguments as? Number)?.toInt() ?: -1
                         if (id > 0) AlarmScheduler.stop(this, id)
+                        setAlarmWindowMode(false)
                         result.success(null)
                     }
                     "snoozeAlarm" -> {
@@ -64,6 +80,7 @@ class MainActivity : FlutterActivity() {
                             AlarmScheduler.scheduleSnooze(this, id, minutes)
                             AlarmScheduler.stop(this, id)
                         }
+                        setAlarmWindowMode(false)
                         result.success(null)
                     }
                     "getLaunchAlarmId" -> {
@@ -118,6 +135,43 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(request, REQUEST_EXACT_ALARM)
     }
 
+    private fun hasFullScreenAlarmAccess(): Boolean {
+        return Build.VERSION.SDK_INT < 34 ||
+            getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+    }
+
+    private fun requestFullScreenAlarmAccess(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 34 || hasFullScreenAlarmAccess()) {
+            result.success(true)
+            return
+        }
+        fullScreenPermissionResult = result
+        startActivityForResult(
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")),
+            REQUEST_FULL_SCREEN_INTENT,
+        )
+    }
+
+    private fun setAlarmWindowMode(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(enabled)
+            setTurnScreenOn(enabled)
+        }
+        if (enabled) {
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            )
+        } else {
+            window.clearFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            )
+        }
+    }
+
     private fun pickAlarmSound(currentUri: String, result: MethodChannel.Result) {
         ringtoneResult = result
         val current = currentUri.takeIf { it.isNotBlank() }?.let(Uri::parse)
@@ -138,6 +192,9 @@ class MainActivity : FlutterActivity() {
         if (requestCode == REQUEST_EXACT_ALARM) {
             exactPermissionResult?.success(AlarmScheduler.hasExactAccess(this))
             exactPermissionResult = null
+        } else if (requestCode == REQUEST_FULL_SCREEN_INTENT) {
+            fullScreenPermissionResult?.success(hasFullScreenAlarmAccess())
+            fullScreenPermissionResult = null
         } else if (requestCode == REQUEST_RINGTONE) {
             val selected = if (resultCode == RESULT_OK) data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) else null
             val title = selected?.let { RingtoneManager.getRingtone(this, it)?.getTitle(this) } ?: "Default alarm"
@@ -150,11 +207,15 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val id = intent.getIntExtra(AlarmRingService.EXTRA_ALARM_ID, -1)
-        if (id > 0) alarmEventSink?.success(mapOf("type" to "ring", "id" to id))
+        if (id > 0) {
+            setAlarmWindowMode(true)
+            alarmEventSink?.success(mapOf("type" to "ring", "id" to id))
+        }
     }
 
     companion object {
         private const val REQUEST_EXACT_ALARM = 6201
         private const val REQUEST_RINGTONE = 6202
+        private const val REQUEST_FULL_SCREEN_INTENT = 6203
     }
 }

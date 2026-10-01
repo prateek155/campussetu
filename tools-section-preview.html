@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f111a">
+  <title>CampusSetu Toolkit — Tools Section Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f111a;
+      --surface: #171b29;
+      --surface-raised: #1d2333;
+      --surface-soft: #20283a;
+      --border: #2a3247;
+      --text: #f4f7fc;
+      --muted: #99a5ba;
+      --cyan: #38bdf8;
+      --cyan-soft: rgba(56, 189, 248, .13);
+      --green: #34d399;
+      --purple: #a78bfa;
+      --orange: #f6ad55;
+      --pink: #f472b6;
+      --shadow: 0 18px 45px rgba(0, 0, 0, .18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 88% -10%, rgba(56, 189, 248, .12), transparent 33rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app-shell { max-width: 1180px; margin: 0 auto; padding: 0 28px 56px; }
+    .topbar {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(153, 165, 186, .13);
+      margin-bottom: 36px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 40px; height: 40px; display: grid; place-items: center;
+      border-radius: 13px; background: linear-gradient(145deg, #38bdf8, #1686c5);
+      color: #07131d; font-size: 20px; font-weight: 900;
+      box-shadow: 0 8px 22px rgba(56, 189, 248, .2);
+    }
+    .brand-name { font-weight: 760; letter-spacing: -.025em; }
+    .brand-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+    .top-pill {
+      border: 1px solid var(--border); color: #c5d3e8; background: rgba(29, 35, 51, .76);
+      border-radius: 999px; padding: 8px 13px; font-size: 12px; font-weight: 650;
+    }
+    .top-pill span { color: var(--green); margin-right: 5px; }
+    .hero { margin: 0 auto 27px; }
+    .eyebrow {
+      color: var(--cyan); text-transform: uppercase; letter-spacing: .14em;
+      font-size: 11px; font-weight: 800; margin-bottom: 9px;
+    }
+    h1 { font-size: clamp(29px, 4vw, 42px); line-height: 1.12; letter-spacing: -.045em; margin: 0; }
+    .hero-copy { max-width: 660px; color: var(--muted); margin: 12px 0 0; font-size: 15px; }
+    .hero-row {
+      display: flex; justify-content: space-between; align-items: end; gap: 24px;
+    }
+    .tool-total {
+      flex: 0 0 auto; border: 1px solid rgba(56, 189, 248, .22);
+      background: var(--cyan-soft); border-radius: 15px; padding: 12px 16px;
+      text-align: center; min-width: 98px;
+    }
+    .tool-total strong { display: block; font-size: 23px; line-height: 1.1; color: var(--cyan); }
+    .tool-total span { display: block; color: #bfd4e4; font-size: 11px; margin-top: 3px; }
+    .search-row { display: flex; gap: 11px; margin: 25px 0 17px; }
+    .search-wrap { position: relative; flex: 1; }
+    .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #8491a8; font-size: 17px; }
+    .search {
+      width: 100%; height: 48px; background: #171d2c; border: 1px solid var(--border);
+      color: var(--text); border-radius: 14px; padding: 0 16px 0 44px; outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .search::placeholder { color: #748198; }
+    .search:focus { border-color: rgba(56, 189, 248, .7); box-shadow: 0 0 0 3px rgba(56, 189, 248, .1); }
+    .filter-button, .expand-button {
+      border: 1px solid var(--border); background: #171d2c; border-radius: 14px;
+      padding: 0 15px; font-size: 13px; font-weight: 650; cursor: pointer;
+    }
+    .filter-button:hover, .expand-button:hover { border-color: #53617a; background: var(--surface-soft); }
+    .privacy-note {
+      display: flex; gap: 10px; align-items: flex-start; padding: 13px 15px;
+      color: #c2d0df; background: rgba(52, 211, 153, .065);
+      border: 1px solid rgba(52, 211, 153, .18); border-radius: 14px;
+      font-size: 12px; margin-bottom: 22px;
+    }
+    .privacy-note .lock { color: var(--green); font-size: 16px; line-height: 1.25; }
+    .privacy-note strong { color: #e2fff4; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 26px 0 13px; }
+    .section-head h2 { margin: 0; font-size: 17px; letter-spacing: -.02em; }
+    .section-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .expand-button { padding: 8px 12px; font-size: 11px; }
+    .category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .category {
+      --accent: var(--cyan);
+      min-width: 0; padding: 17px 18px 16px;
+      background: linear-gradient(145deg, rgba(29, 35, 51, .98), rgba(23, 27, 41, .98));
+      border: 1px solid var(--border); border-radius: 19px; box-shadow: var(--shadow);
+      transition: border-color .18s, transform .18s;
+    }
+    .category:hover { border-color: color-mix(in srgb, var(--accent), var(--border) 55%); transform: translateY(-1px); }
+    .category[data-color="green"] { --accent: var(--green); }
+    .category[data-color="purple"] { --accent: var(--purple); }
+    .category[data-color="orange"] { --accent: var(--orange); }
+    .category[data-color="pink"] { --accent: var(--pink); }
+    .category[data-color="blue"] { --accent: #7da7ff; }
+    .category-header { display: flex; align-items: center; gap: 12px; }
+    .category-icon {
+      flex: 0 0 auto; width: 42px; height: 42px; border-radius: 13px;
+      display: grid; place-items: center; font-size: 20px;
+      color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 88%);
+    }
+    .category-title { min-width: 0; flex: 1; }
+    .category-title h3 { font-size: 15px; margin: 0; letter-spacing: -.015em; }
+    .category-title p { font-size: 11px; color: var(--muted); margin: 3px 0 0; }
+    .count {
+      padding: 4px 8px; border-radius: 999px; color: var(--accent);
+      background: color-mix(in srgb, var(--accent), transparent 90%);
+      font-size: 10px; font-weight: 750; white-space: nowrap;
+    }
+    .tool-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .tool-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 31px; padding: 6px 9px;
+      color: #d8e0ed; background: #151a27; border: 1px solid rgba(153, 165, 186, .14);
+      border-radius: 9px; font-size: 11px; font-weight: 560;
+      transition: border-color .16s, background .16s, color .16s;
+    }
+    .tool-chip:hover { color: white; border-color: color-mix(in srgb, var(--accent), transparent 45%); background: color-mix(in srgb, var(--accent), #151a27 92%); }
+    .tool-chip .mini { color: var(--accent); font-size: 13px; }
+    .subgroup { width: 100%; color: #8e9bb2; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; margin: 5px 2px 0; }
+    .subgroup + .tool-chip { margin-left: 0; }
+    .category[hidden], .tool-chip[hidden] { display: none !important; }
+    .category[data-collapsed="true"] .tool-list { display: none; }
+    .category[data-collapsed="true"] { padding-bottom: 17px; }
+    .category-more { width: 100%; border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; }
+    .category-more:focus-visible, .expand-button:focus-visible, .filter-button:focus-visible, .tool-chip:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+    .category-header .chevron { color: #76839a; font-size: 15px; margin-left: 3px; transition: transform .2s; }
+    .category[data-collapsed="true"] .chevron { transform: rotate(-90deg); }
+    .empty-state { display: none; text-align: center; color: var(--muted); padding: 35px; border: 1px dashed var(--border); border-radius: 17px; margin-top: 14px; }
+    .empty-state.visible { display: block; }
+    .existing-strip {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      margin-top: 23px; padding: 16px 18px; border: 1px solid var(--border);
+      background: rgba(23, 27, 41, .72); border-radius: 17px;
+    }
+    .existing-left { display: flex; align-items: center; gap: 12px; }
+    .existing-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #75e0bd; background: rgba(52, 211, 153, .12); font-size: 18px; }
+    .existing-left strong { display: block; font-size: 13px; }
+    .existing-left span { color: var(--muted); font-size: 11px; }
+    .keep-separate { color: #b9c4d5; font-size: 11px; border: 1px solid var(--border); padding: 7px 10px; border-radius: 999px; white-space: nowrap; }
+    .footer { color: #748198; text-align: center; font-size: 11px; padding-top: 23px; }
+    .footer strong { color: #aab7c9; font-weight: 650; }
+    @media (max-width: 700px) {
+      .app-shell { padding: 0 16px 38px; }
+      .topbar { height: 66px; margin-bottom: 25px; }
+      .hero-row { align-items: flex-start; }
+      .tool-total { min-width: 78px; padding: 10px 11px; }
+      .tool-total strong { font-size: 20px; }
+      .hero-copy { font-size: 13px; }
+      .category-grid { grid-template-columns: 1fr; gap: 10px; }
+      .category { padding: 15px; }
+      .search-row { gap: 8px; }
+      .filter-button { padding: 0 11px; font-size: 12px; }
+      .existing-strip { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .keep-separate { margin-left: 50px; }
+    }
+    @media (max-width: 420px) {
+      .top-pill { padding: 7px 9px; font-size: 10px; }
+      .brand-name { font-size: 14px; }
+      .brand-sub { font-size: 10px; }
+      .brand-mark { width: 36px; height: 36px; }
+      .hero-row { gap: 10px; }
+      .tool-total { min-width: 69px; }
+      .search { height: 45px; }
+      .filter-button { font-size: 11px; padding: 0 9px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">C</div>
+        <div>
+          <div class="brand-name">CampusSetu</div>
+          <div class="brand-sub">Student Toolkit</div>
+        </div>
+      </div>
+      <div class="top-pill"><span>●</span> Tools workspace</div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-row">
+        <div>
+          <div class="eyebrow">Your everyday file workspace</div>
+          <h1>What would you like to do?</h1>
+          <p class="hero-copy">PDF aur image tools ko kaam ke hisaab se groups mein rakha hai, taaki bahut saare alag cards ke beech search na karna pade.</p>
+        </div>
+        <div class="tool-total"><strong>25</strong><span>PDF tools</span></div>
+      </div>
+    </section>
+
+    <div class="search-row">
+      <label class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input class="search" id="toolSearch" type="search" placeholder="Search a tool, e.g. compress or sign…" autocomplete="off" aria-label="Search tools">
+      </label>
+      <button class="filter-button" id="expandAll" type="button">Collapse all</button>
+    </div>
+
+    <div class="privacy-note">
+      <span class="lock" aria-hidden="true">◇</span>
+      <div><strong>Privacy-first toolkit</strong> · Files should be processed on the device wherever the feature allows. This page is a grouping preview; implementation and offline support need to be confirmed for each tool.</div>
+    </div>
+
+    <div class="section-head">
+      <div>
+        <h2>Tools, grouped by task</h2>
+        <p>PDF and image tools are grouped by the work they do.</p>
+      </div>
+      <span class="top-pill" id="resultCount">5 groups</span>
+    </div>
+
+    <section class="category-grid" id="categoryGrid" aria-label="PDF tool categories">
+      <article class="category" data-category="organize" data-color="blue">
+        <button class="category-more" type="button" aria-expanded="true">
+          <div class="category-header">
+            <div class="category-icon" aria-hidden="true">▤</div>
+            <div class="category-title"><h3>Organize PDF</h3><p>Pages ko combine, split aur arrange karein</p></div>
+            <span class="count">6 tools</span><span class="chevron" aria-hidden="true">⌄</span>
+          </div>
+        </button>
+        <div class="tool-list">
+          <span class="tool-chip" data-tool="Merge PDF"><span class="mini">↗</span>Merge PDF</span>
+          <span class="tool-chip" data-tool="Split PDF"><span class="mini">↔</span>Split PDF</span>
+          <span class="tool-chip" data-tool="Remove pages"><span class="mini">−</span>Remove pages</span>
+          <span class="tool-chip" data-tool="Extract pages"><span class="mini">⤴</span>Extract pages</span>
+          <span class="tool-chip" data-tool="Organize pages"><span class="mini">☷</span>Organize pages</span>
+          <span class="tool-chip" data-tool="Scan to PDF"><span class="mini">⌗</span>Scan to PDF</span>
+        </div>
+      </article>
+
+      <article class="category" data-category="convert" data-color="purple">
+        <button class="category-more" type="button" aria-expanded="true">
+          <div class="category-header">
+            <div class="category-icon" aria-hidden="true">⇄</div>
+            <div class="category-title"><h3>Convert files</h3><p>PDF aur common document formats ke beech</p></div>
+            <span class="count">10 tools</span><span class="chevron" aria-hidden="true">⌄</span>
+          </div>
+        </button>
+        <div class="tool-list">
+          <div class="subgroup">To PDF</div>
+          <span class="tool-chip" data-tool="JPG to PDF"><span class="mini">▧</span>JPG to PDF</span>
+          <span class="tool-chip" data-tool="Word to PDF"><span class="mini">W</span>Word to PDF</span>
+          <span class="tool-chip" data-tool="PowerPoint to PDF"><span class="mini">P</span>PowerPoint to PDF</span>
+          <span class="tool-chip" data-tool="Excel to PDF"><span class="mini">X</span>Excel to PDF</span>
+          <span class="tool-chip" data-tool="HTML to PDF"><span class="mini">⌘</span>HTML to PDF</span>
+          <div class="subgroup">From PDF</div>
+          <span class="tool-chip" data-tool="PDF to JPG"><span class="mini">▧</span>PDF to JPG</span>
+          <span class="tool-chip" data-tool="PDF to Word"><span class="mini">W</span>PDF to Word</span>
+          <span class="tool-chip" data-tool="PDF to PowerPoint"><span class="mini">P</span>PDF to PowerPoint</span>
+          <span class="tool-chip" data-tool="PDF to Excel"><span class="mini">X</span>PDF to Excel</span>
+          <span class="tool-chip" data-tool="PDF to PDF/A"><span class="mini">A</span>PDF to PDF/A</span>
+        </div>
+      </article>
+
+      <article class="category" data-category="optimize" data-color="green">
+        <button class="category-more" type="button" aria-expanded="true">
+          <div class="category-header">
+            <div class="category-icon" aria-hidden="true">✧</div>
+            <div class="category-title"><h3>Optimize & recover</h3><p>File size kam karein ya document repair karein</p></div>
+            <span class="count">3 tools</span><span class="chevron" aria-hidden="true">⌄</span>
+          </div>
+        </button>
+        <div class="tool-list">
+          <span class="tool-chip" data-tool="Compress PDF"><span class="mini">⤢</span>Compress PDF</span>
+          <span class="tool-chip" data-tool="Repair PDF"><span class="mini">✚</span>Repair PDF</span>
+          <span class="tool-chip" data-tool="OCR PDF"><span class="mini">Aa</span>OCR PDF</span>
+        </div>
+      </article>
+
+      <article class="category" data-category="edit" data-color="orange">
+        <button class="category-more" type="button" aria-expanded="true">
+          <div class="category-header">
+            <div class="category-icon" aria-hidden="true">✎</div>
+            <div class="category-title"><h3>Edit PDF</h3><p>Pages par changes, marks aur form fields add karein</p></div>
+            <span class="count">6 tools</span><span class="chevron" aria-hidden="true">⌄</span>
+          </div>
+        </button>
+        <div class="tool-list">
+          <span class="tool-chip" data-tool="Rotate PDF"><span class="mini">⟳</span>Rotate PDF</span>
+          <span class="tool-chip" data-tool="Add page numbers"><span class="mini">#</span>Add page numbers</span>
+          <span class="tool-chip" data-tool="Add watermark"><span class="mini">◈</span>Add watermark</span>
+          <span class="tool-chip" data-tool="Crop PDF"><span class="mini">▣</span>Crop PDF</span>
+          <span class="tool-chip" data-tool="Edit PDF"><span class="mini">✎</span>Edit PDF</span>
+          <span class="tool-chip" data-tool="PDF Forms"><span class="mini">☑</span>PDF Forms</span>
+        </div>
+      </article>
+
+      <article class="category" data-category="image" data-color="green">
+        <button class="category-more" type="button" aria-expanded="true">
+          <div class="category-header">
+            <div class="category-icon" aria-hidden="true">▧</div>
+            <div class="category-title"><h3>Image tools</h3><p>Convert, optimize, scan and create</p></div>
+            <span class="count">10 tools</span><span class="chevron" aria-hidden="true">⌄</span>
+          </div>
+        </button>
+        <div class="tool-list">
+          <div class="subgroup">Image editing</div>
+          <span class="tool-chip" data-tool="Image Converter"><span class="mini">⇄</span>Image Converter</span>
+          <span class="tool-chip" data-tool="Compress Image"><span class="mini">⤢</span>Compress Image</span>
+          <span class="tool-chip" data-tool="Background Remover"><span class="mini">✦</span>Background Remover</span>
+          <span class="tool-chip" data-tool="Watermark Remover"><span class="mini">✎</span>Watermark Remover</span>
+          <div class="subgroup">Create and extract</div>
+          <span class="tool-chip" data-tool="JPG to PDF"><span class="mini">▧</span>JPG to PDF</span>
+          <span class="tool-chip" data-tool="PDF to JPG"><span class="mini">▧</span>PDF to JPG</span>
+          <span class="tool-chip" data-tool="Scan to PDF"><span class="mini">⌗</span>Scan to PDF</span>
+          <span class="tool-chip" data-tool="Image OCR"><span class="mini">Aa</span>Image OCR</span>
+          <div class="subgroup">Generate</div>
+          <span class="tool-chip" data-tool="QR Generator"><span class="mini">▦</span>QR Generator</span>
+          <span class="tool-chip" data-tool="Barcode Generator"><span class="mini">▥</span>Barcode Generator</span>
+        </div>
+      </article>
+    </section>
+
+    <div class="empty-state" id="emptyState">Is search ke liye koi matching tool nahi mila. Naam dobara check karein.</div>
+
+    <aside class="existing-strip">
+      <div class="existing-left">
+        <div class="existing-icon" aria-hidden="true">▧</div>
+        <div><strong>On-device processing</strong><span>HTML to PDF uses local PDF generation. Files are not uploaded or saved to CampusSetu servers.</span></div>
+      </div>
+      <span class="keep-separate">No AI or cloud conversion</span>
+    </aside>
+
+    <footer class="footer">
+      <strong>CampusSetu Toolkit preview</strong> · Tool grouping preview; verify each tool's local implementation in the app.
+    </footer>
+  </main>
+
+  <script>
+    const search = document.getElementById('toolSearch');
+    const cards = Array.from(document.querySelectorAll('.category'));
+    const chips = Array.from(document.querySelectorAll('.tool-chip'));
+    const emptyState = document.getElementById('emptyState');
+    const resultCount = document.getElementById('resultCount');
+    const expandAll = document.getElementById('expandAll');
+
+    function applySearch() {
+      const query = search.value.trim().toLowerCase();
+      let visibleGroups = 0;
+      cards.forEach((card) => {
+        let visibleTools = 0;
+        card.querySelectorAll('.tool-chip').forEach((chip) => {
+          const matches = !query || chip.dataset.tool.toLowerCase().includes(query);
+          chip.hidden = !matches;
+          if (matches) visibleTools += 1;
+        });
+        card.querySelectorAll('.subgroup').forEach((label) => {
+          const next = label.nextElementSibling;
+          let groupHasMatch = false;
+          let item = next;
+          while (item && !item.classList.contains('subgroup')) {
+            if (item.classList.contains('tool-chip') && !item.hidden) groupHasMatch = true;
+            item = item.nextElementSibling;
+          }
+          label.hidden = !groupHasMatch;
+        });
+        const show = visibleTools > 0;
+        card.hidden = !show;
+        if (show) visibleGroups += 1;
+      });
+      emptyState.classList.toggle('visible', visibleGroups === 0);
+      resultCount.textContent = query ? visibleGroups + (visibleGroups === 1 ? ' group' : ' groups') : '5 groups';
+    }
+
+    search.addEventListener('input', applySearch);
+    cards.forEach((card) => {
+      const toggle = card.querySelector('.category-more');
+      toggle.addEventListener('click', () => {
+        const collapsed = card.dataset.collapsed !== 'true';
+        card.dataset.collapsed = String(collapsed);
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    });
+    expandAll.addEventListener('click', () => {
+      const shouldCollapse = expandAll.textContent === 'Collapse all';
+      cards.forEach((card) => {
+        card.dataset.collapsed = String(shouldCollapse);
+        card.querySelector('.category-more').setAttribute('aria-expanded', String(!shouldCollapse));
+      });
+      expandAll.textContent = shouldCollapse ? 'Expand all' : 'Collapse all';
+    });
+  </script>
+</body>
+</html>

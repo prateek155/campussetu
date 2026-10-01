@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import 'api_service.dart';
 
 class AuthService {
@@ -68,6 +71,31 @@ class AuthService {
     _cachedToken = idToken;
     _cachedAt = DateTime.now();
     ApiService().setToken(idToken);
+
+    final preferences = await SharedPreferences.getInstance();
+    const key = 'campussetu_installation_id_v1';
+    String? platformDeviceId;
+    if (!kIsWeb) {
+      try {
+        platformDeviceId = await const MethodChannel('com.campussetu/alarm')
+            .invokeMethod<String>('getSignupDeviceId');
+      } catch (_) {
+        // Platforms without a native identifier use the persisted install ID.
+      }
+    }
+    final installId =
+        platformDeviceId ?? preferences.getString(key) ?? const Uuid().v4();
+    await preferences.setString(key, installId);
+    const registeredUidKey = 'campussetu_signup_device_uid_v1';
+    if (preferences.getString(registeredUidKey) != user.uid) {
+      try {
+        await ApiService().registerSignupDevice(installId);
+        await preferences.setString(registeredUidKey, user.uid);
+      } catch (error) {
+        await signOut();
+        rethrow;
+      }
+    }
 
     return ApiService().getMe().timeout(
           const Duration(seconds: 15),

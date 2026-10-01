@@ -129,7 +129,9 @@ class _CampusAmbassadorScreenState extends ConsumerState<CampusAmbassadorScreen>
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Submission failed: $e'),
+            content: Text(e.toString().contains('inactive')
+                ? 'Program is now inactive.'
+                : 'Submission failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -141,7 +143,7 @@ class _CampusAmbassadorScreenState extends ConsumerState<CampusAmbassadorScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final programOpenAsync = ref.watch(ambassadorProgramStatusProvider);
-    final isProgramOpen = programOpenAsync.value ?? true;
+    final isProgramOpen = programOpenAsync.value ?? false;
 
     final myAppAsync = ref.watch(myAmbassadorApplicationProvider);
     final myApp = myAppAsync.value;

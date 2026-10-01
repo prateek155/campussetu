@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/api_service.dart';
 import '../models/campus_ambassador_model.dart';
 
 class CampusAmbassadorService {
@@ -15,61 +16,45 @@ class CampusAmbassadorService {
   CollectionReference<Map<String, dynamic>> get _ambassadorsRef =>
       _firestore.collection('campus_ambassadors');
 
-  DocumentReference<Map<String, dynamic>> get _configRef =>
-      _firestore.collection('app_config').doc('ambassador_program');
-
-  /// Stream program active state (yields default true immediately so UI never blocks)
+  /// Poll the server-owned status. Fail closed if the status cannot be verified.
   Stream<bool> watchProgramStatus() async* {
-    yield true; // Immediate fallback value
-
-    try {
-      await for (final snapshot in _configRef.snapshots()) {
-        if (!snapshot.exists || snapshot.data() == null) {
-          yield true;
-        } else {
-          final data = snapshot.data()!;
-          yield data['isOpen'] as bool? ?? data['is_open'] as bool? ?? true;
-        }
+    while (true) {
+      try {
+        yield await ApiService().getAmbassadorProgramStatus();
+      } catch (e) {
+        debugPrint('[CampusAmbassadorService] status check failed: $e');
+        yield false;
       }
-    } catch (e) {
-      debugPrint('[CampusAmbassadorService] watchProgramStatus error: $e');
-      yield true;
+      await Future<void>.delayed(const Duration(seconds: 15));
     }
   }
 
   /// Get current program status once
   Future<bool> getProgramStatus() async {
     try {
-      final doc = await _configRef.get().timeout(const Duration(seconds: 4));
-      if (!doc.exists || doc.data() == null) return true;
-      final data = doc.data()!;
-      return data['isOpen'] as bool? ?? data['is_open'] as bool? ?? true;
+      return await ApiService().getAmbassadorProgramStatus();
     } catch (e) {
       debugPrint('[CampusAmbassadorService] getProgramStatus error: $e');
-      return true;
+      return false;
     }
   }
 
   /// Admin toggle: turn program ON or OFF
   Future<void> setProgramStatus(bool isOpen) async {
-    await _configRef.set({
-      'isOpen': isOpen,
-      'is_open': isOpen,
-      'updated_at': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await ApiService().setAmbassadorProgramStatus(isOpen);
   }
 
   /// Submit or update student ambassador application
   Future<void> submitApplication(CampusAmbassadorModel application) async {
-    final docId = application.userId.isNotEmpty
-        ? application.userId
-        : application.id;
-    if (docId.isEmpty) {
-      throw Exception('User ID is required to submit an application');
-    }
-
-    final data = application.toMap();
-    await _ambassadorsRef.doc(docId).set(data, SetOptions(merge: true));
+    await ApiService().submitAmbassadorApplication({
+      'name': application.name,
+      'age': application.age,
+      'phone': application.phone,
+      'degree': application.degree,
+      'current_year': application.currentYear,
+      'college_name': application.collegeName,
+      'previous_experience': application.previousExperience,
+    });
   }
 
   /// Stream current user's application

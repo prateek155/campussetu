@@ -65,6 +65,10 @@ class AlarmRingService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(openPi)
+            .setFullScreenIntent(openPi, true)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setPriority(Notification.PRIORITY_MAX)
+        }
         // Only 1 snooze allowed - if already snoozed once, do not show snooze button
         if (!isSnooze && (alarm?.optInt("snoozeMinutes", 5) ?: 5) > 0) {
             builder.addAction(android.R.drawable.ic_lock_idle_alarm, "Snooze", snoozePi)

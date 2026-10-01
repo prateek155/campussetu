@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app.dart';
 import 'firebase_options.dart';
+import 'features/notifications/notification_preferences_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -34,6 +35,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationPreferencesService.instance.initialize();
 
   runApp(const ProviderScope(child: CampusSetuApp()));
 }

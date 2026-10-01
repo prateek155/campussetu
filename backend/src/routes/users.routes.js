@@ -8,6 +8,12 @@ const c = require('../controllers/users.controller');
 const passwordReset = require('../controllers/passwordReset.controller');
 const { requireAuth } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validate');
+const authAbuse = require('../controllers/authAbuse.controller');
+
+router.post('/login/check', authAbuse.checkLogin);
+router.post('/login/failure', authAbuse.recordLoginFailure);
+router.post('/login/success', requireAuth, authAbuse.clearLoginFailures);
+router.post('/signup-device', requireAuth, authAbuse.registerDeviceSignup);
 
 const passwordResetRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

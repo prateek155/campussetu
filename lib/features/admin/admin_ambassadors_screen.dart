@@ -62,7 +62,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
   @override
   Widget build(BuildContext context) {
     final isProgramOpenAsync = ref.watch(ambassadorProgramStatusProvider);
-    final isProgramOpen = isProgramOpenAsync.value ?? true;
+    final isProgramOpen = isProgramOpenAsync.value ?? false;
 
     final applicationsAsync = ref.watch(adminAmbassadorsStreamProvider);
     final allApplications = applicationsAsync.value ?? <CampusAmbassadorModel>[];
@@ -424,6 +424,7 @@ class _AdminAmbassadorsScreenState extends ConsumerState<AdminAmbassadorsScreen>
                     try {
                       await CampusAmbassadorService.instance
                           .setProgramStatus(val);
+                      ref.invalidate(ambassadorProgramStatusProvider);
                       if (mounted) {
                         if (val) {
                           AdminToast.success(context, 'Ambassador Program opened for students!');

@@ -28,6 +28,7 @@ const quizRouter = require('./routes/quiz.routes');
 const reportsRouter = require('./routes/reports.routes');
 const alarmWallpaperRouter = require('./routes/alarmWallpaper.routes');
 const resumesRouter = require('./routes/resumes.routes');
+const ambassadorRouter = require('./routes/ambassador.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -57,45 +58,57 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── Rate Limiting ──────────────────────────────────────────
 const { redis } = require('./config/redis');
-let rateLimitStore;
-try {
-  if (redis) {
+const createRateLimitStore = (prefix) => {
+  try {
+    if (!redis) return undefined;
     const { RedisStore } = require('rate-limit-redis');
-    rateLimitStore = new RedisStore({
+    return new RedisStore({
       sendCommand: (...args) => redis.call(...args),
-      prefix: 'rl:global:',
+      prefix,
     });
+  } catch {
+    // Redis-backed limits are optional; database signup/login guards remain shared.
+    return undefined;
   }
-} catch {
-  // rate-limit-redis not installed - falls back to in-memory per worker
-}
+};
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  store: rateLimitStore,
+  store: createRateLimitStore('rl:global:'),
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  store: rateLimitStore,
+  store: createRateLimitStore('rl:auth:'),
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+});
+
+const signupDeviceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createRateLimitStore('rl:signup-device:'),
+  message: { error: 'Too many signup attempts from this connection. Please wait and try again.' },
 });
 
 app.use('/api', globalLimiter);
 app.use('/api/v1/users/login', authLimiter);
 app.use('/api/v1/users/register', authLimiter);
+app.use('/api/v1/users/signup-device', signupDeviceLimiter);
 
 // ── Static files (uploaded notes + quiz images) ───────────
 app.use('/uploads', express.static(path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads')));
 
 // ── API Routes ─────────────────────────────────────────────
 app.use('/api/v1/users', usersRouter);
+app.use('/api/v1/ambassador', ambassadorRouter);
 app.use('/api/v1/feed', postsRouter);
 app.use('/api/v1/posts', postsRouter);
 app.use('/api/v1/connect', connectRouter);
@@ -170,6 +183,11 @@ app.use((err, req, res, next) => {
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       await db.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+
+      // Authentication abuse controls
+      await db.query('CREATE TABLE IF NOT EXISTS auth_login_attempts (attempt_key CHAR(64) PRIMARY KEY, failure_count SMALLINT NOT NULL DEFAULT 0, window_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), locked_until TIMESTAMPTZ, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_updated ON auth_login_attempts (updated_at)');
+      await db.query('CREATE TABLE IF NOT EXISTS auth_device_signups (device_hash CHAR(64) PRIMARY KEY, firebase_uid TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
 
       // Posts & social tables
       await db.query(`CREATE TABLE IF NOT EXISTS post_likes (
@@ -445,7 +463,8 @@ app.use((err, req, res, next) => {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions (quiz_id, total_score DESC, submitted_at ASC)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_attempts_quiz ON quiz_test_attempts (quiz_id, started_at)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_quiz_test_events_attempt ON quiz_test_events (quiz_id, user_id, created_at DESC)`);
-      // Alarm remote wallpapers
+
+      // Alarm remote wallpapers
       await db.query(`CREATE TABLE IF NOT EXISTS alarm_wallpapers (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         type TEXT NOT NULL CHECK (type IN ('image', 'animated', 'video')),

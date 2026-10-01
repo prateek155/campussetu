@@ -154,7 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final feedAsync = ref.watch(feedProvider);
     final countsAsync = ref.watch(homeCountsProvider);
     final counts = countsAsync.valueOrNull ?? {};
-    final isAmbassadorOpen = ref.watch(ambassadorProgramStatusProvider).value ?? true;
+    final isAmbassadorOpen = ref.watch(ambassadorProgramStatusProvider).value ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(

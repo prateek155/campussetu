@@ -151,11 +151,10 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                             onTap: () => PdfToolDialogs.showPdfToWordDialog(context),
                           ),
                           _ToolItem(
-                            title: 'Watermark Remover',
-                            description: 'Cleanly erase or whiteout watermarks, stamps & headers from PDF pages.',
-                            icon: Icons.layers_clear_rounded,
-                            iconColor: Colors.redAccent,
-                            badge: 'SMART',
+                            title: 'Add Watermark',
+                            description: 'Add a translucent text watermark to each PDF page on this device.',
+                            icon: Icons.branding_watermark_rounded,
+                            iconColor: Colors.blueAccent,
                             onTap: () => PdfToolDialogs.showPdfWatermarkDialog(context),
                           ),
                           _ToolItem(

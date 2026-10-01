@@ -2,12 +2,31 @@
 const router = require('express').Router();
 const c = require('../controllers/admin.controller');
 const { requireAuth, requireAdmin, requireEnterprise } = require('../middleware/auth');
+const firebaseAdmin = require('../config/firebase');
 
 // Allow enterprise app to redeem deals
 router.post('/enterprise/redeem', requireAuth, requireEnterprise, c.redeemDeal);
 
 // All admin routes require auth + admin claim
 router.use(requireAuth, requireAdmin);
+
+router.put('/ambassador/program', async (req, res) => {
+  const isOpen = req.body?.is_open;
+  if (typeof isOpen !== 'boolean') return res.status(400).json({ error: 'is_open must be a boolean' });
+  try {
+    await firebaseAdmin.firestore()
+      .collection('app_config').doc('ambassador_program')
+      .set({
+        is_open: isOpen,
+        isOpen,
+        updated_at: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    return res.json({ is_open: isOpen });
+  } catch (error) {
+    console.error('[admin] ambassador program update failed:', error.message);
+    return res.status(500).json({ error: 'Could not update ambassador program status.' });
+  }
+});
 
 router.get('/stats', c.getStats);
 router.get('/reports', c.getReports);

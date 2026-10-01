@@ -40,6 +40,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   bool _showPassword = false;
   String? _resetToken;
   Timer? _resendTimer;
+  Timer? _loginLockTimer;
+  int _loginWaitSeconds = 0;
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _loginLockTimer?.cancel();
     _email.dispose();
     _password.dispose();
     _otp.dispose();
@@ -72,10 +75,16 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _busy = true);
     try {
+      final wait = await ApiService().checkLoginWaitSeconds(_email.text.trim());
+      if (wait > 0) {
+        _startLoginLock(wait);
+        return;
+      }
       final result = await AuthService().signInWithEmailPassword(
         email: _email.text.trim(),
         password: _password.text,
       );
+      await ApiService().clearLoginFailures();
       if (!mounted) return;
       if (result['profile_complete'] == true) {
         context.go(AppRoutes.home);
@@ -83,10 +92,37 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         context.go(AppRoutes.authConfirm, extra: result);
       }
     } catch (error) {
-      _showError(_friendlyError(error));
+      if (error is FirebaseAuthException) {
+        try {
+          final wait = await ApiService().recordLoginFailure(_email.text.trim());
+          if (wait > 0) {
+            _startLoginLock(wait);
+          } else {
+            _showError(_friendlyError(error));
+          }
+        } catch (protectionError) {
+          _showError(_friendlyError(protectionError));
+        }
+      } else {
+        _showError(_friendlyError(error));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _startLoginLock(int seconds) {
+    _loginLockTimer?.cancel();
+    setState(() => _loginWaitSeconds = seconds);
+    _loginLockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      if (_loginWaitSeconds <= 1) {
+        timer.cancel();
+        setState(() => _loginWaitSeconds = 0);
+      } else {
+        setState(() => _loginWaitSeconds--);
+      }
+    });
   }
 
   Future<void> _requestOtp({bool isResend = false}) async {
@@ -324,8 +360,20 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                       _primaryButton(
                         label: 'Sign in',
                         icon: Icons.login_rounded,
-                        onPressed: _busy ? null : _signIn,
+                        onPressed: _busy || _loginWaitSeconds > 0 ? null : _signIn,
                       ),
+                      if (_loginWaitSeconds > 0) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Too many attempts. Try again in ' +
+                              (_loginWaitSeconds ~/ 60).toString().padLeft(2, '0') +
+                              ':' +
+                              (_loginWaitSeconds % 60).toString().padLeft(2, '0') +
+                              '.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.interBody(color: AppColors.error, size: 13, weight: FontWeight.w600),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Text(
                         'Google accounts can add email sign-in from Profile → Settings → Password.',

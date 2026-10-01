@@ -38,6 +38,7 @@ import '../../features/travel/add_travel_screen.dart';
 import '../../features/legal/privacy_screen.dart';
 import '../../features/legal/terms_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
+import '../../features/notifications/notification_preferences_screen.dart';
 import '../../features/quiz/quiz_list_screen.dart';
 import '../../features/quiz/quiz_join_screen.dart';
 import '../../features/quiz/quiz_play_screen.dart';
@@ -85,6 +86,7 @@ class AppRoutes {
   static const privacy = '/privacy';
   static const terms = '/terms';
   static const notifications = '/notifications';
+  static const notificationPreferences = '/profile/notifications';
   static const pointsTransfer = '/points-transfer';
   static const tools = '/tools';
   static const invitations = '/connect/invitations';
@@ -162,6 +164,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: AppRoutes.notifications,
           builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: AppRoutes.notificationPreferences,
+        builder: (_, __) => const NotificationPreferencesScreen(),
+      ),
       GoRoute(
         path: '/alarm/ring',
         builder: (_, state) => AlarmRingingScreen(

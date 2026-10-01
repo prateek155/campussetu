@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:barcode_widget/barcode_widget.dart';
+import 'package:printing/printing.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -56,6 +58,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   // Compress Image state
   double _imageQuality = 65;
   int? _maxDimension;
+  double _backgroundTolerance = 36;
+  Uint8List? _backgroundRemovedBytes;
 
   // Image Watermark state
   String _imageWatermarkPreset = 'bottomRight';
@@ -71,8 +75,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   // PDF to Word state
   PdfExtractionResult? _pdfToWordResult;
 
-  // PDF Watermark state
-  String _pdfWatermarkPreset = 'center';
+  // PDF watermark state
+  final TextEditingController _pdfWatermarkCtrl = TextEditingController();
   int _pdfTotalPages = 0;
 
   // Word to PDF state
@@ -98,6 +102,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // Image to PDF state
   final List<Uint8List> _imagesForPdf = [];
+  final List<Uint8List> _pdfsToMerge = [];
+  final List<String> _pdfNamesToMerge = [];
+  final TextEditingController _htmlSourceCtrl = TextEditingController();
 
   // Delete PDF Pages state
   final Set<int> _pagesToDelete = {};
@@ -113,6 +120,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
     _wordTextCtrl.dispose();
     _txtInputCtrl.dispose();
     _ocrTextCtrl.dispose();
+    _htmlSourceCtrl.dispose();
+    _pdfWatermarkCtrl.dispose();
     super.dispose();
   }
 
@@ -151,6 +160,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       _selectedFileName = file.name;
       _selectedFileSize = bytes!.lengthInBytes;
       _selectedFileBytes = bytes;
+      _backgroundRemovedBytes = null;
       _pdfToWordResult = null;
       _pagesToDelete.clear();
       _convertedPptPdfBytes = null;
@@ -411,6 +421,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         return _buildImageConverter(isDark, textColor, textMuted);
       case 'compress_image':
         return _buildCompressImage(isDark, textColor, textMuted);
+      case 'background_remover':
+        return _buildBackgroundRemover(textColor, textMuted);
       case 'image_watermark':
         return _buildImageWatermark(isDark, textColor, textMuted);
       case 'qr_generator':
@@ -419,9 +431,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         return _buildBarcodeGenerator(isDark, textColor, textMuted);
       case 'image_ocr_to_pdf_word':
         return _buildImageOcrToPdfWord(isDark, textColor, textMuted);
+      case 'merge_pdf':
+        return _buildMergePdfs(textColor, textMuted);
+      case 'split_pdf':
+      case 'extract_pdf_pages':
+        return _buildExtractPdf(textColor, textMuted);
+      case 'html_to_pdf':
+        return _buildHtmlToPdf(textColor, textMuted);
+      case 'pdf_to_jpg':
+        return _buildPdfToImages(textColor, textMuted);
       case 'pdf_to_word':
         return _buildPdfToWord(isDark, textColor, textMuted);
-      case 'pdf_watermark':
+      case 'add_pdf_watermark':
         return _buildPdfWatermark(isDark, textColor, textMuted);
       case 'word_to_pdf':
         return _buildWordToPdf(isDark, textColor, textMuted);
@@ -429,6 +450,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         return _buildCompressPdf(isDark, textColor, textMuted);
       case 'image_to_pdf':
         return _buildImageToPdf(isDark, textColor, textMuted);
+      case 'scan_to_pdf':
+        return _buildScanToPdf(textColor, textMuted);
       case 'delete_pages':
         return _buildDeletePdfPages(isDark, textColor, textMuted);
       case 'organize_pdf':
@@ -445,6 +468,237 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       default:
         return _buildDefaultFilePicker('+ Select File');
     }
+  }
+
+  Widget _buildMergePdfs(Color textColor, Color textMuted) {
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: '+ Add PDF files',
+          onTap: () async {
+            final result = await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: const ['pdf'],
+              allowMultiple: true,
+              withData: true,
+            );
+            if (result == null) return;
+            for (final file in result.files) {
+              Uint8List? bytes = file.bytes;
+              if (bytes == null && !kIsWeb && file.path != null) {
+                bytes = await File(file.path!).readAsBytes();
+              }
+              if (bytes != null) {
+                _pdfsToMerge.add(bytes);
+                _pdfNamesToMerge.add(file.name);
+              }
+            }
+            if (mounted) setState(() {});
+          },
+        ),
+        const SizedBox(height: 10),
+        Text('Files are read into memory and never uploaded.', style: TextStyle(color: textMuted, fontSize: 12)),
+        for (var i = 0; i < _pdfNamesToMerge.length; i++)
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF38BDF8)),
+            title: Text(_pdfNamesToMerge[i], style: TextStyle(color: textColor)),
+            trailing: IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => setState(() {
+                _pdfNamesToMerge.removeAt(i);
+                _pdfsToMerge.removeAt(i);
+              }),
+            ),
+          ),
+        const SizedBox(height: 12),
+        if (_isProcessing)
+          const CircularProgressIndicator()
+        else
+          _buildActionExecuteButton(
+            label: 'Merge and download PDFs',
+            icon: Icons.merge_rounded,
+            onTap: _pdfsToMerge.length < 2
+                ? null
+                : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      final merged = await PdfToolsService.mergePdfFiles(_pdfsToMerge);
+                      await saveAndDownloadFile(merged, 'merged_document.pdf');
+                      _recordRecentFile('merged_document.pdf', merged, true);
+                    } catch (error) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not merge these PDFs: $error')));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildExtractPdf(Color textColor, Color textMuted) {
+    final isSplit = widget.toolId == 'split_pdf';
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select PDF file' : 'Change PDF',
+          onTap: () => _pickSingleFile(extensions: const ['pdf']),
+        ),
+        if (_selectedFileBytes != null && _pdfTotalPages > 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            isSplit ? 'Select the pages for this output part:' : 'Select the pages to keep:',
+            style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(_pdfTotalPages, (index) {
+              final page = index + 1;
+              final selected = _pagesToDelete.contains(page);
+              return FilterChip(
+                label: Text(page.toString()),
+                selected: selected,
+                onSelected: (value) => setState(() {
+                  if (value) {
+                    _pagesToDelete.add(page);
+                  } else {
+                    _pagesToDelete.remove(page);
+                  }
+                }),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Text('Selected pages: ' + _pagesToDelete.length.toString(), style: TextStyle(color: textMuted, fontSize: 12)),
+          const SizedBox(height: 16),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else
+            _buildActionExecuteButton(
+              label: 'Export selected pages',
+              icon: Icons.file_download_outlined,
+              onTap: _pagesToDelete.isEmpty
+                  ? null
+                  : () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final extracted = await PdfToolsService.extractPdfPages(_selectedFileBytes!, _pagesToDelete.toList());
+                        final outputName = isSplit ? 'split_pages.pdf' : 'extracted_pages.pdf';
+                        await saveAndDownloadFile(extracted, outputName);
+                        _recordRecentFile(outputName, extracted, true);
+                      } catch (error) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not export selected pages: $error')));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildHtmlToPdf(Color textColor, Color textMuted) {
+    return Column(
+      children: [
+        TextField(
+          controller: _htmlSourceCtrl,
+          minLines: 8,
+          maxLines: 14,
+          style: TextStyle(color: textColor, fontFamily: 'monospace', fontSize: 13),
+          decoration: InputDecoration(
+            labelText: 'Paste HTML',
+            hintText: '<h1>My document</h1><p>Content…</p>',
+            alignLabelWithHint: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Runs on this device with no AI or server upload. Text and basic HTML line breaks are preserved; external CSS and scripts are ignored.',
+          style: TextStyle(color: textMuted, fontSize: 12),
+        ),
+        const SizedBox(height: 16),
+        if (_isProcessing)
+          const CircularProgressIndicator()
+        else
+          _buildActionExecuteButton(
+            label: 'Create and download PDF',
+            icon: Icons.picture_as_pdf_rounded,
+            onTap: _htmlSourceCtrl.text.trim().isEmpty
+                ? null
+                : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      final output = await PdfToolsService.htmlToPdf(_htmlSourceCtrl.text);
+                      await saveAndDownloadFile(output, 'html_document.pdf');
+                      _recordRecentFile('html_document.pdf', output, true);
+                    } catch (error) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not convert HTML: $error')));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPdfToImages(Color textColor, Color textMuted) {
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select PDF file' : 'Change PDF',
+          onTap: () => _pickSingleFile(extensions: const ['pdf']),
+        ),
+        if (_selectedFileBytes != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(color: textMuted, fontSize: 12)),
+          ),
+        const SizedBox(height: 16),
+        if (_isProcessing)
+          const CircularProgressIndicator()
+        else
+          _buildActionExecuteButton(
+            label: 'Render pages and download images',
+            icon: Icons.image_outlined,
+            onTap: _selectedFileBytes == null
+                ? null
+                : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      var pageIndex = 0;
+                      await for (final raster in Printing.raster(_selectedFileBytes!, dpi: 144)) {
+                        final rendered = await raster.toPng();
+                        final converted = await ImageToolsService.convertImage(
+                          rendered,
+                          targetFormat: 'jpg',
+                          quality: 90,
+                        );
+                        final jpgBytes = converted.bytes;
+                        final name = 'pdf_page_' + (pageIndex + 1).toString() + '.jpg';
+                        await saveAndDownloadFile(jpgBytes, name);
+                        _recordRecentFile(name, jpgBytes, false);
+                        pageIndex++;
+                      }
+                      if (mounted && pageIndex == 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This PDF has no pages to export.')));
+                      }
+                    } catch (error) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not render this PDF: $error')));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+          ),
+        const SizedBox(height: 8),
+        Text('Page images are generated in memory and saved only when you download them.', style: TextStyle(color: textMuted, fontSize: 12)),
+      ],
+    );
   }
 
   // 1. IMAGE CONVERTER
@@ -1218,6 +1472,96 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
     );
   }
 
+  Widget _buildBackgroundRemover(Color textColor, Color textMuted) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildPrimarySelectButton(
+          label: _selectedFileName == null ? '+ Select Image' : 'Change Image',
+          onTap: () => _pickSingleFile(
+            extensions: const ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'],
+            isImage: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Runs offline on this device. Best results come from a plain or near-uniform background.',
+          style: TextStyle(fontSize: 12, color: textMuted),
+        ),
+        if (_selectedFileBytes != null) ...[
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              _backgroundRemovedBytes ?? _selectedFileBytes!,
+              height: 220,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Background tolerance', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+              ),
+              Text(_backgroundTolerance.round().toString(), style: TextStyle(color: textMuted)),
+            ],
+          ),
+          Slider(
+            value: _backgroundTolerance,
+            min: 8,
+            max: 110,
+            divisions: 102,
+            onChanged: _isProcessing
+                ? null
+                : (value) => setState(() {
+                      _backgroundTolerance = value;
+                      _backgroundRemovedBytes = null;
+                    }),
+          ),
+          if (_isProcessing)
+            const Center(child: CircularProgressIndicator())
+          else
+            _buildActionExecuteButton(
+              label: _backgroundRemovedBytes == null ? 'Remove Background' : 'Retry with Current Tolerance',
+              icon: Icons.auto_awesome_rounded,
+              onTap: () async {
+                setState(() => _isProcessing = true);
+                try {
+                  final result = await ImageToolsService.removeBackground(
+                    _selectedFileBytes!,
+                    tolerance: _backgroundTolerance.round(),
+                  );
+                  if (mounted) setState(() => _backgroundRemovedBytes = result);
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Background removal failed: $error')),
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              },
+            ),
+          if (_backgroundRemovedBytes != null) ...[
+            const SizedBox(height: 10),
+            _buildActionExecuteButton(
+              label: 'Download transparent PNG',
+              icon: Icons.download_rounded,
+              onTap: () async {
+                final base = (_selectedFileName ?? 'image').split('.').first;
+                final name = '${base}_no_background.png';
+                await saveAndDownloadFile(_backgroundRemovedBytes!, name);
+                _recordRecentFile(name, _backgroundRemovedBytes!, false);
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
   // 3. IMAGE WATERMARK REMOVER
   Widget _buildImageWatermark(bool isDark, Color textColor, Color textMuted) {
     return Column(
@@ -1471,7 +1815,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
     );
   }
 
-  // 7. PDF WATERMARK REMOVER
+  // Adds visible text over every page; this is not redaction or protection.
   Widget _buildPdfWatermark(bool isDark, Color textColor, Color textMuted) {
     return Column(
       children: [
@@ -1481,44 +1825,42 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         ),
         const SizedBox(height: 6),
         Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _pdfWatermarkCtrl,
+          maxLength: 80,
+          style: TextStyle(color: textColor),
+          decoration: InputDecoration(
+            labelText: 'Watermark text',
+            hintText: 'For example: DRAFT',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        Text(
+          'Adds a translucent text overlay to every page. It does not secure or redact the original PDF content.',
+          style: TextStyle(fontSize: 12, color: textMuted),
+        ),
         if (_selectedFileBytes != null) ...[
-          const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Watermark Location:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              _presetChip('Center Diagonal', 'center', _pdfWatermarkPreset, (v) => setState(() => _pdfWatermarkPreset = v)),
-              _presetChip('Header Area', 'header', _pdfWatermarkPreset, (v) => setState(() => _pdfWatermarkPreset = v)),
-              _presetChip('Footer Area', 'footer', _pdfWatermarkPreset, (v) => setState(() => _pdfWatermarkPreset = v)),
-            ],
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           if (_isProcessing)
             const CircularProgressIndicator()
           else
             _buildActionExecuteButton(
-              label: 'Clean Watermark & Download PDF',
-              icon: Icons.cleaning_services_rounded,
-              onTap: () async {
+              label: 'Add watermark and download PDF',
+              icon: Icons.branding_watermark_rounded,
+              onTap: _pdfWatermarkCtrl.text.trim().isEmpty ? null : () async {
                 setState(() => _isProcessing = true);
-                Rect area;
-                switch (_pdfWatermarkPreset) {
-                  case 'header': area = const Rect.fromLTWH(0.05, 0.02, 0.90, 0.12); break;
-                  case 'footer': area = const Rect.fromLTWH(0.05, 0.88, 0.90, 0.10); break;
-                  default: area = const Rect.fromLTWH(0.15, 0.35, 0.70, 0.30); break;
-                }
                 try {
-                  final cleaned = await PdfToolsService.removePdfWatermark(_selectedFileBytes!, relativeArea: area);
+                  final watermarked = await PdfToolsService.addPdfWatermark(
+                    _selectedFileBytes!,
+                    watermark: _pdfWatermarkCtrl.text,
+                  );
                   final base = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                  final outName = '${base}_clean.pdf';
-                  await saveAndDownloadFile(cleaned, outName);
-                  _recordRecentFile(outName, cleaned, true);
+                  final outName = '${base}_watermarked.pdf';
+                  await saveAndDownloadFile(watermarked, outName);
+                  _recordRecentFile(outName, watermarked, true);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cleaned PDF downloaded!'), backgroundColor: AppColors.success));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Watermarked PDF downloaded.'), backgroundColor: AppColors.success));
                   }
                 } catch (e) {
                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
@@ -1693,6 +2035,61 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   _recordRecentFile('images_bundle.pdf', pdf, true);
                 } catch (e) {
                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              },
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildScanToPdf(Color textColor, Color textMuted) {
+    return Column(
+      children: [
+        _buildPrimarySelectButton(
+          label: 'Open camera and scan a page',
+          onTap: () async {
+            final photo = await ImagePicker().pickImage(
+              source: ImageSource.camera,
+              imageQuality: 92,
+            );
+            if (photo == null) return;
+            final bytes = await photo.readAsBytes();
+            if (!mounted) return;
+            setState(() {
+              _imagesForPdf
+                ..clear()
+                ..add(bytes);
+              _selectedFileName = photo.name;
+              _selectedFileSize = bytes.lengthInBytes;
+            });
+          },
+        ),
+        const SizedBox(height: 10),
+        Text('Camera image stays on your device and is packaged into a PDF locally.', style: TextStyle(color: textMuted, fontSize: 12)),
+        if (_imagesForPdf.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(_imagesForPdf.first, height: 190, fit: BoxFit.contain),
+          ),
+          const SizedBox(height: 14),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else
+            _buildActionExecuteButton(
+              label: 'Create and download scanned PDF',
+              icon: Icons.picture_as_pdf_rounded,
+              onTap: () async {
+                setState(() => _isProcessing = true);
+                try {
+                  final output = await PdfToolsService.imagesToPdf(_imagesForPdf);
+                  await saveAndDownloadFile(output, 'scanned_page.pdf');
+                  _recordRecentFile('scanned_page.pdf', output, true);
+                } catch (error) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not create the scanned PDF: $error')));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
