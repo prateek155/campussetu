@@ -118,13 +118,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isPasswordReset = loc == AppRoutes.emailLogin &&
           state.uri.queryParameters['mode'] == 'forgot';
 
-      if (user == null && !isOnAuthRoute && !hasResumeHandoff)
+      if (user == null && !isOnAuthRoute && !hasResumeHandoff) {
         return AppRoutes.welcome;
+      }
       if (user != null &&
           (loc == AppRoutes.welcome ||
               loc == AppRoutes.login ||
-              (loc == AppRoutes.emailLogin && !isPasswordReset)))
+              (loc == AppRoutes.emailLogin && !isPasswordReset))) {
         return AppRoutes.home;
+      }
       return null;
     },
     routes: [
@@ -216,20 +218,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: AppRoutes.ambassador,
           builder: (_, __) => const CampusAmbassadorScreen()),
 
+      GoRoute(
+          path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
+
       // Main app shell with bottom nav
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
           GoRoute(
-              path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
-          GoRoute(
               path: AppRoutes.connect,
               builder: (_, __) => const ConnectScreen()),
           GoRoute(
               path: AppRoutes.chat, builder: (_, __) => const ChatListScreen()),
           GoRoute(
-            path: AppRoutes.chatDetail,
+            path: AppRoutes.profile,
+            builder: (_, state) {
+              final userId = state.uri.queryParameters['userId'];
+              return ProfileScreen(userId: userId);
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.chatDetail,
             builder: (_, state) {
               final rawExtra = state.extra;
               final chat = rawExtra is Map
@@ -304,17 +316,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: AppRoutes.connections,
               builder: (_, __) => const ConnectionsScreen()),
           GoRoute(
-            path: AppRoutes.profile,
-            builder: (_, state) {
-              final userId = state.uri.queryParameters['userId'];
-              return ProfileScreen(userId: userId);
-            },
-          ),
-          GoRoute(
               path: AppRoutes.startup,
               builder: (_, __) => const StartupScreen()),
-        ],
-      ),
       GoRoute(
         path: '/events',
         builder: (context, state) => const EventsScreen(),

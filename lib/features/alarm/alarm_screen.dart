@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/router/app_router.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -77,6 +78,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AlarmEditor(alarm: current, id: id),
     );
@@ -213,8 +215,21 @@ class _AlarmScreenState extends State<AlarmScreen> {
                 children: [
                   // ── Top Header with Title, Subtitle and '+' Button ──────────
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1E232A)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go(AppRoutes.home);
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -737,18 +752,18 @@ class _AlarmEditorState extends State<_AlarmEditor> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // ── TOP BANNER: Wallpaper, Time & Label (Matches Design Images 2 & 3) ──
+          // ── TOP BANNER: Wallpaper, Time & Compact Badges ──
           Stack(
             children: [
               // Wallpaper background
               SizedBox(
-                height: 250,
+                height: 205,
                 width: double.infinity,
                 child: AlarmWallpaperImage(path: _wallpaperPath),
               ),
               // Dark gradient overlay
               Container(
-                height: 250,
+                height: 205,
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0x55000000), Color(0x99000000)],
@@ -761,52 +776,11 @@ class _AlarmEditorState extends State<_AlarmEditor> {
               SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Top Row: (X) Close on left, 'Change wallpaper' on right
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 20),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _openWallpaperPicker,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(color: Colors.white.withOpacity(0.2)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.photo_outlined, color: Colors.white, size: 16),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Change wallpaper',
-                                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
                       // Large Time Display
                       GestureDetector(
                         onTap: _chooseTime,
@@ -818,7 +792,7 @@ class _AlarmEditorState extends State<_AlarmEditor> {
                               '$hour12:$minuteStr',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 56,
+                                fontSize: 52,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: -1.5,
                               ),
@@ -828,39 +802,105 @@ class _AlarmEditorState extends State<_AlarmEditor> {
                               period,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 26,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 8),
 
-                      // Editable Label
-                      TextField(
-                        controller: _label,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          border: InputBorder.none,
-                          hintText: 'Wake up',
-                          hintStyle: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // 'Rings in Xh Ym' badge
+                      // Compact 'Wake up' label badge (styled exactly like Rings in badge)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.35),
                           borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: Colors.white.withOpacity(0.18)),
                         ),
-                        child: Text(
-                          _formatRingsIn(),
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit_rounded, color: Colors.white70, size: 13),
+                            const SizedBox(width: 6),
+                            IntrinsicWidth(
+                              child: TextField(
+                                controller: _label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  filled: false,
+                                  fillColor: Colors.transparent,
+                                  contentPadding: EdgeInsets.zero,
+                                  border: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  hintText: 'Wake up',
+                                  hintStyle: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Row with 'Rings in Xh Ym' badge & 'Change wallpaper' side-by-side
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.35),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(color: Colors.white.withOpacity(0.18)),
+                            ),
+                            child: Text(
+                              _formatRingsIn(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _openWallpaperPicker,
+                              borderRadius: BorderRadius.circular(100),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.35),
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(color: Colors.white.withOpacity(0.25)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.photo_outlined, color: Colors.white, size: 14),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Change wallpaper',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

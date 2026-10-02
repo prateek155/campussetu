@@ -8,6 +8,8 @@ class NotificationPreferencesService {
   static final instance = NotificationPreferencesService._();
 
   static const _announcementsKey = 'notifications_campus_announcements_v1';
+  static const _deviceAlertsKey = 'notifications_device_alerts_v1';
+  static const _alarmAlertsKey = 'notifications_alarm_alerts_v1';
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -28,6 +30,26 @@ class NotificationPreferencesService {
   Future<bool> announcementsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_announcementsKey) ?? false;
+  }
+
+  Future<bool> deviceAlertsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_deviceAlertsKey) ?? true;
+  }
+
+  Future<void> setDeviceAlertsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_deviceAlertsKey, enabled);
+  }
+
+  Future<bool> alarmAlertsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_alarmAlertsKey) ?? true;
+  }
+
+  Future<void> setAlarmAlertsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_alarmAlertsKey, enabled);
   }
 
   Future<bool> setAnnouncementsEnabled(bool enabled) async {

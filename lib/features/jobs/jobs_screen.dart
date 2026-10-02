@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/router/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/dark_tile.dart';
@@ -54,10 +56,34 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Work', style: AppTypography.soraDisplay(size: 26)),
-              Text(
-                _segment == 0 ? 'Jobs, Internships & Hackathons' : 'Paid & points tasks from students',
-                style: AppTypography.interBody(color: AppColors.inkSoft),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go(AppRoutes.home);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Work', style: AppTypography.soraDisplay(size: 26)),
+                        Text(
+                          _segment == 0 ? 'Jobs, Internships & Hackathons' : 'Paid & points tasks from students',
+                          style: AppTypography.interBody(color: AppColors.inkSoft),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               Container(
