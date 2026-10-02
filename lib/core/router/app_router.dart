@@ -25,6 +25,7 @@ import '../../features/resume/resume_screen.dart';
 import '../../features/resume/resume_editor_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/profile/account_password_screen.dart';
+import '../../features/profile/settings_screen.dart';
 import '../../features/deals/deals_screen.dart';
 import '../../features/flatmates/flatmates_screen.dart';
 import '../../features/startup/startup_screen.dart';
@@ -77,6 +78,7 @@ class AppRoutes {
   static const resumeEditor = '/resume/:templateId';
   static const profile = '/profile';
   static const accountPassword = '/profile/password';
+  static const settings = '/settings';
   static const startup = '/startup';
   static const admin = '/admin';
   static const adminAddDeal = '/admin/add-deal';
@@ -289,6 +291,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
               path: AppRoutes.resume, builder: (_, __) => const ResumeScreen()),
+          GoRoute(
+              path: AppRoutes.settings,
+              builder: (_, __) => const SettingsScreen()),
           GoRoute(
               path: AppRoutes.invitations,
               builder: (_, __) => const InvitationManagerScreen()),
