@@ -541,4 +541,100 @@ CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions (quiz_i
 CREATE INDEX IF NOT EXISTS idx_quiz_test_attempts_quiz ON quiz_test_attempts (quiz_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_quiz_test_events_attempt ON quiz_test_events (quiz_id, user_id, created_at DESC);
 
+-- ── ENTERPRISE POS & RESTAURANT BILLING ────────────────────
+CREATE TABLE IF NOT EXISTS enterprise_stores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  firebase_uid TEXT NOT NULL UNIQUE REFERENCES users(firebase_uid) ON DELETE CASCADE,
+  owner_name TEXT,
+  restaurant_name TEXT NOT NULL DEFAULT 'Naya restaurant',
+  mobile_number TEXT,
+  email TEXT,
+  city TEXT,
+  state TEXT,
+  upi_id TEXT,
+  gst_percent NUMERIC(5,2) DEFAULT 5,
+  tables_count INT DEFAULT 8,
+  bill_prefix TEXT DEFAULT 'POS',
+  theme TEXT DEFAULT 'Auto',
+  notifications_enabled BOOLEAN DEFAULT true,
+  enabled_modules JSONB DEFAULT '{"inventory": true, "udhaar": true, "staff": true, "redeem": true, "reports": true}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS enterprise_food_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Main',
+  price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_food_items_store ON enterprise_food_items (store_id, category);
+
+CREATE TABLE IF NOT EXISTS enterprise_bills (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  bill_number TEXT NOT NULL,
+  table_number TEXT NOT NULL,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  subtotal NUMERIC(10,2) NOT NULL DEFAULT 0,
+  gst_percent NUMERIC(5,2) DEFAULT 5,
+  gst_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  total_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  payment_mode TEXT NOT NULL DEFAULT 'Cash',
+  status TEXT NOT NULL DEFAULT 'completed',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_bills_store_date ON enterprise_bills (store_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS enterprise_inventory (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  item_name TEXT NOT NULL,
+  quantity NUMERIC(10,2) NOT NULL DEFAULT 1,
+  amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  vendor TEXT,
+  purchase_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_inventory_store ON enterprise_inventory (store_id);
+
+CREATE TABLE IF NOT EXISTS enterprise_udhaar (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  customer_name TEXT NOT NULL,
+  amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  type TEXT NOT NULL CHECK (type IN ('given', 'repaid')),
+  transaction_date DATE DEFAULT CURRENT_DATE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_udhaar_store ON enterprise_udhaar (store_id, customer_name);
+
+CREATE TABLE IF NOT EXISTS enterprise_staff (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  post TEXT NOT NULL,
+  salary NUMERIC(10,2) NOT NULL DEFAULT 0,
+  joining_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_staff_store ON enterprise_staff (store_id);
+
+CREATE TABLE IF NOT EXISTS enterprise_staff_advances (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  staff_id UUID NOT NULL REFERENCES enterprise_staff(id) ON DELETE CASCADE,
+  store_id UUID NOT NULL REFERENCES enterprise_stores(id) ON DELETE CASCADE,
+  amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  advance_date DATE DEFAULT CURRENT_DATE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ent_staff_advances_staff ON enterprise_staff_advances (staff_id);
+
+
 

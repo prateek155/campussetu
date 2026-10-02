@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../features/enterprise/enterprise_login_screen.dart';
-import '../../features/enterprise/enterprise_screen.dart';
+import '../../features/enterprise/screens/enterprise_auth_screen.dart';
+import '../../features/enterprise/screens/enterprise_pos_shell.dart';
 
 final _entAuthStream = StreamProvider<User?>(
   (ref) => FirebaseAuth.instance.authStateChanges(),
@@ -27,11 +27,11 @@ final enterpriseRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/ent-login',
-        builder: (_, __) => const EnterpriseLoginScreen(),
+        builder: (_, __) => const EnterpriseAuthScreen(),
       ),
       GoRoute(
         path: '/ent-home',
-        builder: (_, __) => const EnterpriseScreen(),
+        builder: (_, __) => const EnterprisePosShell(),
       ),
     ],
   );
