@@ -221,13 +221,22 @@ class _EnterpriseAuthScreenState extends State<EnterpriseAuthScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          'assets/images/enterprise_icon.png',
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF10B981), size: 28),
+                          ),
                         ),
-                        child: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF10B981), size: 30),
                       ),
                       const SizedBox(width: 14),
                       Text(

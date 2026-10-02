@@ -82,6 +82,46 @@ class EnterpriseProfileNotifier extends StateNotifier<EnterpriseStoreProfile> {
     currentModules[moduleKey] = isEnabled;
     final updated = state.copyWith(enabledModules: currentModules);
     await updateProfile(updated);
+
+    // If disabled, purge memory immediately so no data is loaded for this feature
+    if (!isEnabled) {
+      switch (moduleKey) {
+        case 'inventory':
+          ref.read(enterpriseInventoryProvider.notifier).clearData();
+          break;
+        case 'udhaar':
+          ref.read(enterpriseUdhaarProvider.notifier).clearData();
+          break;
+        case 'staff':
+          ref.read(enterpriseStaffProvider.notifier).clearData();
+          break;
+        case 'redeem':
+          ref.read(enterpriseRedeemProvider.notifier).clearData();
+          break;
+        case 'reports':
+          ref.read(enterpriseBillsProvider.notifier).clearData();
+          break;
+      }
+    } else {
+      // If enabled, load fresh data on demand
+      switch (moduleKey) {
+        case 'inventory':
+          ref.read(enterpriseInventoryProvider.notifier).load();
+          break;
+        case 'udhaar':
+          ref.read(enterpriseUdhaarProvider.notifier).load();
+          break;
+        case 'staff':
+          ref.read(enterpriseStaffProvider.notifier).load();
+          break;
+        case 'redeem':
+          ref.read(enterpriseRedeemProvider.notifier).load();
+          break;
+        case 'reports':
+          ref.read(enterpriseBillsProvider.notifier).load();
+          break;
+      }
+    }
   }
 }
 
@@ -302,8 +342,17 @@ class EnterpriseBillsNotifier extends StateNotifier<List<EnterpriseBill>> {
   }
 
   Future<void> load() async {
+    final isEnabled = ref.read(enterpriseProfileProvider).enabledModules['reports'] ?? true;
+    if (!isEnabled) {
+      state = [];
+      return;
+    }
     final bills = await EnterpriseStorageService.loadBills();
     state = bills;
+  }
+
+  void clearData() {
+    state = [];
   }
 
   Future<void> addBill(EnterpriseBill bill) async {
@@ -326,8 +375,17 @@ class EnterpriseInventoryNotifier extends StateNotifier<List<InventoryItem>> {
   }
 
   Future<void> load() async {
+    final isEnabled = ref.read(enterpriseProfileProvider).enabledModules['inventory'] ?? true;
+    if (!isEnabled) {
+      state = [];
+      return;
+    }
     final items = await EnterpriseStorageService.loadInventory();
     state = items;
+  }
+
+  void clearData() {
+    state = [];
   }
 
   Future<void> addItem(String name, double quantity, double amount, String vendor, String purchaseDate) async {
@@ -342,6 +400,22 @@ class EnterpriseInventoryNotifier extends StateNotifier<List<InventoryItem>> {
     state = [item, ...state];
     await EnterpriseStorageService.saveInventory(state);
     await EnterpriseStorageService.queueMutation('add_inventory', item.toJson());
+    ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
+  }
+
+  Future<void> updateItem(InventoryItem updated) async {
+    state = state.map((e) => e.id == updated.id ? updated : e).toList();
+    await EnterpriseStorageService.saveInventory(state);
+    await EnterpriseStorageService.queueMutation('update_inventory', updated.toJson());
+    ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
+  }
+
+  Future<void> bulkImport(List<InventoryItem> newItems) async {
+    state = [...newItems, ...state];
+    await EnterpriseStorageService.saveInventory(state);
+    await EnterpriseStorageService.queueMutation('bulk_import_inventory', {
+      'items': newItems.map((e) => e.toJson()).toList(),
+    });
     ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
   }
 
@@ -365,8 +439,17 @@ class EnterpriseUdhaarNotifier extends StateNotifier<List<UdhaarRecord>> {
   }
 
   Future<void> load() async {
+    final isEnabled = ref.read(enterpriseProfileProvider).enabledModules['udhaar'] ?? true;
+    if (!isEnabled) {
+      state = [];
+      return;
+    }
     final records = await EnterpriseStorageService.loadUdhaar();
     state = records;
+  }
+
+  void clearData() {
+    state = [];
   }
 
   Future<void> addRecord(String customerName, double amount, String type, String date, String notes) async {
@@ -383,6 +466,20 @@ class EnterpriseUdhaarNotifier extends StateNotifier<List<UdhaarRecord>> {
     await EnterpriseStorageService.queueMutation('add_udhaar', rec.toJson());
     ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
   }
+
+  Future<void> updateRecord(UdhaarRecord updated) async {
+    state = state.map((r) => r.id == updated.id ? updated : r).toList();
+    await EnterpriseStorageService.saveUdhaar(state);
+    await EnterpriseStorageService.queueMutation('update_udhaar', updated.toJson());
+    ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
+  }
+
+  Future<void> deleteRecord(String id) async {
+    state = state.where((r) => r.id != id).toList();
+    await EnterpriseStorageService.saveUdhaar(state);
+    await EnterpriseStorageService.queueMutation('delete_udhaar', {'id': id});
+    ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
+  }
 }
 
 // ── STAFF & ADVANCES PROVIDER ────────────────────────────
@@ -397,8 +494,17 @@ class EnterpriseStaffNotifier extends StateNotifier<List<StaffMember>> {
   }
 
   Future<void> load() async {
+    final isEnabled = ref.read(enterpriseProfileProvider).enabledModules['staff'] ?? true;
+    if (!isEnabled) {
+      state = [];
+      return;
+    }
     final list = await EnterpriseStorageService.loadStaff();
     state = list;
+  }
+
+  void clearData() {
+    state = [];
   }
 
   Future<void> addStaff(String name, String post, double salary, String joiningDate) async {
@@ -413,6 +519,13 @@ class EnterpriseStaffNotifier extends StateNotifier<List<StaffMember>> {
     state = [...state, s];
     await EnterpriseStorageService.saveStaff(state);
     await EnterpriseStorageService.queueMutation('add_staff', s.toJson());
+    ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
+  }
+
+  Future<void> updateStaff(StaffMember updated) async {
+    state = state.map((s) => s.id == updated.id ? updated : s).toList();
+    await EnterpriseStorageService.saveStaff(state);
+    await EnterpriseStorageService.queueMutation('update_staff', updated.toJson());
     ref.read(enterpriseNetworkModeProvider.notifier).triggerSync();
   }
 
@@ -462,8 +575,17 @@ class EnterpriseRedeemNotifier extends StateNotifier<List<RedeemLog>> {
   }
 
   Future<void> load() async {
+    final isEnabled = ref.read(enterpriseProfileProvider).enabledModules['redeem'] ?? true;
+    if (!isEnabled) {
+      state = [];
+      return;
+    }
     final logs = await EnterpriseStorageService.loadRedeemLogs();
     state = logs;
+  }
+
+  void clearData() {
+    state = [];
   }
 
   Future<void> logRedemption(String dealId, String dealTitle, String dealCode, String studentName) async {

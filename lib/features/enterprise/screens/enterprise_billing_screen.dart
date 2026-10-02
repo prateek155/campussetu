@@ -256,25 +256,16 @@ class EnterpriseBillingScreen extends ConsumerWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 800;
 
-        return SingleChildScrollView(
+        final leftCard = Container(
           padding: const EdgeInsets.all(20),
-          child: Flex(
-            direction: isWide ? Axis.horizontal : Axis.vertical,
+          decoration: BoxDecoration(
+            color: const Color(0xFF171E30),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF26334D)),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── LEFT CARD: TABLE & FOOD ITEMS (Image 2 left card) ──
-              Expanded(
-                flex: isWide ? 6 : 0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF171E30),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF26334D)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
                       // Table Number Dropdown
                       const Text(
                         'Table number',
@@ -377,8 +368,8 @@ class EnterpriseBillingScreen extends ConsumerWidget {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: isWide ? 2 : 2,
-                            childAspectRatio: 2.2,
+                            crossAxisCount: constraints.maxWidth < 500 ? 1 : 2,
+                            childAspectRatio: constraints.maxWidth < 500 ? 3.5 : 2.2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -420,23 +411,18 @@ class EnterpriseBillingScreen extends ConsumerWidget {
                         ),
                     ],
                   ),
-                ),
-              ),
+                );
 
-              if (isWide) const SizedBox(width: 20) else const SizedBox(height: 20),
-
-              // ── RIGHT CARD: BILL SUMMARY & CHECKOUT (Image 2 right card) ──
-              Expanded(
-                flex: isWide ? 4 : 0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF171E30),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF26334D)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        // ── RIGHT CARD: BILL SUMMARY & CHECKOUT ──
+        final rightCard = Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171E30),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF26334D)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -603,10 +589,27 @@ class EnterpriseBillingScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                );
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 6, child: leftCard),
+                    const SizedBox(width: 20),
+                    Expanded(flex: 4, child: rightCard),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftCard,
+                    const SizedBox(height: 20),
+                    rightCard,
+                  ],
                 ),
-              ),
-            ],
-          ),
         );
       },
     );

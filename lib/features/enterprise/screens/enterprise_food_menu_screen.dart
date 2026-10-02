@@ -180,6 +180,41 @@ class _EnterpriseFoodMenuScreenState extends ConsumerState<EnterpriseFoodMenuScr
     );
   }
 
+  void _confirmDeleteItem(FoodItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF171E30),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Food Item?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(
+          'Kya aap "${item.name}" ko food menu se delete karna chahte hain?',
+          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(enterpriseFoodMenuProvider.notifier).deleteItem(item.id);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${item.name} delete ho gaya.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final foodItems = ref.watch(enterpriseFoodMenuProvider);
@@ -195,7 +230,7 @@ class _EnterpriseFoodMenuScreenState extends ConsumerState<EnterpriseFoodMenuScr
     }).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -207,94 +242,141 @@ class _EnterpriseFoodMenuScreenState extends ConsumerState<EnterpriseFoodMenuScr
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFF26334D)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 650;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Food Menu',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'serif',
-                      ),
-                    ),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        OutlinedButton.icon(
-                          onPressed: _showBulkImportDialog,
-                          icon: const Icon(Icons.file_upload_outlined, size: 18, color: Color(0xFF10B981)),
-                          label: const Text('Bulk Import', style: TextStyle(color: Color(0xFF10B981))),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF10B981)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Food Menu',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'serif',
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text('Items add karein, category set karein aur bulk import karein', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        ElevatedButton.icon(
-                          onPressed: () => _showAddEditItemDialog(),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Food Item'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        if (!isNarrow) ...[
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _showBulkImportDialog,
+                                icon: const Icon(Icons.file_upload_outlined, size: 18, color: Color(0xFF10B981)),
+                                label: const Text('Bulk Import', style: TextStyle(color: Color(0xFF10B981))),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF10B981)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              ElevatedButton.icon(
+                                onPressed: () => _showAddEditItemDialog(),
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text('Add Food Item'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10B981),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (isNarrow) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _showBulkImportDialog,
+                            icon: const Icon(Icons.file_upload_outlined, size: 18, color: Color(0xFF10B981)),
+                            label: const Text('Bulk Import', style: TextStyle(color: Color(0xFF10B981))),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF10B981)),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddEditItemDialog(),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Add Food Item'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+
+                    // Search & Filter
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: 'Search food item...',
+                              hintStyle: const TextStyle(color: Color(0xFF475569)),
+                              prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+                              filled: true,
+                              fillColor: const Color(0xFF0F1422),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF26334D))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF26334D))),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Category dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F1422),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF26334D)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: categories.contains(_selectedCategory) ? _selectedCategory : 'All',
+                              dropdownColor: const Color(0xFF171E30),
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                              onChanged: (v) {
+                                if (v != null) setState(() => _selectedCategory = v);
+                              },
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-
-                // Search & Filter
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Search food item...',
-                          hintStyle: const TextStyle(color: Color(0xFF475569)),
-                          prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
-                          filled: true,
-                          fillColor: const Color(0xFF0F1422),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF26334D))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF26334D))),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Category dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F1422),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF26334D)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: categories.contains(_selectedCategory) ? _selectedCategory : 'All',
-                          dropdownColor: const Color(0xFF171E30),
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                          onChanged: (v) {
-                            if (v != null) setState(() => _selectedCategory = v);
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 20),
@@ -359,9 +441,8 @@ class _EnterpriseFoodMenuScreenState extends ConsumerState<EnterpriseFoodMenuScr
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                            onPressed: () {
-                              ref.read(enterpriseFoodMenuProvider.notifier).deleteItem(item.id);
-                            },
+                            tooltip: 'Delete Item',
+                            onPressed: () => _confirmDeleteItem(item),
                           ),
                         ],
                       );

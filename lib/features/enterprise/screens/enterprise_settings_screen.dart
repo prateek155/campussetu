@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/enterprise_providers.dart';
+import '../widgets/pos_pill_switch.dart';
 
 class EnterpriseSettingsScreen extends ConsumerStatefulWidget {
   const EnterpriseSettingsScreen({super.key});
@@ -170,13 +171,15 @@ class _EnterpriseSettingsScreenState extends ConsumerState<EnterpriseSettingsScr
                           return;
                         }
                         setDialogState(() => settingPass = true);
+                        final messenger = ScaffoldMessenger.of(context);
+                        final nav = Navigator.of(ctx);
                         try {
                           final user = FirebaseAuth.instance.currentUser;
                           if (user != null) {
                             await user.updatePassword(p1);
                             if (mounted) {
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              nav.pop();
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text('Password successfully set ho gaya! Ab aap email-password se bhi login kar sakte hain.'),
                                   backgroundColor: Color(0xFF10B981),
@@ -187,7 +190,7 @@ class _EnterpriseSettingsScreenState extends ConsumerState<EnterpriseSettingsScr
                         } catch (e) {
                           setDialogState(() => settingPass = false);
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
                             );
                           }
@@ -375,9 +378,8 @@ class _EnterpriseSettingsScreenState extends ConsumerState<EnterpriseSettingsScr
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Notifications', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-                          Switch(
+                          PosPillSwitch(
                             value: _notifications,
-                            activeColor: const Color(0xFF10B981),
                             onChanged: (v) => setState(() => _notifications = v),
                           ),
                         ],
@@ -565,9 +567,8 @@ class _EnterpriseSettingsScreenState extends ConsumerState<EnterpriseSettingsScr
             ],
           ),
         ),
-        Switch(
+        PosPillSwitch(
           value: value,
-          activeColor: const Color(0xFF10B981),
           onChanged: onChanged,
         ),
       ],
