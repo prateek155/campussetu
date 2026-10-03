@@ -11,6 +11,7 @@ import 'admin_ambassadors_screen.dart';
 import 'admin_content_screen.dart';
 import 'admin_pulse_screen.dart';
 import 'admin_faculty_screen.dart';
+import 'admin_points_transfers_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -31,6 +32,7 @@ class _AdminShellState extends State<AdminShell> {
     (Icons.people_outline_rounded, Icons.people_rounded, 'Users', Color(0xFF38BDF8)),
     (Icons.campaign_outlined, Icons.campaign_rounded, 'Ambassadors', Color(0xFFF59E0B)),
     (Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Content', Color(0xFF38BDF8)),
+    (Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'Transfers', Color(0xFF10B981)),
     (Icons.track_changes_outlined, Icons.track_changes_rounded, 'Pulse', Color(0xFF10B981)),
     (Icons.school_outlined, Icons.school_rounded, 'Faculty', Color(0xFF818CF8)),
   ];
@@ -358,6 +360,7 @@ class _AdminShellState extends State<AdminShell> {
                   const AdminUsersScreen(),
                   const AdminAmbassadorsScreen(),
                   const AdminContentScreen(),
+                  const AdminPointsTransfersScreen(),
                   const AdminPulseScreen(),
                   const AdminFacultyScreen(),
                 ],
@@ -390,6 +393,7 @@ class _AdminShellState extends State<AdminShell> {
           const AdminUsersScreen(),
           const AdminAmbassadorsScreen(),
           const AdminContentScreen(),
+          const AdminPointsTransfersScreen(),
           const AdminPulseScreen(),
           const AdminFacultyScreen(),
         ],

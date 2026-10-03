@@ -11,7 +11,15 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/neu_card.dart';
 
 final dealsProvider = FutureProvider.autoDispose<List<DealModel>>((ref) async {
-  final res = await ApiService().getDeals();
+  final userAsync = ref.watch(currentUserProvider);
+  final user = userAsync.value;
+  final city = user?.city;
+  final state = user?.state;
+
+  final res = await ApiService().getDeals(
+    city: city != null && city.trim().isNotEmpty ? city.trim() : null,
+    state: state != null && state.trim().isNotEmpty ? state.trim() : null,
+  );
   return res.map((d) => DealModel.fromJson(d)).toList();
 });
 
@@ -21,6 +29,9 @@ class DealsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dealsAsync = ref.watch(dealsProvider);
+    final userAsync = ref.watch(currentUserProvider);
+    final user = userAsync.value;
+    final userCity = user?.city?.trim();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -29,6 +40,33 @@ class DealsScreen extends ConsumerWidget {
         elevation: 0,
         title: Text('Campus Deals', style: AppTypography.soraHeading3()),
         iconTheme: IconThemeData(color: AppColors.ink),
+        actions: [
+          if (userCity != null && userCity.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.cyanDeep.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cyanDeep.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: AppColors.cyanDeep),
+                      const SizedBox(width: 4),
+                      Text(
+                        userCity,
+                        style: AppTypography.interCaption(color: AppColors.cyanDeep).copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: dealsAsync.when(
         data: (deals) {
@@ -46,10 +84,12 @@ class DealsScreen extends ConsumerWidget {
                         children: [
                           Icon(Icons.local_offer_outlined, size: 64, color: AppColors.inkSoft),
                           const SizedBox(height: 16),
-                          Text('No offers right now', style: AppTypography.soraHeading3()),
+                          Text('No offers in your city right now', style: AppTypography.soraHeading3()),
                           const SizedBox(height: 8),
                           Text(
-                            'Check back later for exclusive student deals!',
+                            userCity != null && userCity.isNotEmpty
+                                ? 'No active deals found for $userCity. Check back soon!'
+                                : 'Check back later for exclusive student deals!',
                             style: AppTypography.interBody(color: AppColors.inkSoft),
                             textAlign: TextAlign.center,
                           ),
@@ -100,6 +140,13 @@ class DealsScreen extends ConsumerWidget {
   }
 
   Widget _buildDealCard(BuildContext context, DealModel d, {bool isWeb = false}) {
+    final hasLoc = (d.city != null && d.city!.isNotEmpty) || (d.state != null && d.state!.isNotEmpty);
+    final locText = hasLoc
+        ? (d.city != null && d.city!.isNotEmpty && d.state != null && d.state!.isNotEmpty
+            ? '${d.city}, ${d.state}'
+            : (d.city != null && d.city!.isNotEmpty ? d.city! : d.state!))
+        : null;
+
     return NeuCard(
       padding: const EdgeInsets.all(16),
       margin: isWeb ? EdgeInsets.zero : const EdgeInsets.only(bottom: 16),
@@ -123,11 +170,39 @@ class DealsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
           ],
-          Text(
-            d.title,
-            style: AppTypography.soraHeading3(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  d.title,
+                  style: AppTypography.soraHeading3(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (locText != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.cyanDeep.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on, size: 11, color: AppColors.cyanDeep),
+                      const SizedBox(width: 3),
+                      Text(
+                        locText,
+                        style: AppTypography.interCaption(color: AppColors.cyanDeep).copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

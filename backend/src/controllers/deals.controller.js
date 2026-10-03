@@ -1,39 +1,57 @@
 // backend/src/controllers/deals.controller.js
 const db = require('../config/db');
 const cache = require('../config/redis');
-const DEALS_CACHE_KEY = 'deals:all:v2';
 const DEALS_CACHE_TTL = 300;
 
-async function queryDeals() {
-  const { rows } = await db.query(
-    `SELECT id, title, description, discount_code, banner_url, created_at
-     FROM deals ORDER BY created_at DESC LIMIT 50`
-  );
+function getDealsCacheKey(city, state) {
+  const c = (city || 'all').toString().trim().toLowerCase();
+  const s = (state || 'all').toString().trim().toLowerCase();
+  return `deals:${c}:${s}:v3`;
+}
+
+async function queryDeals(city, state) {
+  let query = `
+    SELECT id, title, description, discount_code, banner_url, city, state, created_at
+    FROM deals
+  `;
+  const conditions = [];
+  const params = [];
+
+  const cleanCity = city && typeof city === 'string' ? city.trim().toLowerCase() : null;
+  const cleanState = state && typeof state === 'string' ? state.trim().toLowerCase() : null;
+
+  if (cleanCity && cleanCity !== 'all') {
+    params.push(cleanCity);
+    conditions.push(`(LOWER(city) = $${params.length} OR city IS NULL OR LOWER(city) = 'all' OR LOWER(city) = '')`);
+  }
+  if (cleanState && cleanState !== 'all') {
+    params.push(cleanState);
+    conditions.push(`(LOWER(state) = $${params.length} OR state IS NULL OR LOWER(state) = 'all' OR LOWER(state) = '')`);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  if (cleanCity && cleanCity !== 'all') {
+    query += ` ORDER BY CASE WHEN LOWER(city) = $1 THEN 0 ELSE 1 END, created_at DESC LIMIT 50`;
+  } else {
+    query += ` ORDER BY created_at DESC LIMIT 50`;
+  }
+
+  const { rows } = await db.query(query, params);
   return { deals: rows };
 }
 
-async function refreshDealsCache() {
-  const result = await queryDeals();
-  await cache.setJson(DEALS_CACHE_KEY, result, DEALS_CACHE_TTL);
-  return result;
-}
-
 async function invalidateAndWarmDeals() {
-  await cache.invalidateJson(DEALS_CACHE_KEY);
   await cache.delCache('deals:all', 'deals:list');
   await cache.delCache('home:counts');
-  try {
-    await refreshDealsCache();
-  } catch (error) {
-    // The database write already succeeded. Keep the endpoint successful;
-    // the next read will retry the normal DB-backed cache fill.
-    console.warn('[Deals] cache refresh deferred:', error.message);
-  }
+  await cache.invalidateJson(getDealsCacheKey());
 }
 
 exports.createDeal = async (req, res) => {
   try {
-    let { title, description, discount_code, banner_url } = req.body;
+    let { title, description, discount_code, banner_url, city, state } = req.body;
     
     if (req.file) {
       banner_url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
@@ -44,9 +62,16 @@ exports.createDeal = async (req, res) => {
     }
 
     const { rows } = await db.query(
-      `INSERT INTO deals (title, description, discount_code, banner_url) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [title, description, discount_code, banner_url]
+      `INSERT INTO deals (title, description, discount_code, banner_url, city, state) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        title.trim(),
+        description.trim(),
+        discount_code ? discount_code.trim() : null,
+        banner_url,
+        city && city.trim() ? city.trim() : null,
+        state && state.trim() ? state.trim() : null
+      ]
     );
 
     await invalidateAndWarmDeals();
@@ -76,7 +101,13 @@ exports.deleteDeal = async (req, res) => {
 exports.getDeals = async (req, res) => {
   try {
     res.setHeader('Cache-Control', 'private, no-store');
-    const result = await cache.getOrLoadJson(DEALS_CACHE_KEY, DEALS_CACHE_TTL, queryDeals);
+    const { city, state } = req.query;
+    const cacheKey = getDealsCacheKey(city, state);
+    const result = await cache.getOrLoadJson(
+      cacheKey,
+      DEALS_CACHE_TTL,
+      () => queryDeals(city, state)
+    );
     return res.json(result);
   } catch (error) {
     console.error('Error fetching deals:', error);

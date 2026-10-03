@@ -73,3 +73,34 @@ exports.getJob = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ── GET /jobs/status ──────────────────────────────────────
+exports.getJobsStatus = async (req, res) => {
+  try {
+    const admin = require('../config/firebase');
+    const doc = await admin.firestore().collection('app_config').doc('jobs_module').get();
+    const data = doc.exists ? doc.data() : null;
+    return res.json({ is_enabled: data?.is_enabled ?? true });
+  } catch (err) {
+    return res.json({ is_enabled: true });
+  }
+};
+
+// ── PUT /admin/jobs/status ────────────────────────────────
+exports.setJobsStatus = async (req, res) => {
+  try {
+    const { is_enabled } = req.body;
+    if (typeof is_enabled !== 'boolean') {
+      return res.status(400).json({ error: 'is_enabled must be a boolean' });
+    }
+    const admin = require('../config/firebase');
+    await admin.firestore().collection('app_config').doc('jobs_module').set({
+      is_enabled,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return res.json({ is_enabled });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+

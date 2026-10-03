@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/services/api_service.dart';
 import '../../core/router/app_router.dart';
 import 'widgets/admin_toast.dart';
+import '../jobs/services/jobs_module_service.dart';
 
 class AdminContentScreen extends StatefulWidget {
   const AdminContentScreen({super.key});
@@ -46,16 +47,27 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
   bool _loadingWallpapers = true;
   String? _wallpapersError;
 
+  bool _isJobsModuleOpen = true;
+  bool _isTogglingJobs = false;
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 4, vsync: this);
     _loadWallpapers();
+    _loadJobsModuleStatus();
     _initToken().then((_) {
       _loadEvents();
       _loadDeals();
       _loadFlatmates();
     });
+  }
+
+  Future<void> _loadJobsModuleStatus() async {
+    try {
+      final open = await JobsModuleService.instance.getJobsStatus();
+      if (mounted) setState(() => _isJobsModuleOpen = open);
+    } catch (_) {}
   }
 
   @override
@@ -380,6 +392,99 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
     }
   }
 
+  Widget _buildJobsKillswitchCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isJobsModuleOpen
+              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+              : const Color(0xFFEF4444).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: (_isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _isJobsModuleOpen ? Icons.work_rounded : Icons.work_off_rounded,
+              color: _isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text('Jobs & Internships: ', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(
+                      _isJobsModuleOpen ? 'ACTIVE' : 'DISABLED',
+                      style: TextStyle(
+                        color: _isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  _isJobsModuleOpen
+                      ? 'Students see Jobs & Task Board tabs'
+                      : 'Jobs tab hidden; Task Board remains 100% active',
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _isTogglingJobs
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)))
+              : Switch.adaptive(
+                  value: _isJobsModuleOpen,
+                  activeThumbColor: const Color(0xFF10B981),
+                  activeTrackColor: const Color(0xFF10B981).withValues(alpha: 0.35),
+                  inactiveThumbColor: const Color(0xFFEF4444),
+                  inactiveTrackColor: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                  onChanged: (val) async {
+                    setState(() => _isTogglingJobs = true);
+                    try {
+                      await JobsModuleService.instance.setJobsStatus(val);
+                      if (mounted) {
+                        setState(() {
+                          _isJobsModuleOpen = val;
+                          _isTogglingJobs = false;
+                        });
+                        if (val) {
+                          AdminToast.success(context, 'Jobs section enabled for students!');
+                        } else {
+                          AdminToast.warning(context, 'Jobs section hidden. Task Board remains active!');
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        setState(() => _isTogglingJobs = false);
+                        AdminToast.error(context, 'Failed to update jobs status: $e');
+                      }
+                    }
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -394,9 +499,10 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 10),
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
                 child: Text('Content Management', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 20, fontWeight: FontWeight.w700)),
               ),
+              _buildJobsKillswitchCard(),
               TabBar(
                 controller: _tabCtrl,
                 labelColor: _cyan,
@@ -800,6 +906,8 @@ class _DealCard extends StatelessWidget {
     final desc     = (deal['description']  ?? '').toString();
     final code     = (deal['discount_code']?? deal['code']    ?? '').toString();
     final banner   = (deal['banner_url']   ?? deal['image']   ?? '').toString();
+    final city     = (deal['city']         ?? '').toString().trim();
+    final state    = (deal['state']        ?? '').toString().trim();
 
     return Container(
       decoration: BoxDecoration(
@@ -834,20 +942,39 @@ class _DealCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(desc, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
-            if (code.isNotEmpty) ...[
+            if (code.isNotEmpty || city.isNotEmpty || state.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Row(children: [
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                if (code.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: orange.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.confirmation_num_outlined, color: orange, size: 13),
+                      const SizedBox(width: 5),
+                      Text(code, style: const TextStyle(color: orange, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+                    ]),
+                  ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: orange.withValues(alpha: 0.1),
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: orange.withValues(alpha: 0.3)),
+                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.confirmation_num_outlined, color: orange, size: 13),
+                    const Icon(Icons.location_on_outlined, color: Color(0xFF38BDF8), size: 13),
                     const SizedBox(width: 5),
-                    Text(code, style: const TextStyle(color: orange, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+                    Text(
+                      city.isNotEmpty && state.isNotEmpty
+                          ? '$city, $state'
+                          : (city.isNotEmpty ? city : (state.isNotEmpty ? state : 'All India')),
+                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                   ]),
                 ),
               ]),

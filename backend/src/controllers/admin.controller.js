@@ -561,3 +561,79 @@ exports.redeemDeal = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ── GET /admin/points-transfers ───────────────────────────
+exports.getPointsTransfers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search = '' } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (pageNum - 1) * limitNum;
+
+    let whereClause = 'WHERE ptr.response IS NOT NULL';
+    const params = [];
+
+    if (search && search.trim()) {
+      params.push('%' + search.trim().toLowerCase() + '%');
+      const idx = params.length;
+      whereClause += ' AND (' +
+        'LOWER(su.name) LIKE $' + idx + ' OR ' +
+        'LOWER(ru.name) LIKE $' + idx + ' OR ' +
+        'LOWER(su.campus_id) LIKE $' + idx + ' OR ' +
+        'LOWER(ru.campus_id) LIKE $' + idx + ' OR ' +
+        'LOWER(su.email) LIKE $' + idx + ' OR ' +
+        'LOWER(ru.email) LIKE $' + idx + ')';
+    }
+
+    const query = 
+      'SELECT ' +
+        'ptr.sender_id, ' +
+        'ptr.receiver_id, ' +
+        'ptr.amount, ' +
+        'ptr.created_at, ' +
+        'ptr.response, ' +
+        'su.name AS sender_name, ' +
+        'su.email AS sender_email, ' +
+        'su.campus_id AS sender_campus_id, ' +
+        'su.college AS sender_college, ' +
+        'su.photo_url AS sender_photo_url, ' +
+        'ru.name AS receiver_name, ' +
+        'ru.email AS receiver_email, ' +
+        'ru.campus_id AS receiver_campus_id, ' +
+        'ru.college AS receiver_college, ' +
+        'ru.photo_url AS receiver_photo_url ' +
+      'FROM points_transfer_requests ptr ' +
+      'LEFT JOIN users su ON su.id = ptr.sender_id ' +
+      'LEFT JOIN users ru ON ru.id = ptr.receiver_id ' +
+      whereClause + ' ' +
+      'ORDER BY ptr.created_at DESC ' +
+      'LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+
+    const countQuery = 
+      'SELECT ' +
+        'COUNT(*)::int AS total_count, ' +
+        'COALESCE(SUM(ptr.amount), 0)::bigint AS total_amount ' +
+      'FROM points_transfer_requests ptr ' +
+      'LEFT JOIN users su ON su.id = ptr.sender_id ' +
+      'LEFT JOIN users ru ON ru.id = ptr.receiver_id ' +
+      whereClause;
+
+    const [rowsRes, statsRes] = await Promise.all([
+      db.query(query, [...params, limitNum, offset]),
+      db.query(countQuery, params),
+    ]);
+
+    res.json({
+      transfers: rowsRes.rows,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: statsRes.rows[0]?.total_count || 0,
+        total_points: parseInt(statsRes.rows[0]?.total_amount || 0, 10),
+      },
+    });
+  } catch (err) {
+    console.error('Error fetching points transfers:', err);
+    res.status(500).json({ error: err.message });
+  }
+};

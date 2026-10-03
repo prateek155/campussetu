@@ -352,6 +352,8 @@ CREATE TABLE IF NOT EXISTS deals (
   description TEXT NOT NULL,
   discount_code TEXT,
   banner_url TEXT,
+  city TEXT,
+  state TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

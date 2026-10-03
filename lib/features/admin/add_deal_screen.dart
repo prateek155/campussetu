@@ -25,10 +25,22 @@ class _AddDealScreenState extends State<AddDealScreen> {
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
   
   XFile? _photo;
   bool _loading = false;
   final _picker = ImagePicker();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _codeCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     if (_titleCtrl.text.trim().isEmpty) {
@@ -46,6 +58,8 @@ class _AddDealScreenState extends State<AddDealScreen> {
         'title': _titleCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         if (_codeCtrl.text.trim().isNotEmpty) 'discount_code': _codeCtrl.text.trim(),
+        if (_cityCtrl.text.trim().isNotEmpty) 'city': _cityCtrl.text.trim(),
+        if (_stateCtrl.text.trim().isNotEmpty) 'state': _stateCtrl.text.trim(),
       }, photoPath: _photo?.path);
 
       if (mounted) {
@@ -96,6 +110,36 @@ class _AddDealScreenState extends State<AddDealScreen> {
             
             const _Label('Discount Code (Optional)'),
             _Field(controller: _codeCtrl, hint: 'e.g. DOMINOS50'),
+            const SizedBox(height: 20),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _Label('Target City (Optional)'),
+                      _Field(controller: _cityCtrl, hint: 'e.g. Bangalore, Pune'),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _Label('State (Optional)'),
+                      _Field(controller: _stateCtrl, hint: 'e.g. Karnataka'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Leave empty or write "All" for all-India student deals.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+            ),
             const SizedBox(height: 20),
             
             const _Label('Banner Image (Optional)'),

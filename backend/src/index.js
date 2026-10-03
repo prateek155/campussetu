@@ -558,6 +558,9 @@ app.use((err, req, res, next) => {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )`);
 
+      await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS city TEXT;`);
+      await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS state TEXT;`);
+
       console.log('✅  DB tables ensured');
       return;
     } catch (e) {

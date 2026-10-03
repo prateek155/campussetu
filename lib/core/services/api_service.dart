@@ -598,8 +598,12 @@ class ApiService {
 
   // ── Deals API ────────────────────────────────────────────────
 
-  Future<List<dynamic>> getDeals() async {
-    final res = await _dio.get('/deals');
+  Future<List<dynamic>> getDeals({String? city, String? state}) async {
+    final queryParams = <String, dynamic>{};
+    if (city != null && city.trim().isNotEmpty) queryParams['city'] = city.trim();
+    if (state != null && state.trim().isNotEmpty) queryParams['state'] = state.trim();
+
+    final res = await _dio.get('/deals', queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final data = res.data;
     if (data is Map) {
       return (data['deals'] as List<dynamic>?) ?? [];
@@ -621,6 +625,44 @@ class ApiService {
     }
     final res = await _dio.post('/deals', data: data);
     return res.data as Map<String, dynamic>;
+  }
+
+  // ── Jobs Module Status ───────────────────────────────────────
+
+  Future<bool> getJobsStatus() async {
+    try {
+      final res = await _dio.get('/jobs/status');
+      if (res.data is Map && res.data['is_enabled'] != null) {
+        return res.data['is_enabled'] == true;
+      }
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> setJobsStatus(bool isEnabled) async {
+    await _dio.put('/admin/jobs/status', data: {'is_enabled': isEnabled});
+  }
+
+  // ── Admin Points Transfers Audit ─────────────────────────────
+
+  Future<Map<String, dynamic>> getAdminPointsTransfers({
+    int page = 1,
+    int limit = 50,
+    String? search,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+    };
+    if (search != null && search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+    final res = await _dio.get('/admin/points/transfers', queryParameters: queryParams);
+    return res.data is Map<String, dynamic>
+        ? res.data as Map<String, dynamic>
+        : Map<String, dynamic>.from(res.data as Map);
   }
 
   // ── Events API ───────────────────────────────────────────────

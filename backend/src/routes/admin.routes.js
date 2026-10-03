@@ -1,6 +1,7 @@
 // backend/src/routes/admin.routes.js
 const router = require('express').Router();
 const c = require('../controllers/admin.controller');
+const jobsCtrl = require('../controllers/jobs.controller');
 const { requireAuth, requireAdmin, requireEnterprise } = require('../middleware/auth');
 const firebaseAdmin = require('../config/firebase');
 
@@ -36,6 +37,9 @@ router.put('/jobs/:id/approve', c.approveJob);
 router.put('/notes/:id/approve', c.approveNote);
 router.post('/broadcast', c.broadcast);
 router.post('/points', c.grantPoints);
+router.get('/points/transfers', c.getPointsTransfers);
+router.get('/jobs/status', jobsCtrl.getJobsStatus);
+router.put('/jobs/status', jobsCtrl.setJobsStatus);
 
 // ── User management ────────────────────────────────────────
 router.get('/users/meta', c.getUsersMeta);

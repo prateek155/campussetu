@@ -12,6 +12,7 @@ import '../../core/widgets/neu_card.dart';
 import '../../core/widgets/neu_chip.dart';
 import '../../core/widgets/neu_text_field.dart';
 import '../helping/helping_board_tab.dart';
+import 'services/jobs_module_service.dart';
 
 class JobsScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -49,6 +50,10 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final jobsStatusAsync = ref.watch(jobsModuleStatusProvider);
+    final isJobsEnabled = jobsStatusAsync.value ?? true;
+    final activeSegment = !isJobsEnabled ? 1 : _segment;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -75,9 +80,14 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Work', style: AppTypography.soraDisplay(size: 26)),
                         Text(
-                          _segment == 0 ? 'Jobs, Internships & Hackathons' : 'Paid & points tasks from students',
+                          !isJobsEnabled ? 'Task Board' : 'Work',
+                          style: AppTypography.soraDisplay(size: 26),
+                        ),
+                        Text(
+                          activeSegment == 0
+                              ? 'Jobs, Internships & Hackathons'
+                              : 'Paid & points tasks from students',
                           style: AppTypography.interBody(color: AppColors.inkSoft),
                         ),
                       ],
@@ -85,26 +95,28 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: AppColors.neuInsetShadows,
+              if (isJobsEnabled) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: AppColors.neuInsetShadows,
+                  ),
+                  child: Row(children: [
+                    Expanded(child: _SegmentBtn(label: 'Jobs', selected: activeSegment == 0, onTap: () => setState(() => _segment = 0))),
+                    Expanded(child: _SegmentBtn(label: 'Task Board', selected: activeSegment == 1, onTap: () => setState(() => _segment = 1))),
+                  ]),
                 ),
-                child: Row(children: [
-                  Expanded(child: _SegmentBtn(label: 'Jobs', selected: _segment == 0, onTap: () => setState(() => _segment = 0))),
-                  Expanded(child: _SegmentBtn(label: 'Task Board', selected: _segment == 1, onTap: () => setState(() => _segment = 1))),
-                ]),
-              ),
+              ],
             ]),
           ),
           const SizedBox(height: 12),
-          Expanded(child: _segment == 0 ? _buildJobsTab() : HelpingBoardTab(key: _boardKey)),
+          Expanded(child: activeSegment == 0 ? _buildJobsTab() : HelpingBoardTab(key: _boardKey)),
         ]),
       ),
-      floatingActionButton: _segment == 1
+      floatingActionButton: activeSegment == 1
           ? FloatingActionButton.extended(
               backgroundColor: AppColors.cyanDeep,
               onPressed: () => _boardKey.currentState?.openPostSheet(),
