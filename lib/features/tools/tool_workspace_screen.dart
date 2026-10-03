@@ -105,6 +105,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   // Image OCR state
   final TextEditingController _ocrTextCtrl = TextEditingController();
   bool _ocrDone = false;
+  OcrDocumentResult? _ocrResult;
+  bool _preserveLayout = true;
 
   // Image to PDF state
   final List<Uint8List> _imagesForPdf = [];
@@ -181,6 +183,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         _txtInputCtrl.text = utf8.decode(bytes, allowMalformed: true);
       } else if (widget.toolId == 'image_ocr_to_pdf_word') {
         _ocrDone = false;
+        _ocrResult = null;
         _ocrTextCtrl.clear();
       }
 
@@ -847,12 +850,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final text = await performImageOcr(
+                  final result = await performImageOcr(
                     _selectedFileBytes!,
                     fileName: _selectedFileName,
                   );
                   setState(() {
-                    _ocrTextCtrl.text = text;
+                    _ocrResult = result;
+                    _ocrTextCtrl.text = result.fullText;
                     _ocrDone = true;
                   });
                 } catch (e) {
@@ -863,6 +867,42 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               },
             )
           else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x1F0284C7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0x4D0284C7)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFF38BDF8), size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Layout Detected: ${_ocrResult?.lines.length ?? 0} lines. Centers, margins & side text preserved.',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF38BDF8)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Preserve exact visual alignment in Word & PDF',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                ),
+                Switch(
+                  value: _preserveLayout,
+                  activeThumbColor: const Color(0xFF38BDF8),
+                  onChanged: (v) => setState(() => _preserveLayout = v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
               child: Row(
@@ -909,7 +949,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
                       setState(() => _isProcessing = true);
                       try {
-                        final pdf = OcrService.exportToPdf(_ocrTextCtrl.text, title: baseName);
+                        final pdf = OcrService.exportToPdf(
+                          _ocrTextCtrl.text,
+                          ocrResult: _ocrResult,
+                          preserveLayout: _preserveLayout,
+                          title: baseName,
+                        );
                         final outName = '${baseName}_ocr.pdf';
                         await saveAndDownloadFile(pdf, outName);
                         _recordRecentFile(outName, pdf, true);
@@ -935,7 +980,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
                       setState(() => _isProcessing = true);
                       try {
-                        final docx = OcrService.exportToDocx(_ocrTextCtrl.text);
+                        final docx = OcrService.exportToDocx(
+                          _ocrTextCtrl.text,
+                          ocrResult: _ocrResult,
+                          preserveLayout: _preserveLayout,
+                        );
                         final outName = '${baseName}_ocr.docx';
                         await saveAndDownloadFile(docx, outName);
                         _recordRecentFile(outName, docx, false);

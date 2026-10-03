@@ -68,8 +68,25 @@
       try {
         const worker = await getCampusSetuOcrWorker();
         const res = await worker.recognize(e.detail);
-        const text = (res && res.data && res.data.text) ? res.data.text.trim() : '';
-        window.dispatchEvent(new CustomEvent('campussetu_ocr_response', { detail: text }));
+        const data = res && res.data;
+        const text = (data && data.text) ? data.text.trim() : '';
+        const lines = (data && data.lines) ? data.lines.map(function(l) {
+          return {
+            text: l.text ? l.text.trim() : '',
+            x: l.bbox ? l.bbox.x0 : 0,
+            y: l.bbox ? l.bbox.y0 : 0,
+            width: l.bbox ? (l.bbox.x1 - l.bbox.x0) : 0,
+            height: l.bbox ? (l.bbox.y1 - l.bbox.y0) : 0
+          };
+        }).filter(function(l) { return l.text.length > 0; }) : [];
+
+        const payload = JSON.stringify({
+          text: text,
+          imageWidth: (data && data.image_width) || 1000,
+          imageHeight: (data && data.image_height) || 1000,
+          lines: lines
+        });
+        window.dispatchEvent(new CustomEvent('campussetu_ocr_response', { detail: payload }));
       } catch (err) {
         window.dispatchEvent(new CustomEvent('campussetu_ocr_response', { detail: 'ERROR: ' + err }));
       }
