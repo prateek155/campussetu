@@ -1004,6 +1004,8 @@ class _ImageToPdfContent extends StatefulWidget {
 class _ImageToPdfContentState extends State<_ImageToPdfContent> {
   final List<Uint8List> _images = [];
   bool _isGenerating = false;
+  ImagePdfMargin _margin = ImagePdfMargin.none;
+  ImagePdfPageFit _pageFit = ImagePdfPageFit.fitImage;
 
   Future<void> _pickImages() async {
     final result = await FilePicker.platform.pickFiles(
@@ -1027,7 +1029,11 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
     if (_images.isEmpty) return;
     setState(() => _isGenerating = true);
     try {
-      final pdfBytes = await PdfToolsService.imagesToPdf(_images);
+      final pdfBytes = await PdfToolsService.imagesToPdf(
+        _images,
+        marginOption: _margin,
+        pageFit: _pageFit,
+      );
       await saveAndDownloadFile(pdfBytes, 'images_bundle.pdf');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -1092,6 +1098,57 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 14),
+          Text('Page Fit:', style: AppTypography.interLabel()),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Fit Image (Zero white space)'),
+                selected: _pageFit == ImagePdfPageFit.fitImage,
+                onSelected: (val) {
+                  if (val) setState(() => _pageFit = ImagePdfPageFit.fitImage);
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Standard A4'),
+                selected: _pageFit == ImagePdfPageFit.a4,
+                onSelected: (val) {
+                  if (val) setState(() => _pageFit = ImagePdfPageFit.a4);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('Margin / Border Space:', style: AppTypography.interLabel()),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('No Margin (0mm)'),
+                selected: _margin == ImagePdfMargin.none,
+                onSelected: (val) {
+                  if (val) setState(() => _margin = ImagePdfMargin.none);
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Narrow (~2mm)'),
+                selected: _margin == ImagePdfMargin.narrow,
+                onSelected: (val) {
+                  if (val) setState(() => _margin = ImagePdfMargin.narrow);
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Normal (~6mm)'),
+                selected: _margin == ImagePdfMargin.standard,
+                onSelected: (val) {
+                  if (val) setState(() => _margin = ImagePdfMargin.standard);
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           if (_isGenerating)

@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:flutter/material.dart' show Color, Offset, Rect;
+import 'package:flutter/material.dart' show Color, Offset, Rect, Size;
 import 'package:archive/archive.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
@@ -22,6 +22,24 @@ enum WatermarkStyle {
   centerDiagonal,
   centerHorizontal,
   tiledDiagonal,
+}
+
+enum ImagePdfMargin {
+  none(0.0, 'No Margin (0mm)'),
+  narrow(5.67, 'Narrow (~2mm)'),
+  standard(17.0, 'Standard (~6mm)');
+
+  final double points;
+  final String label;
+  const ImagePdfMargin(this.points, this.label);
+}
+
+enum ImagePdfPageFit {
+  fitImage('Fit Image (Zero white space)'),
+  a4('Standard A4');
+
+  final String label;
+  const ImagePdfPageFit(this.label);
 }
 
 class PdfToolsService {
@@ -345,50 +363,90 @@ class PdfToolsService {
 
   /// 5. IMAGE TO PDF
   /// Converts single or multiple images into a multi-page PDF.
+  /// Zero-margin / minimal border support with automatic aspect-ratio fit.
   static Future<Uint8List> imagesToPdf(
     List<Uint8List> imageBytesList, {
     bool fitToPage = true,
-    double margin = 20,
+    double? margin,
+    ImagePdfMargin marginOption = ImagePdfMargin.none,
+    ImagePdfPageFit pageFit = ImagePdfPageFit.fitImage,
   }) async {
-    final document = PdfDocument();
-
-    for (final bytes in imageBytesList) {
-      final image = PdfBitmap(bytes);
-      final page = document.pages.add();
-      final clientSize = page.getClientSize();
-
-      double drawWidth = image.width.toDouble();
-      double drawHeight = image.height.toDouble();
-
-      if (fitToPage) {
-        final availableWidth = clientSize.width - (margin * 2);
-        final availableHeight = clientSize.height - (margin * 2);
-
-        final scale = (availableWidth / drawWidth < availableHeight / drawHeight)
-            ? availableWidth / drawWidth
-            : availableHeight / drawHeight;
-
-        drawWidth *= scale;
-        drawHeight *= scale;
-
-        final x = margin + ((availableWidth - drawWidth) / 2);
-        final y = margin + ((availableHeight - drawHeight) / 2);
-
-        page.graphics.drawImage(
-          image,
-          Rect.fromLTWH(x, y, drawWidth, drawHeight),
-        );
-      } else {
-        page.graphics.drawImage(
-          image,
-          Rect.fromLTWH(margin, margin, drawWidth, drawHeight),
-        );
-      }
+    if (imageBytesList.isEmpty) {
+      throw ArgumentError('No images provided for PDF conversion.');
     }
 
-    final outputBytes = Uint8List.fromList(document.saveSync());
-    document.dispose();
-    return outputBytes;
+    final document = PdfDocument();
+    // Zero out Syncfusion's default 40pt (1.4cm) page margins completely
+    document.pageSettings.margins.all = 0;
+
+    final marginVal = margin ?? marginOption.points;
+
+    try {
+      for (final bytes in imageBytesList) {
+        final image = PdfBitmap(bytes);
+        final double imgW = image.width.toDouble();
+        final double imgH = image.height.toDouble();
+
+        if (imgW <= 0 || imgH <= 0) continue;
+
+        final section = document.sections!.add();
+        section.pageSettings.margins.all = 0;
+
+        if (pageFit == ImagePdfPageFit.fitImage) {
+          // Normalize image dimensions to standard PDF points (max dimension ~842 pt, same as A4 long side)
+          double targetW = imgW;
+          double targetH = imgH;
+          const double maxDimension = 842.0;
+
+          if (targetW > maxDimension || targetH > maxDimension) {
+            final scale = (targetW >= targetH)
+                ? maxDimension / targetW
+                : maxDimension / targetH;
+            targetW *= scale;
+            targetH *= scale;
+          }
+
+          final pageWidth = targetW + (marginVal * 2);
+          final pageHeight = targetH + (marginVal * 2);
+
+          section.pageSettings.size = Size(pageWidth, pageHeight);
+          final page = section.pages.add();
+
+          page.graphics.drawImage(
+            image,
+            Rect.fromLTWH(marginVal, marginVal, targetW, targetH),
+          );
+        } else {
+          // A4 page with auto orientation (matches image aspect ratio)
+          final isLandscape = imgW > imgH;
+          final pageWidth = isLandscape ? PdfPageSize.a4.height : PdfPageSize.a4.width;
+          final pageHeight = isLandscape ? PdfPageSize.a4.width : PdfPageSize.a4.height;
+
+          section.pageSettings.size = Size(pageWidth, pageHeight);
+          final page = section.pages.add();
+
+          final availW = math.max(10.0, pageWidth - (marginVal * 2));
+          final availH = math.max(10.0, pageHeight - (marginVal * 2));
+
+          final scale = math.min(availW / imgW, availH / imgH);
+          final drawW = imgW * scale;
+          final drawH = imgH * scale;
+
+          final x = marginVal + ((availW - drawW) / 2);
+          final y = marginVal + ((availH - drawH) / 2);
+
+          page.graphics.drawImage(
+            image,
+            Rect.fromLTWH(x, y, drawW, drawH),
+          );
+        }
+      }
+
+      final outputBytes = Uint8List.fromList(document.saveSync());
+      return outputBytes;
+    } finally {
+      document.dispose();
+    }
   }
 
   /// 6. DELETE SPECIFIC PAGES OF PDF

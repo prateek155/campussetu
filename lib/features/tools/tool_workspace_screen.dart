@@ -108,6 +108,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // Image to PDF state
   final List<Uint8List> _imagesForPdf = [];
+  ImagePdfMargin _imagePdfMargin = ImagePdfMargin.none;
+  ImagePdfPageFit _imagePdfPageFit = ImagePdfPageFit.fitImage;
   final List<Uint8List> _pdfsToMerge = [];
   final List<String> _pdfNamesToMerge = [];
   final TextEditingController _htmlSourceCtrl = TextEditingController();
@@ -2295,6 +2297,69 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Page Fit:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Fit Image (Zero white space)'),
+                  selected: _imagePdfPageFit == ImagePdfPageFit.fitImage,
+                  onSelected: (val) {
+                    if (val) setState(() => _imagePdfPageFit = ImagePdfPageFit.fitImage);
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Standard A4'),
+                  selected: _imagePdfPageFit == ImagePdfPageFit.a4,
+                  onSelected: (val) {
+                    if (val) setState(() => _imagePdfPageFit = ImagePdfPageFit.a4);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Margin / Border Space:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('No Margin (0mm)'),
+                  selected: _imagePdfMargin == ImagePdfMargin.none,
+                  onSelected: (val) {
+                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.none);
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Narrow (~2mm)'),
+                  selected: _imagePdfMargin == ImagePdfMargin.narrow,
+                  onSelected: (val) {
+                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.narrow);
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Normal (~6mm)'),
+                  selected: _imagePdfMargin == ImagePdfMargin.standard,
+                  onSelected: (val) {
+                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.standard);
+                  },
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
           if (_isProcessing)
             const CircularProgressIndicator()
@@ -2305,7 +2370,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final pdf = await PdfToolsService.imagesToPdf(_imagesForPdf);
+                  final pdf = await PdfToolsService.imagesToPdf(
+                    _imagesForPdf,
+                    marginOption: _imagePdfMargin,
+                    pageFit: _imagePdfPageFit,
+                  );
                   await saveAndDownloadFile(pdf, 'images_bundle.pdf');
                   _recordRecentFile('images_bundle.pdf', pdf, true);
                 } catch (e) {
@@ -2360,7 +2429,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final output = await PdfToolsService.imagesToPdf(_imagesForPdf);
+                  final output = await PdfToolsService.imagesToPdf(
+                    _imagesForPdf,
+                    marginOption: ImagePdfMargin.none,
+                    pageFit: ImagePdfPageFit.fitImage,
+                  );
                   await saveAndDownloadFile(output, 'scanned_page.pdf');
                   _recordRecentFile('scanned_page.pdf', output, true);
                 } catch (error) {
