@@ -76,12 +76,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   PdfExtractionResult? _pdfToWordResult;
 
   // PDF watermark state
-  final TextEditingController _pdfWatermarkCtrl = TextEditingController();
+  final TextEditingController _pdfWatermarkCtrl = TextEditingController(text: 'CONFIDENTIAL');
   int _pdfTotalPages = 0;
+  WatermarkStyle _pdfWatermarkStyle = WatermarkStyle.centerDiagonal;
+  Color _pdfWatermarkColor = const Color(0xFF6B7280);
+  double _pdfWatermarkOpacity = 0.22;
+  Uint8List? _pdfWatermarkedBytes;
 
   // Word to PDF state
   final TextEditingController _wordTitleCtrl = TextEditingController(text: 'CampusSetu Document');
   final TextEditingController _wordTextCtrl = TextEditingController();
+  bool _isWordTextMode = false;
+  Uint8List? _wordConvertedPdfBytes;
 
   // TXT to Word & PDF state
   final TextEditingController _txtInputCtrl = TextEditingController();
@@ -994,7 +1000,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             const CircularProgressIndicator()
           else if (_convertedPptPdfBytes == null)
             _buildActionExecuteButton(
-              label: 'Extract Slides & Convert to PDF',
+              label: 'Convert to PDF',
               icon: Icons.picture_as_pdf_rounded,
               onTap: () async {
                 setState(() => _isProcessing = true);
@@ -1351,7 +1357,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             const CircularProgressIndicator()
           else if (_convertedPptxBytes == null)
             _buildActionExecuteButton(
-              label: 'Generate PowerPoint Presentation (.pptx)',
+              label: 'Convert to PowerPoint (.pptx)',
               icon: Icons.slideshow_rounded,
               onTap: () async {
                 setState(() => _isProcessing = true);
@@ -1762,7 +1768,7 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Convert PDF document into editable Microsoft Word (.docx)', style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
@@ -1772,8 +1778,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             const CircularProgressIndicator()
           else if (_pdfToWordResult == null)
             _buildActionExecuteButton(
-              label: 'Extract Text & Convert to Word',
-              icon: Icons.bolt_rounded,
+              label: 'Convert to Word (.docx)',
+              icon: Icons.transform_rounded,
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
@@ -1788,14 +1794,32 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             )
           else ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                'Extracted ${_pdfToWordResult!.pageCount} pages (${_pdfToWordResult!.text.length} characters)',
-                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.blue, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Conversion Complete!',
+                          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        Text(
+                          'Your Word document (.docx) with ${_pdfToWordResult!.pageCount} page(s) is ready.',
+                          style: TextStyle(color: textMuted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
@@ -1807,6 +1831,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 final outName = '$base.docx';
                 await saveAndDownloadFile(_pdfToWordResult!.docxBytes, outName);
                 _recordRecentFile(outName, _pdfToWordResult!.docxBytes, false);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Word document (.docx) downloaded successfully!'),
+                    backgroundColor: AppColors.success,
+                  ));
+                }
               },
             ),
           ],
@@ -1815,60 +1845,205 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
     );
   }
 
-  // Adds visible text over every page; this is not redaction or protection.
+  // 7. ADD WATERMARK TO PDF
   Widget _buildPdfWatermark(bool isDark, Color textColor, Color textMuted) {
+    final canApply = _selectedFileBytes != null && _pdfWatermarkCtrl.text.trim().isNotEmpty;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 1. PDF File Selector (Can pick first or after typing text)
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF',
+          label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF (${_selectedFileName!})',
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _pdfWatermarkCtrl,
-          maxLength: 80,
-          style: TextStyle(color: textColor),
-          decoration: InputDecoration(
-            labelText: 'Watermark text',
-            hintText: 'For example: DRAFT',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        Center(
+          child: Text(
+            _selectedFileBytes != null
+                ? '$_pdfTotalPages page(s) selected • ${_formatSize(_selectedFileSize)}'
+                : 'Select PDF to watermark (or enter text below first)',
+            style: TextStyle(fontSize: 12, color: textMuted),
           ),
         ),
-        Text(
-          'Adds a translucent text overlay to every page. It does not secure or redact the original PDF content.',
-          style: TextStyle(fontSize: 12, color: textMuted),
+        const SizedBox(height: 16),
+
+        // 2. Watermark Text Field (Always accessible!)
+        TextField(
+          controller: _pdfWatermarkCtrl,
+          maxLength: 60,
+          style: TextStyle(color: textColor),
+          onChanged: (_) => setState(() => _pdfWatermarkedBytes = null),
+          decoration: InputDecoration(
+            labelText: 'Watermark Text',
+            hintText: 'e.g. CONFIDENTIAL, DRAFT, DO NOT COPY',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            isDense: true,
+            prefixIcon: const Icon(Icons.branding_watermark_rounded, size: 20),
+          ),
         ),
-        if (_selectedFileBytes != null) ...[
-          const SizedBox(height: 16),
-          if (_isProcessing)
-            const CircularProgressIndicator()
-          else
-            _buildActionExecuteButton(
-              label: 'Add watermark and download PDF',
-              icon: Icons.branding_watermark_rounded,
-              onTap: _pdfWatermarkCtrl.text.trim().isEmpty ? null : () async {
-                setState(() => _isProcessing = true);
-                try {
-                  final watermarked = await PdfToolsService.addPdfWatermark(
-                    _selectedFileBytes!,
-                    watermark: _pdfWatermarkCtrl.text,
-                  );
-                  final base = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                  final outName = '${base}_watermarked.pdf';
-                  await saveAndDownloadFile(watermarked, outName);
-                  _recordRecentFile(outName, watermarked, true);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Watermarked PDF downloaded.'), backgroundColor: AppColors.success));
-                  }
-                } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                } finally {
-                  if (mounted) setState(() => _isProcessing = false);
-                }
+        const SizedBox(height: 10),
+
+        // 3. Placement Style Selector
+        Text('Watermark Style & Direction:', style: TextStyle(fontWeight: FontWeight.w600, color: textColor, fontSize: 13)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('Center Diagonal (Cross)'),
+              avatar: const Icon(Icons.trending_up_rounded, size: 16),
+              selected: _pdfWatermarkStyle == WatermarkStyle.centerDiagonal,
+              onSelected: (val) {
+                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.centerDiagonal; _pdfWatermarkedBytes = null; });
               },
             ),
+            ChoiceChip(
+              label: const Text('Repeated Pattern (Corner to Corner)'),
+              avatar: const Icon(Icons.grid_4x4_rounded, size: 16),
+              selected: _pdfWatermarkStyle == WatermarkStyle.tiledDiagonal,
+              onSelected: (val) {
+                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.tiledDiagonal; _pdfWatermarkedBytes = null; });
+              },
+            ),
+            ChoiceChip(
+              label: const Text('Center Horizontal'),
+              avatar: const Icon(Icons.horizontal_rule_rounded, size: 16),
+              selected: _pdfWatermarkStyle == WatermarkStyle.centerHorizontal,
+              onSelected: (val) {
+                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.centerHorizontal; _pdfWatermarkedBytes = null; });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // 4. Color & Intensity
+        Row(
+          children: [
+            Text('Color: ', style: TextStyle(fontSize: 12, color: textMuted)),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFF6B7280); _pdfWatermarkedBytes = null; }),
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: const Color(0xFF6B7280),
+                child: _pdfWatermarkColor == const Color(0xFF6B7280) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFFEF4444); _pdfWatermarkedBytes = null; }),
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: const Color(0xFFEF4444),
+                child: _pdfWatermarkColor == const Color(0xFFEF4444) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFF3B82F6); _pdfWatermarkedBytes = null; }),
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: const Color(0xFF3B82F6),
+                child: _pdfWatermarkColor == const Color(0xFF3B82F6) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+              ),
+            ),
+            const Spacer(),
+            Text('Intensity: ', style: TextStyle(fontSize: 12, color: textMuted)),
+            DropdownButton<double>(
+              value: _pdfWatermarkOpacity,
+              isDense: true,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 0.15, child: Text('Light (15%)')),
+                DropdownMenuItem(value: 0.22, child: Text('Standard (22%)')),
+                DropdownMenuItem(value: 0.38, child: Text('Bold (38%)')),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() { _pdfWatermarkOpacity = val; _pdfWatermarkedBytes = null; });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+
+        if (_isProcessing)
+          const Center(child: CircularProgressIndicator())
+        else if (_pdfWatermarkedBytes == null)
+          _buildActionExecuteButton(
+            label: canApply
+                ? 'Apply Watermark to PDF'
+                : (_selectedFileBytes == null ? 'Select PDF to Continue' : 'Enter Watermark Text'),
+            icon: Icons.branding_watermark_rounded,
+            onTap: canApply
+                ? () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      final watermarked = await PdfToolsService.addPdfWatermark(
+                        _selectedFileBytes!,
+                        watermark: _pdfWatermarkCtrl.text.trim(),
+                        style: _pdfWatermarkStyle,
+                        opacity: _pdfWatermarkOpacity,
+                        color: _pdfWatermarkColor,
+                      );
+                      setState(() => _pdfWatermarkedBytes = watermarked);
+                    } catch (e) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  }
+                : null,
+          )
+        else ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Watermark Applied Successfully!',
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        'Applied across all $_pdfTotalPages page(s)',
+                        style: TextStyle(color: textMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildActionExecuteButton(
+            label: 'Download Watermarked PDF',
+            icon: Icons.download_rounded,
+            onTap: () async {
+              final base = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+              final outName = '${base}_watermarked.pdf';
+              await saveAndDownloadFile(_pdfWatermarkedBytes!, outName);
+              _recordRecentFile(outName, _pdfWatermarkedBytes!, true);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Watermarked PDF downloaded successfully!'),
+                  backgroundColor: AppColors.success,
+                ));
+              }
+            },
+          ),
         ],
       ],
     );
@@ -1877,48 +2052,148 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   // 8. WORD TO PDF
   Widget _buildWordToPdf(bool isDark, Color textColor, Color textMuted) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: _wordTitleCtrl,
-          style: TextStyle(color: textColor),
-          decoration: InputDecoration(
-            labelText: 'Document Title',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-            isDense: true,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.description_rounded, size: 18),
+                label: const Text('Upload Word File'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: !_isWordTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
+                  side: BorderSide(color: !_isWordTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                ),
+                onPressed: () => setState(() => _isWordTextMode = false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: const Text('Type Text Directly'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: _isWordTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
+                  side: BorderSide(color: _isWordTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                ),
+                onPressed: () => setState(() => _isWordTextMode = true),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _wordTextCtrl,
-          style: TextStyle(color: textColor),
-          maxLines: 7,
-          decoration: InputDecoration(
-            hintText: 'Type, paste or write document text here...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        const SizedBox(height: 16),
+
+        if (!_isWordTextMode) ...[
+          _buildPrimarySelectButton(
+            label: _selectedFileName == null ? '+ Select Word File (.docx, .doc)' : 'Change Word File',
+            onTap: () => _pickSingleFile(extensions: ['docx', 'doc', 'txt']),
           ),
-        ),
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              _selectedFileBytes != null
+                  ? 'Selected: ${_selectedFileName ?? 'document'} • ${_formatSize(_selectedFileSize)}'
+                  : 'Convert Microsoft Word documents directly into PDF',
+              style: TextStyle(fontSize: 12, color: textMuted),
+            ),
+          ),
+        ] else ...[
+          TextField(
+            controller: _wordTitleCtrl,
+            style: TextStyle(color: textColor),
+            decoration: InputDecoration(
+              labelText: 'Document Title',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _wordTextCtrl,
+            style: TextStyle(color: textColor),
+            maxLines: 7,
+            decoration: InputDecoration(
+              hintText: 'Type, paste or write document text here...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ],
+
         const SizedBox(height: 18),
         if (_isProcessing)
-          const CircularProgressIndicator()
-        else
+          const Center(child: CircularProgressIndicator())
+        else if (_wordConvertedPdfBytes == null)
           _buildActionExecuteButton(
-            label: 'Generate & Download PDF',
+            label: _isWordTextMode ? 'Convert Text to PDF' : 'Convert Word to PDF',
             icon: Icons.picture_as_pdf_rounded,
+            onTap: (!_isWordTextMode && _selectedFileBytes == null)
+                ? null
+                : () async {
+                    setState(() => _isProcessing = true);
+                    try {
+                      Uint8List pdf;
+                      if (_isWordTextMode) {
+                        if (_wordTextCtrl.text.trim().isEmpty) return;
+                        pdf = await PdfToolsService.wordToPdf(_wordTextCtrl.text.trim(), title: _wordTitleCtrl.text.trim());
+                      } else {
+                        pdf = await PdfToolsService.docxToPdf(_selectedFileBytes!, title: _selectedFileName?.split('.').first ?? 'Document');
+                      }
+                      setState(() => _wordConvertedPdfBytes = pdf);
+                    } catch (e) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                    } finally {
+                      if (mounted) setState(() => _isProcessing = false);
+                    }
+                  },
+          )
+        else ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PDF Converted Successfully!',
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        'Size: ${_formatSize(_wordConvertedPdfBytes!.lengthInBytes)}',
+                        style: TextStyle(color: textMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildActionExecuteButton(
+            label: 'Download Converted PDF',
+            icon: Icons.download_rounded,
             onTap: () async {
-              if (_wordTextCtrl.text.trim().isEmpty) return;
-              setState(() => _isProcessing = true);
-              try {
-                final pdf = await PdfToolsService.wordToPdf(_wordTextCtrl.text.trim(), title: _wordTitleCtrl.text.trim());
-                final outName = '${_wordTitleCtrl.text.replaceAll(' ', '_')}.pdf';
-                await saveAndDownloadFile(pdf, outName);
-                _recordRecentFile(outName, pdf, true);
-              } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-              } finally {
-                if (mounted) setState(() => _isProcessing = false);
+              final base = (_selectedFileName ?? _wordTitleCtrl.text).replaceAll(RegExp(r'\.(docx|doc|txt)$', caseSensitive: false), '');
+              final outName = '$base.pdf';
+              await saveAndDownloadFile(_wordConvertedPdfBytes!, outName);
+              _recordRecentFile(outName, _wordConvertedPdfBytes!, true);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('PDF downloaded successfully!'),
+                  backgroundColor: AppColors.success,
+                ));
               }
             },
           ),
+        ],
       ],
     );
   }
