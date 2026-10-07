@@ -47,13 +47,39 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: false,
 }));
-app.use(cors({
-  origin: '*',
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : null;
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Non-browser clients (mobile apps, curl, etc.) send no Origin header
+    if (!origin) return callback(null, true);
+    // Allow all origins in non-production or if ALLOWED_ORIGINS is not set
+    if (process.env.NODE_ENV !== 'production' || !allowedOrigins || allowedOrigins.length === 0) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS policy: Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'Idempotency-Key'],
-}));
-app.options('*', cors());
-app.use(morgan('dev'));
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+morgan.token('safe-url', (req) => {
+  const url = req.originalUrl || req.url || '';
+  return url.replace(/([?&](?:token|otp|secret|key|password|code)=)[^&]+/gi, '$1[REDACTED]');
+});
+const morganFormat = process.env.NODE_ENV === 'production'
+  ? ':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length]'
+  : '[:method] :safe-url :status :response-time ms';
+app.use(morgan(morganFormat));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -174,8 +200,20 @@ app.use((req, res) => {
 
 // ── Error handler ──────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  if (res.headersSent) {
+    return next(err);
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  console.error('[Unhandled Error]', {
+    method: req.method,
+    path: req.originalUrl || req.path,
+    message: err.message,
+    stack: isProd ? undefined : err.stack,
+  });
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: isProd && status >= 500 ? 'Internal server error' : err.message || 'Internal server error',
+  });
 });
 
 // ── Safety: ensure all tables exist ──────────────────────
@@ -234,6 +272,13 @@ app.use((err, req, res, next) => {
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_points_signup_once ON points_ledger (user_id) WHERE reason = 'signup_bonus'`);
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_points_milestone_once ON points_ledger (user_id, reason) WHERE reason LIKE 'post_like_milestone:%'`);
 
+      // Helping Tasks dual-confirmation migration
+      await db.query(`ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS poster_completed BOOLEAN NOT NULL DEFAULT false`);
+      await db.query(`ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS assignee_completed BOOLEAN NOT NULL DEFAULT false`);
+      await db.query(`ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS poster_completed_at TIMESTAMPTZ`);
+      await db.query(`ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS assignee_completed_at TIMESTAMPTZ`);
+      await db.query(`ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`);
+
       // Travel rides table
       await db.query(`CREATE TABLE IF NOT EXISTS travel_rides (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -285,15 +330,35 @@ app.use((err, req, res, next) => {
             CHECK (registration_mode IN ('external', 'internal'));
         END IF;
       END $$`);
+      await db.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS event_code TEXT`);
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_event_code ON events (event_code)`);
+      await db.query(`UPDATE events SET event_code = 'EVT-' || UPPER(SUBSTRING(REPLACE(id::text, '-', ''), 1, 6)) WHERE event_code IS NULL`);
+
+      await db.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_access_enabled BOOLEAN NOT NULL DEFAULT false`);
+      await db.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_id TEXT`);
+      await db.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_password_hash TEXT`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_events_organizer_id ON events (LOWER(organizer_id)) WHERE organizer_id IS NOT NULL`);
+
       await db.query(`CREATE TABLE IF NOT EXISTS event_registrations (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (event_id, user_id)
       )`);
+      await db.query(`ALTER TABLE event_registrations ALTER COLUMN user_id DROP NOT NULL`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'confirmed'`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_name TEXT`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_email TEXT`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS phone TEXT`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_college TEXT`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_branch TEXT`);
+      await db.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS notes TEXT`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_event_registrations_user_event
         ON event_registrations (user_id, event_id)`);
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_event_reg_guest_email
+        ON event_registrations (event_id, LOWER(custom_email))
+        WHERE user_id IS NULL AND custom_email IS NOT NULL`);
 
       await db.query(`CREATE TABLE IF NOT EXISTS flatmates (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -560,6 +625,10 @@ app.use((err, req, res, next) => {
 
       await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS city TEXT;`);
       await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS state TEXT;`);
+      await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;`);
+      await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
+
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ent_bills_store_bill_num ON enterprise_bills (store_id, bill_number);`);
 
       console.log('✅  DB tables ensured');
       return;

@@ -4,12 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import '../../core/services/api_service.dart';
-import '../../core/router/app_router.dart';
+import 'add_deal_screen.dart';
 import 'widgets/admin_toast.dart';
+import 'widgets/admin_deal_redemptions_sheet.dart';
 import '../jobs/services/jobs_module_service.dart';
 
 class AdminContentScreen extends StatefulWidget {
@@ -31,21 +31,15 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
 
   late TabController _tabCtrl;
 
-  List _events    = [];
-  List _deals     = [];
-  List _flatmates = [];
+  List _deals        = [];
+  List _dealsHistory = [];
+  List _flatmates    = [];
 
-  bool _loadingEvents    = true;
   bool _loadingDeals     = true;
   bool _loadingFlatmates = true;
 
-  String? _eventsError;
   String? _dealsError;
   String? _flatmatesError;
-
-  Map<String, dynamic> _wallpapers = {};
-  bool _loadingWallpapers = true;
-  String? _wallpapersError;
 
   bool _isJobsModuleOpen = true;
   bool _isTogglingJobs = false;
@@ -53,11 +47,9 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
-    _loadWallpapers();
+    _tabCtrl = TabController(length: 2, vsync: this);
     _loadJobsModuleStatus();
     _initToken().then((_) {
-      _loadEvents();
       _loadDeals();
       _loadFlatmates();
     });
@@ -84,187 +76,20 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
     }
   }
 
-  Future<void> _loadEvents() async {
-    setState(() { _loadingEvents = true; _eventsError = null; });
-    try {
-      final data = await ApiService().getEvents();
-      if (mounted) setState(() { _events = data; _loadingEvents = false; });
-    } catch (e) {
-      if (mounted) setState(() { _loadingEvents = false; _eventsError = e.toString(); });
-    }
-  }
-
   Future<void> _loadDeals() async {
     setState(() { _loadingDeals = true; _dealsError = null; });
     try {
-      final data = await ApiService().getDeals();
-      if (mounted) setState(() { _deals = data; _loadingDeals = false; });
+      final res = await ApiService().getAdminDeals();
+      if (mounted) {
+        setState(() {
+          _deals = (res['deals'] as List?) ?? [];
+          _dealsHistory = (res['history'] as List?) ?? [];
+          _loadingDeals = false;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _loadingDeals = false; _dealsError = e.toString(); });
     }
-  }
-
-  Future<void> _loadWallpapers() async {
-    setState(() { _loadingWallpapers = true; _wallpapersError = null; });
-    try {
-      final data = await ApiService().getAlarmWallpapers();
-      if (mounted) setState(() { _wallpapers = data; _loadingWallpapers = false; });
-    } catch (e) {
-      if (mounted) setState(() { _loadingWallpapers = false; _wallpapersError = e.toString(); });
-    }
-  }
-
-  Future<void> _deleteWallpaper(String id) async {
-    if (!await _confirm('Delete Wallpaper', 'This wallpaper will be permanently deleted.')) return;
-    try {
-      await ApiService().deleteAlarmWallpaper(id);
-      _loadWallpapers();
-      _snack('Wallpaper deleted', _green);
-    } catch (e) {
-      _snack('Error deleting: $e', _red);
-    }
-  }
-
-  Future<void> _showAddWallpaperDialog() async {
-    final labelCtrl = TextEditingController();
-    String type = 'image';
-    String? selectedFilePath;
-    String? selectedFileName;
-    bool uploading = false;
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          backgroundColor: _card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Add Alarm Wallpaper', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Label / Name', style: TextStyle(color: _inkSoft, fontSize: 12)),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: labelCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'e.g. Cyberpunk City',
-                    hintStyle: const TextStyle(color: Colors.white30),
-                    filled: true,
-                    fillColor: _bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Type / Category', style: TextStyle(color: _inkSoft, fontSize: 12)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
-                  child: DropdownButton<String>(
-                    value: type,
-                    isExpanded: true,
-                    dropdownColor: _card,
-                    underline: const SizedBox.shrink(),
-                    style: const TextStyle(color: Colors.white),
-                    items: const [
-                      DropdownMenuItem(value: 'image', child: Text('🖼️ Static Image (JPG, PNG, WebP)')),
-                      DropdownMenuItem(value: 'animated', child: Text('✨ Rive Animation (.riv)')),
-                      DropdownMenuItem(value: 'video', child: Text('🎬 Video Wallpaper (.mp4)')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDlgState(() => type = v);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Wallpaper File', style: TextStyle(color: _inkSoft, fontSize: 12)),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () async {
-                    final res = await FilePicker.platform.pickFiles(
-                      type: FileType.any,
-                      allowMultiple: false,
-                    );
-                    if (res != null && res.files.isNotEmpty) {
-                      setDlgState(() {
-                        selectedFilePath = res.files.single.path;
-                        selectedFileName = res.files.single.name;
-                      });
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _bg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: selectedFilePath != null ? _cyan : _border, width: 1.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(selectedFilePath != null ? Icons.check_circle_rounded : Icons.file_upload_outlined, color: selectedFilePath != null ? _cyan : _inkSoft),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            selectedFileName ?? 'Tap to pick file',
-                            style: TextStyle(color: selectedFilePath != null ? Colors.white : _inkSoft, fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: uploading ? null : () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: _inkSoft)),
-            ),
-            FilledButton(
-              onPressed: uploading
-                  ? null
-                  : () async {
-                      final label = labelCtrl.text.trim();
-                      if (label.isEmpty) {
-                        _snack('Enter a wallpaper label', _red);
-                        return;
-                      }
-                      if (selectedFilePath == null) {
-                        _snack('Please select a file to upload', _red);
-                        return;
-                      }
-                      setDlgState(() => uploading = true);
-                      try {
-                        await ApiService().uploadAlarmWallpaper(
-                          label: label,
-                          type: type,
-                          filePath: selectedFilePath!,
-                        );
-                        if (mounted) {
-                          Navigator.pop(ctx);
-                          _snack('Wallpaper uploaded successfully!', _green);
-                          _loadWallpapers();
-                        }
-                      } catch (e) {
-                        setDlgState(() => uploading = false);
-                        _snack('Upload failed: $e', _red);
-                      }
-                    },
-              style: FilledButton.styleFrom(backgroundColor: _cyan),
-              child: uploading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Upload', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _loadFlatmates() async {
@@ -278,82 +103,42 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
     }
   }
 
-  // ── Delete helpers ────────────────────────────────────────
-
-  Future<void> _deleteEvent(String id, int index) async {
-    if (!await _confirm('Delete Event', 'This event will be permanently removed.')) return;
+  Future<void> _deleteDeal(String id, {bool permanent = false}) async {
+    final title = permanent ? 'Permanently Delete Deal' : 'Delete Deal';
+    final msg = permanent
+        ? 'This deal and its historical records will be permanently deleted.'
+        : 'This deal will be removed from the active student feed and logged into Published Deals History.';
+    if (!await _confirm(title, msg)) return;
     try {
-      await ApiService().deleteEvent(id);
-      if (mounted) { setState(() => _events.removeAt(index)); _snack('Event deleted', _green); }
-    } catch (e) { if (mounted) _snack('Error: $e', _red); }
+      await ApiService().deleteDeal(id, permanent: permanent);
+      _loadDeals();
+      _snack(permanent ? 'Deal permanently deleted' : 'Deal moved to history log', _green);
+    } catch (e) {
+      if (mounted) _snack('Error: $e', _red);
+    }
   }
 
-  void _viewEventRegistrations(String id, String eventName) {
-    final registrationsFuture = ApiService().getEventRegistrations(id);
-    showDialog<void>(
+  Future<void> _restoreDeal(String id) async {
+    try {
+      await ApiService().restoreDeal(id);
+      _loadDeals();
+      _snack('Deal restored to active feed!', _green);
+    } catch (e) {
+      if (mounted) _snack('Error restoring deal: $e', _red);
+    }
+  }
+
+  void _viewDealRedemptions(String id, String dealTitle, String discountCode) {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: _card,
-        title: Text('Registrations · $eventName', style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 17)),
-        content: SizedBox(
-          width: 460,
-          height: 400,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: registrationsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF3FD8F5)));
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Could not load registrations: ${snapshot.error}', style: const TextStyle(color: Color(0xFFEF4444))));
-              }
-              final raw = snapshot.data?['registrations'];
-              final registrations = raw is List ? raw : const [];
-              final total = snapshot.data?['total'] ?? registrations.length;
-              if (registrations.isEmpty) {
-                return const Center(child: Text('No students have registered yet.', style: TextStyle(color: Color(0xFF9CA3AF))));
-              }
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$total registered${total > registrations.length ? ' · showing first ${registrations.length}' : ''}', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: registrations.length,
-                    separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
-                    itemBuilder: (_, index) {
-                      final row = Map<String, dynamic>.from(registrations[index] as Map);
-                      final name = (row['name'] ?? 'CampusSetu student').toString();
-                      final email = (row['email'] ?? '').toString();
-                      final registeredAt = (row['registered_at'] ?? '').toString();
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF20313A),
-                          child: Text(name.isEmpty ? '?' : name[0].toUpperCase(), style: const TextStyle(color: _cyan)),
-                        ),
-                        title: Text(name, style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 13)),
-                        subtitle: Text('$email${registeredAt.isNotEmpty ? '\n$registeredAt' : ''}', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11)),
-                        isThreeLine: registeredAt.isNotEmpty,
-                      );
-                    },
-                  ),
-                ),
-              ]);
-            },
-          ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AdminDealRedemptionsSheet(
+        dealId: id,
+        dealTitle: dealTitle,
+        discountCode: discountCode,
       ),
     );
-  }
-
-  Future<void> _deleteDeal(String id, int index) async {
-    if (!await _confirm('Delete Deal', 'This deal will be permanently removed.')) return;
-    try {
-      await ApiService().deleteDeal(id);
-      if (mounted) { setState(() => _deals.removeAt(index)); _snack('Deal deleted', _green); }
-    } catch (e) { if (mounted) _snack('Error: $e', _red); }
   }
 
   Future<void> _deleteFlatmate(String id, int index) async {
@@ -427,22 +212,28 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
               children: [
                 Row(
                   children: [
-                    const Text('Jobs & Internships: ', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                    Text(
-                      _isJobsModuleOpen ? 'ACTIVE' : 'DISABLED',
-                      style: TextStyle(
-                        color: _isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                    const Text('Student Jobs Section', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (_isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _isJobsModuleOpen ? 'ACTIVE' : 'HIDDEN',
+                        style: TextStyle(
+                          color: _isJobsModuleOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
-                  _isJobsModuleOpen
-                      ? 'Students see Jobs & Task Board tabs'
-                      : 'Jobs tab hidden; Task Board remains 100% active',
+                  _isJobsModuleOpen ? 'Students can view & apply for jobs' : 'Jobs section is turned off for all students',
                   style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
                 ),
               ],
@@ -500,7 +291,7 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-                child: Text('Content Management', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 20, fontWeight: FontWeight.w700)),
+                child: Text('Deals & Flatmates', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 20, fontWeight: FontWeight.w700)),
               ),
               _buildJobsKillswitchCard(),
               TabBar(
@@ -513,10 +304,8 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                 labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
                 tabs: const [
-                  Tab(text: 'Events'),
-                  Tab(text: 'Deals'),
+                  Tab(text: 'Deals & Offers'),
                   Tab(text: 'Flatmates'),
-                  Tab(text: 'Wallpapers'),
                 ],
               ),
             ]),
@@ -527,46 +316,6 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
             child: TabBarView(
               controller: _tabCtrl,
               children: [
-                // ── Events ──────────────────────────────────
-                _ContentTab(
-                  accentColor: _cyan,
-                  icon: Icons.event_rounded,
-                  emptyLabel: 'No events yet',
-                  loading: _loadingEvents,
-                  error: _eventsError,
-                  onRefresh: _loadEvents,
-                  onAdd: () async {
-                    await context.push('/admin/add-event');
-                    _loadEvents();
-                  },
-                  addLabel: 'Add Event',
-                  body: _loadingEvents
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF3FD8F5)))
-                      : _eventsError != null
-                      ? _ErrorView(error: _eventsError!, onRetry: _loadEvents)
-                      : _events.isEmpty
-                      ? const _EmptyView(icon: Icons.event_outlined, message: 'No events published yet')
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                          itemCount: _events.length,
-                          itemBuilder: (ctx, i) {
-                            final e = Map<String, dynamic>.from(_events[i] as Map);
-                            final id = (e['_id'] ?? e['id'] ?? '').toString();
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _EventCard(
-                                event: e,
-                                onDelete: () => _deleteEvent(id, i),
-                                onViewRegistrations: () => _viewEventRegistrations(
-                                  id,
-                                  (e['name'] ?? e['title'] ?? 'Event').toString(),
-                                ),
-                              ),
-                            ).animate(delay: (i * 30).ms).fadeIn(duration: 280.ms);
-                          },
-                        ),
-                ),
-
                 // ── Deals ───────────────────────────────────
                 _ContentTab(
                   accentColor: _orange,
@@ -576,27 +325,110 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                   error: _dealsError,
                   onRefresh: _loadDeals,
                   onAdd: () async {
-                    await context.push(AppRoutes.adminAddDeal);
-                    _loadDeals();
+                    final res = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddDealScreen()),
+                    );
+                    if (res == true) _loadDeals();
                   },
                   addLabel: 'Add Deal',
                   body: _loadingDeals
                       ? const Center(child: CircularProgressIndicator(color: Color(0xFF3FD8F5)))
                       : _dealsError != null
                       ? _ErrorView(error: _dealsError!, onRetry: _loadDeals)
-                      : _deals.isEmpty
-                      ? const _EmptyView(icon: Icons.local_offer_outlined, message: 'No deals posted yet')
-                      : ListView.builder(
+                      : ListView(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                          itemCount: _deals.length,
-                          itemBuilder: (ctx, i) {
-                            final d = Map<String, dynamic>.from(_deals[i] as Map);
-                            final id = (d['_id'] ?? d['id'] ?? '').toString();
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _DealCard(deal: d, onDelete: () => _deleteDeal(id, i)),
-                            ).animate(delay: (i * 30).ms).fadeIn(duration: 280.ms);
-                          },
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.bolt_rounded, color: _orange, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Active Deals', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: _orange.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                                  child: Text('${_deals.length}', style: const TextStyle(color: _orange, fontSize: 12, fontWeight: FontWeight.w700)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (_deals.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: _EmptyView(icon: Icons.local_offer_outlined, message: 'No active deals posted yet'),
+                              )
+                            else
+                              ..._deals.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final d = Map<String, dynamic>.from(entry.value as Map);
+                                final id = (d['_id'] ?? d['id'] ?? '').toString();
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _DealCard(
+                                    deal: d,
+                                    onEdit: () async {
+                                      final res = await Navigator.push<bool>(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => AddDealScreen(deal: d)),
+                                      );
+                                      if (res == true) _loadDeals();
+                                    },
+                                    onDelete: () => _deleteDeal(id, permanent: false),
+                                    onViewRedemptions: () => _viewDealRedemptions(
+                                      id,
+                                      (d['title'] ?? 'Deal').toString(),
+                                      (d['discount_code'] ?? d['code'] ?? '').toString(),
+                                    ),
+                                  ),
+                                ).animate(delay: (i * 25).ms).fadeIn(duration: 250.ms);
+                              }),
+
+                            const SizedBox(height: 24),
+                            const Divider(color: _border),
+                            const SizedBox(height: 14),
+
+                            Row(
+                              children: [
+                                const Icon(Icons.history_rounded, color: _inkSoft, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Published Deals History', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(10)),
+                                  child: Text('${_dealsHistory.length}', style: const TextStyle(color: _inkSoft, fontSize: 12, fontWeight: FontWeight.w700)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text('Deleted deals are preserved here. You can restore them to active status anytime.', style: TextStyle(color: _inkSoft, fontSize: 12)),
+                            const SizedBox(height: 12),
+
+                            if (_dealsHistory.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(child: Text('No historical deleted deals yet', style: TextStyle(color: _inkSoft, fontSize: 13))),
+                              )
+                            else
+                              ..._dealsHistory.map((item) {
+                                final d = Map<String, dynamic>.from(item as Map);
+                                final id = (d['_id'] ?? d['id'] ?? '').toString();
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _DealHistoryCard(
+                                    deal: d,
+                                    onRestore: () => _restoreDeal(id),
+                                    onPermanentDelete: () => _deleteDeal(id, permanent: true),
+                                    onViewRedemptions: () => _viewDealRedemptions(
+                                      id,
+                                      (d['title'] ?? 'Archived Deal').toString(),
+                                      (d['discount_code'] ?? d['code'] ?? '').toString(),
+                                    ),
+                                  ),
+                                );
+                              }),
+                          ],
                         ),
                 ),
 
@@ -633,96 +465,6 @@ class _AdminContentScreenState extends State<AdminContentScreen> with SingleTick
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _FlatmateCard(flatmate: f, onDelete: () => _deleteFlatmate(id, i)),
                             ).animate(delay: (i * 30).ms).fadeIn(duration: 280.ms);
-                          },
-                        ),
-                ),
-
-                // ── Wallpapers Tab ──────────────────────────
-                _ContentTab(
-                  accentColor: _purple,
-                  icon: Icons.wallpaper_rounded,
-                  emptyLabel: 'No remote wallpapers yet',
-                  addLabel: 'Add Wallpaper',
-                  loading: _loadingWallpapers,
-                  error: _wallpapersError,
-                  onRefresh: _loadWallpapers,
-                  onAdd: _showAddWallpaperDialog,
-                  body: _loadingWallpapers
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFFA855F7)))
-                      : _wallpapersError != null
-                      ? _ErrorView(error: _wallpapersError!, onRetry: _loadWallpapers)
-                      : Builder(
-                          builder: (context) {
-                            final allList = <Map<String, dynamic>>[];
-                            for (final key in ['image', 'animated', 'video']) {
-                              final items = (_wallpapers[key] as List<dynamic>?) ?? [];
-                              for (final item in items) {
-                                allList.add(Map<String, dynamic>.from(item as Map));
-                              }
-                            }
-                            if (allList.isEmpty) {
-                              return const _EmptyView(icon: Icons.wallpaper_rounded, message: 'No custom wallpapers uploaded yet.\nTap + to add new designs!');
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                              itemCount: allList.length,
-                              itemBuilder: (ctx, i) {
-                                final w = allList[i];
-                                final id = w['id']?.toString() ?? '';
-                                final label = w['label']?.toString() ?? 'Wallpaper';
-                                final type = w['type']?.toString() ?? 'image';
-                                final url = w['url']?.toString() ?? '';
-                                final icon = switch (type) {
-                                  'animated' => '✨ Animated',
-                                  'video' => '🎬 Video',
-                                  _ => '🖼️ Image',
-                                };
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: _card,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: _border),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: SizedBox(
-                                          width: 50,
-                                          height: 50,
-                                          child: type == 'image'
-                                              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _bg))
-                                              : Container(
-                                                  color: _bg,
-                                                  child: Icon(
-                                                    type == 'video' ? Icons.play_arrow_rounded : Icons.auto_awesome,
-                                                    color: _cyan,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                                            const SizedBox(height: 4),
-                                            Text(icon, style: const TextStyle(color: _inkSoft, fontSize: 12)),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, color: _red),
-                                        onPressed: () => _deleteWallpaper(id),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
                           },
                         ),
                 ),
@@ -794,106 +536,20 @@ class _ContentTab extends StatelessWidget {
   }
 }
 
-// ── Event Card ───────────────────────────────────────────────
-
-class _EventCard extends StatelessWidget {
-  final Map<String, dynamic> event;
-  final VoidCallback onDelete;
-  final VoidCallback onViewRegistrations;
-
-  const _EventCard({required this.event, required this.onDelete, required this.onViewRegistrations});
-
-  @override
-  Widget build(BuildContext context) {
-    const card   = Color(0xFF141728);
-    const border = Color(0xFF252840);
-    const cyan   = Color(0xFF3FD8F5);
-    const red    = Color(0xFFEF4444);
-
-    final name  = (event['name']              ?? event['title']         ?? 'Untitled Event').toString();
-    final place = (event['place']             ?? event['venue']         ?? '').toString();
-    final date  = (event['time_date']         ?? event['date']          ?? event['time'] ?? '').toString();
-    final link  = (event['registration_link'] ?? event['link']          ?? '').toString();
-    final pic   = (event['picture_url']       ?? event['image_url']     ?? event['image'] ?? '').toString();
-    final isInternal = event['registration_mode'] == 'internal';
-    final registrationCount = (event['registration_count'] as num?)?.toInt() ?? 0;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (pic.isNotEmpty)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.network(pic, height: 140, width: double.infinity, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-          ),
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Icon(Icons.event_rounded, color: Color(0xFF3FD8F5), size: 16),
-              const SizedBox(width: 6),
-              Expanded(child: Text(name, style: const TextStyle(color: Color(0xFFE9EBEE), fontWeight: FontWeight.w700, fontSize: 15), overflow: TextOverflow.ellipsis)),
-              GestureDetector(
-                onTap: onDelete,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: red.withValues(alpha: 0.3))),
-                  child: const Icon(Icons.delete_outline_rounded, color: red, size: 15),
-                ),
-              ),
-            ]),
-            if (place.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(children: [
-                const Icon(Icons.location_on_outlined, color: Color(0xFF9CA3AF), size: 13),
-                const SizedBox(width: 4),
-                Expanded(child: Text(place, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), overflow: TextOverflow.ellipsis)),
-              ]),
-            ],
-            if (date.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(children: [
-                const Icon(Icons.access_time_rounded, color: Color(0xFF9CA3AF), size: 13),
-                const SizedBox(width: 4),
-                Expanded(child: Text(date, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), overflow: TextOverflow.ellipsis)),
-              ]),
-            ],
-            if (isInternal) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                const Icon(Icons.people_alt_outlined, color: Color(0xFF3FD8F5), size: 15),
-                const SizedBox(width: 5),
-                Expanded(child: Text('$registrationCount ${registrationCount == 1 ? 'student' : 'students'} registered on CampusSetu', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11))),
-                TextButton(onPressed: onViewRegistrations, child: const Text('View list', style: TextStyle(color: cyan, fontSize: 11))),
-              ]),
-            ],
-            if (link.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: cyan.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: cyan.withValues(alpha: 0.2))),
-                child: Text(link, style: const TextStyle(color: Color(0xFF3FD8F5), fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
 // ── Deal Card ────────────────────────────────────────────────
 
 class _DealCard extends StatelessWidget {
   final Map<String, dynamic> deal;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onViewRedemptions;
 
-  const _DealCard({required this.deal, required this.onDelete});
+  const _DealCard({
+    required this.deal,
+    required this.onDelete,
+    this.onEdit,
+    this.onViewRedemptions,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -901,6 +557,7 @@ class _DealCard extends StatelessWidget {
     const border = Color(0xFF252840);
     const orange = Color(0xFFF59E0B);
     const red    = Color(0xFFEF4444);
+    const cyan   = Color(0xFF3FD8F5);
 
     final title    = (deal['title']        ?? 'Untitled Deal').toString();
     final desc     = (deal['description']  ?? '').toString();
@@ -908,6 +565,7 @@ class _DealCard extends StatelessWidget {
     final banner   = (deal['banner_url']   ?? deal['image']   ?? '').toString();
     final city     = (deal['city']         ?? '').toString().trim();
     final state    = (deal['state']        ?? '').toString().trim();
+    final redemptionsCount = (deal['redemptions_count'] as num?)?.toInt() ?? 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -929,58 +587,145 @@ class _DealCard extends StatelessWidget {
               const Icon(Icons.local_offer_rounded, color: Color(0xFFF59E0B), size: 16),
               const SizedBox(width: 6),
               Expanded(child: Text(title, style: const TextStyle(color: Color(0xFFE9EBEE), fontWeight: FontWeight.w700, fontSize: 15), overflow: TextOverflow.ellipsis)),
+              if (onEdit != null) ...[
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: cyan.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cyan.withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.edit_outlined, color: cyan, size: 15),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               GestureDetector(
                 onTap: onDelete,
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: red.withValues(alpha: 0.3))),
+                  decoration: BoxDecoration(
+                    color: red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: red.withValues(alpha: 0.3)),
+                  ),
                   child: const Icon(Icons.delete_outline_rounded, color: red, size: 15),
                 ),
               ),
             ]),
             if (desc.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(desc, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
-            if (code.isNotEmpty || city.isNotEmpty || state.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 6, children: [
-                if (code.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: orange.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.confirmation_num_outlined, color: orange, size: 13),
-                      const SizedBox(width: 5),
-                      Text(code, style: const TextStyle(color: orange, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
-                    ]),
-                  ),
+            const SizedBox(height: 8),
+            Row(children: [
+              if (code.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.location_on_outlined, color: Color(0xFF38BDF8), size: 13),
-                    const SizedBox(width: 5),
-                    Text(
-                      city.isNotEmpty && state.isNotEmpty
-                          ? '$city, $state'
-                          : (city.isNotEmpty ? city : (state.isNotEmpty ? state : 'All India')),
-                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ]),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: orange.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6), border: Border.all(color: orange.withValues(alpha: 0.3))),
+                  child: Text('Code: $code', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
-              ]),
-            ],
+              if (city.isNotEmpty || state.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text([city, state].where((s) => s.isNotEmpty).join(', '),
+                    style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+              if (onViewRedemptions != null)
+                TextButton.icon(
+                  onPressed: onViewRedemptions,
+                  icon: const Icon(Icons.receipt_long_rounded, color: cyan, size: 14),
+                  label: Text('$redemptionsCount claimed', style: const TextStyle(color: cyan, fontSize: 11, fontWeight: FontWeight.w700)),
+                ),
+            ]),
           ]),
         ),
+      ]),
+    );
+  }
+}
+
+// ── Deal History Card ────────────────────────────────────────
+
+class _DealHistoryCard extends StatelessWidget {
+  final Map<String, dynamic> deal;
+  final VoidCallback onRestore;
+  final VoidCallback onPermanentDelete;
+  final VoidCallback? onViewRedemptions;
+
+  const _DealHistoryCard({
+    required this.deal,
+    required this.onRestore,
+    required this.onPermanentDelete,
+    this.onViewRedemptions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (deal['title'] ?? 'Archived Deal').toString();
+    final desc = (deal['description'] ?? '').toString();
+    final code = (deal['discount_code'] ?? deal['code'] ?? '').toString();
+    final redemptionsCount = (deal['redemptions_count'] as num?)?.toInt() ?? 0;
+    final deletedAt = deal['deleted_at']?.toString();
+    String deletedDateStr = '';
+    if (deletedAt != null && deletedAt.isNotEmpty) {
+      final dt = DateTime.tryParse(deletedAt);
+      if (dt != null) deletedDateStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt.toLocal());
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101322),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1E2238)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(title, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w700))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+            child: const Text('DELETED', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w800)),
+          ),
+        ]),
+        if (desc.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(desc, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+        ],
+        const SizedBox(height: 8),
+        Row(children: [
+          if (code.isNotEmpty) Text('Code: $code   •   ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+          Text('$redemptionsCount claims recorded', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+        ]),
+        if (deletedDateStr.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text('Deleted: $deletedDateStr', style: const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+        ],
+        const SizedBox(height: 10),
+        Row(children: [
+          if (onViewRedemptions != null)
+            TextButton.icon(
+              onPressed: onViewRedemptions,
+              icon: const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF38BDF8)),
+              label: const Text('View Claims', style: TextStyle(fontSize: 11, color: Color(0xFF38BDF8))),
+            ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: onRestore,
+            icon: const Icon(Icons.replay_rounded, size: 14, color: Color(0xFF10B981)),
+            label: const Text('Restore', style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Permanent Delete',
+            icon: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: 18),
+            onPressed: onPermanentDelete,
+          ),
+        ]),
       ]),
     );
   }
@@ -1001,13 +746,14 @@ class _FlatmateCard extends StatelessWidget {
     const purple = Color(0xFFA855F7);
     const red    = Color(0xFFEF4444);
 
-    final name    = (flatmate['name']    ?? 'Unknown').toString();
-    final place   = (flatmate['place']   ?? '').toString();
-    final persons = (flatmate['persons'] ?? flatmate['num_persons'] ?? flatmate['count'] ?? '').toString();
-    final contact = (flatmate['contact'] ?? flatmate['phone'] ?? '').toString();
-    final desc    = (flatmate['description'] ?? '').toString();
-
-    final photos = flatmate['photos'] is List ? flatmate['photos'] as List : [];
+    final name    = (flatmate['name']           ?? 'Unnamed').toString();
+    final place   = (flatmate['place']          ?? '').toString();
+    final persons = (flatmate['num_persons']    ?? 1).toString();
+    final contact = (flatmate['contact_number'] ?? '').toString();
+    final desc    = (flatmate['description']    ?? '').toString();
+    final p1      = (flatmate['photo_url_1']    ?? '').toString();
+    final p2      = (flatmate['photo_url_2']    ?? '').toString();
+    final photos  = [p1, p2].where((p) => p.isNotEmpty).toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -1017,10 +763,19 @@ class _FlatmateCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (photos.isNotEmpty)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.network(photos.first.toString(), height: 130, width: double.infinity, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(10),
+              itemCount: photos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(photos[i], width: 140, height: 100, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+              ),
+            ),
           ),
         Padding(
           padding: const EdgeInsets.all(14),
@@ -1033,7 +788,11 @@ class _FlatmateCard extends StatelessWidget {
                 onTap: onDelete,
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: red.withValues(alpha: 0.3))),
+                  decoration: BoxDecoration(
+                    color: red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: red.withValues(alpha: 0.3)),
+                  ),
                   child: const Icon(Icons.delete_outline_rounded, color: red, size: 15),
                 ),
               ),
@@ -1048,26 +807,20 @@ class _FlatmateCard extends StatelessWidget {
             ],
             const SizedBox(height: 6),
             Row(children: [
-              if (persons.isNotEmpty && persons != 'null') ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.people_rounded, color: purple, size: 12),
-                    const SizedBox(width: 4),
-                    Text('$persons persons', style: const TextStyle(color: purple, fontSize: 11, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-                const SizedBox(width: 8),
-              ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: purple.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                child: Text('$persons Person${persons == "1" ? "" : "s"}', style: const TextStyle(color: Color(0xFFA855F7), fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
               if (contact.isNotEmpty) ...[
-                const Icon(Icons.phone_rounded, color: Color(0xFF9CA3AF), size: 13),
+                const SizedBox(width: 8),
+                const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF), size: 13),
                 const SizedBox(width: 4),
                 Text(contact, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
               ],
             ]),
             if (desc.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(desc, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
           ]),
@@ -1077,92 +830,29 @@ class _FlatmateCard extends StatelessWidget {
   }
 }
 
-// ── Shared helpers ───────────────────────────────────────────
-
-class _EmptyView extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  const _EmptyView({required this.icon, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(children: [
-      SizedBox(
-        height: 300,
-        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, color: const Color(0xFF9CA3AF), size: 52),
-          const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
-        ])),
-      ),
-    ]);
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
-  const _ErrorView({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(children: [
-      SizedBox(
-        height: 300,
-        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 48),
-          const SizedBox(height: 12),
-          const Text('Failed to load', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 15)),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(error, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12), textAlign: TextAlign.center),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: onRetry,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3FD8F5).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF3FD8F5).withValues(alpha: 0.4)),
-              ),
-              child: const Text('Retry', style: TextStyle(color: Color(0xFF3FD8F5), fontWeight: FontWeight.w600)),
-            ),
-          ),
-        ])),
-      ),
-    ]);
-  }
-}
-
-// ── Add Flatmate Sheet ───────────────────────────────────────
-// Public so AdminDashboardScreen can also import and use it.
+// ── Add Flatmate BottomSheet ─────────────────────────────────
 
 class AddFlatmateSheet extends StatefulWidget {
-  final VoidCallback? onSubmitted;
-  const AddFlatmateSheet({super.key, this.onSubmitted});
+  final VoidCallback onSubmitted;
+  const AddFlatmateSheet({super.key, required this.onSubmitted});
 
   @override
   State<AddFlatmateSheet> createState() => _AddFlatmateSheetState();
 }
 
 class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
+  static const _card    = Color(0xFF141728);
   static const _cardAlt = Color(0xFF1C2033);
   static const _border  = Color(0xFF252840);
   static const _purple  = Color(0xFFA855F7);
-  static const _red     = Color(0xFFEF4444);
 
   final _nameCtrl    = TextEditingController();
   final _placeCtrl   = TextEditingController();
   final _contactCtrl = TextEditingController();
   final _descCtrl    = TextEditingController();
-  int _persons = 2;
+  int _persons = 1;
   XFile? _photo1, _photo2;
   bool _loading = false;
-
-  final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -1173,123 +863,92 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
     super.dispose();
   }
 
-  Future<void> _pickPhoto(int idx) async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1200);
-    if (picked != null && mounted) {
+  Future<void> _pickPhoto(int slot) async {
+    final picker = ImagePicker();
+    final photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (photo != null) {
       setState(() {
-        if (idx == 0) {
-          _photo1 = picked;
-        } else {
-          _photo2 = picked;
-        }
+        if (slot == 0) _photo1 = photo;
+        else _photo2 = photo;
       });
     }
   }
 
   Future<void> _submit() async {
-    if (_nameCtrl.text.trim().isEmpty) {
-      _snack('Name is required', _red);
-      return;
-    }
-    if (_placeCtrl.text.trim().isEmpty) {
-      _snack('Place is required', _red);
-      return;
-    }
-    if (_contactCtrl.text.trim().isEmpty) {
-      _snack('Contact number is required', _red);
+    final name    = _nameCtrl.text.trim();
+    final place   = _placeCtrl.text.trim();
+    final contact = _contactCtrl.text.trim();
+    final desc    = _descCtrl.text.trim();
+
+    if (name.isEmpty || place.isEmpty || contact.isEmpty) {
+      AdminToast.error(context, 'Name, place and contact are required');
       return;
     }
 
     setState(() => _loading = true);
     try {
-      final photos = [if (_photo1 != null) _photo1!.path, if (_photo2 != null) _photo2!.path];
+      final paths = [_photo1?.path, _photo2?.path].whereType<String>().toList();
       await ApiService().createFlatmate({
-        'name': _nameCtrl.text.trim(),
-        'place': _placeCtrl.text.trim(),
-        'persons': _persons,
-        'contact': _contactCtrl.text.trim(),
-        if (_descCtrl.text.trim().isNotEmpty) 'description': _descCtrl.text.trim(),
-      }, photoPaths: photos.isNotEmpty ? photos : null);
+        'name': name,
+        'place': place,
+        'num_persons': _persons,
+        'contact_number': contact,
+        'description': desc,
+      }, photoPaths: paths.isNotEmpty ? paths : null);
 
       if (mounted) {
         Navigator.pop(context);
-        widget.onSubmitted?.call();
-        AdminToast.success(context, 'Flatmate listing added!');
+        AdminToast.success(context, 'Flatmate listing added');
+        widget.onSubmitted();
       }
     } catch (e) {
-      if (mounted) _snack('Error: $e', _red);
+      if (mounted) AdminToast.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _snack(String msg, [Color? bg]) {
-    AdminToast.error(context, msg);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-      child: Container(
-        constraints: BoxConstraints(maxHeight: mq.size.height * 0.92),
-        decoration: const BoxDecoration(
-          color: Color(0xFF141728),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Handle
-          Container(margin: const EdgeInsets.only(top: 14, bottom: 6), width: 40, height: 4, decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
-
-          // Header
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            width: 40, height: 4,
+            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
+          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             child: Row(children: [
-              Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(color: _purple.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.home_work_rounded, color: _purple, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('Add Flatmate Listing', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 17, fontWeight: FontWeight.w700))),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 30, height: 30,
-                  decoration: const BoxDecoration(color: _border, shape: BoxShape.circle),
-                  child: const Icon(Icons.close_rounded, color: Color(0xFF9CA3AF), size: 16),
-                ),
-              ),
+              const Text('Add Flatmate Listing', style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 17, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF9CA3AF), size: 20), onPressed: () => Navigator.pop(context)),
             ]),
           ),
-
-          const Divider(color: Color(0xFF252840), height: 1),
-
-          // Form
+          const Divider(color: _border, height: 1),
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Name
-                const _Label('Name *'),
+                const _Label('Listing Name / Title *'),
                 const SizedBox(height: 6),
-                _Field(controller: _nameCtrl, hint: 'e.g. Rahul Sharma'),
+                _Field(controller: _nameCtrl, hint: 'e.g. 2BHK Near Campus - 1 Room Available'),
                 const SizedBox(height: 14),
 
-                // Place
-                const _Label('Place / Area *'),
+                const _Label('Location / Address *'),
                 const SizedBox(height: 6),
-                _Field(controller: _placeCtrl, hint: 'e.g. Koramangala, Bangalore'),
+                _Field(controller: _placeCtrl, hint: 'e.g. Sector 14, Near Metro Station'),
                 const SizedBox(height: 14),
 
-                // Persons
-                const _Label('Number of Persons'),
-                const SizedBox(height: 8),
+                const _Label('Number of Persons Needed'),
+                const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(color: _cardAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
                   child: Row(children: [
                     GestureDetector(
@@ -1317,19 +976,16 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
                 ),
                 const SizedBox(height: 14),
 
-                // Contact
                 const _Label('Contact Number *'),
                 const SizedBox(height: 6),
                 _Field(controller: _contactCtrl, hint: 'e.g. 9876543210', keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
                 const SizedBox(height: 14),
 
-                // Description
                 const _Label('Description (Optional)'),
                 const SizedBox(height: 6),
                 _Field(controller: _descCtrl, hint: 'Share details about the accommodation, rent, etc.', maxLines: 3),
                 const SizedBox(height: 18),
 
-                // Photos
                 const Text('Photos (Optional)', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -1339,7 +995,6 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
                 ]),
                 const SizedBox(height: 24),
 
-                // Submit
                 GestureDetector(
                   onTap: _loading ? null : _submit,
                   child: AnimatedContainer(
@@ -1453,6 +1108,42 @@ class _PhotoPicker extends StatelessWidget {
                 ]),
         ),
       ),
+    );
+  }
+}
+
+class _EmptyView extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const _EmptyView({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: const Color(0xFF252840), size: 48),
+        const SizedBox(height: 12),
+        Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+      ]),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 36),
+        const SizedBox(height: 10),
+        Text(error, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
+        const SizedBox(height: 12),
+        TextButton(onPressed: onRetry, child: const Text('Try Again', style: TextStyle(color: Color(0xFF3FD8F5)))),
+      ]),
     );
   }
 }

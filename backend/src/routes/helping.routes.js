@@ -3,7 +3,7 @@ const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
 const c = require('../controllers/helping.controller');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, process.env.UPLOAD_DIR || './uploads'),
@@ -22,6 +22,11 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
+// Admin management routes (must be mounted before /:id)
+router.get('/admin/all', requireAuth, requireAdmin, c.getAdminTasks);
+router.delete('/admin/:id', requireAuth, requireAdmin, c.adminDeleteTask);
+
+// Standard task routes
 router.get('/', requireAuth, c.getTasks);
 router.post('/', requireAuth, upload.single('image'), c.createTask);
 router.get('/:id', requireAuth, c.getTask);

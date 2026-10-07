@@ -117,8 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           (state.uri.queryParameters['handoff']?.isNotEmpty ?? false);
       final isPasswordReset = loc == AppRoutes.emailLogin &&
           state.uri.queryParameters['mode'] == 'forgot';
+      final isPublicEventsRoute = loc == '/events' ||
+          (loc.startsWith('/events/') && loc != '/events/add');
 
-      if (user == null && !isOnAuthRoute && !hasResumeHandoff) {
+      if (user == null && !isOnAuthRoute && !hasResumeHandoff && !isPublicEventsRoute) {
         return AppRoutes.welcome;
       }
       if (user != null &&
@@ -320,7 +322,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               builder: (_, __) => const StartupScreen()),
       GoRoute(
         path: '/events',
-        builder: (context, state) => const EventsScreen(),
+        builder: (context, state) => EventsScreen(
+          initialEventId: state.uri.queryParameters['id'],
+          initialEventCode: state.uri.queryParameters['code'],
+          openOrganizerLogin: state.uri.queryParameters['manage'] == 'true' ||
+              state.uri.queryParameters['organizer'] == 'true',
+        ),
+      ),
+      GoRoute(
+        path: '/events/:idOrCode',
+        builder: (context, state) => EventsScreen(
+          initialEventId: state.pathParameters['idOrCode'],
+          openOrganizerLogin: state.uri.queryParameters['manage'] == 'true' ||
+              state.uri.queryParameters['organizer'] == 'true',
+        ),
       ),
       GoRoute(
         path: '/admin/add-event',

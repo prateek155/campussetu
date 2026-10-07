@@ -15,8 +15,16 @@ const quizJoinCodeLimiter = rateLimit({
   message: { error: 'Too many incorrect quiz codes. Try again in 15 minutes.' },
 });
 
+const facultyRegisterLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many faculty registrations from this IP. Please try again after an hour.' },
+});
+
 // ── Faculty Auth (no auth needed for register) ────────────────
-router.post('/faculty/register', fc.registerFaculty);
+router.post('/faculty/register', facultyRegisterLimiter, fc.registerFaculty);
 router.post('/faculty/login-check', requireAuth, fc.loginCheck);
 
 // ── Faculty Protected Routes ──────────────────────────────────

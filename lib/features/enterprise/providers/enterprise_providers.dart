@@ -1,4 +1,6 @@
 // lib/features/enterprise/providers/enterprise_providers.dart
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/enterprise_models.dart';
 import '../services/enterprise_storage_service.dart';
@@ -10,6 +12,10 @@ final enterpriseNetworkModeProvider = StateNotifierProvider<EnterpriseNetworkNot
 
 class EnterpriseNetworkNotifier extends StateNotifier<DemoNetworkMode> {
   final Ref ref;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  Timer? _periodicSyncTimer;
+  bool _isRealNetworkConnected = true;
+
   EnterpriseNetworkNotifier(this.ref) : super(DemoNetworkMode.achha) {
     _init();
   }
@@ -18,19 +24,61 @@ class EnterpriseNetworkNotifier extends StateNotifier<DemoNetworkMode> {
     final mode = await EnterpriseStorageService.loadNetworkMode();
     state = mode;
     _updateSyncStatus();
+
+    // 1. Initial connectivity check
+    try {
+      final initialResults = await Connectivity().checkConnectivity();
+      _handleConnectivityResults(initialResults);
+    } catch (_) {}
+
+    // 2. Real-time network transitions listener
+    try {
+      _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+        _handleConnectivityResults(results);
+      });
+    } catch (_) {}
+
+    // 3. Periodic background sync heartbeat (every 40s) for pending offline outbox
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 40), (_) async {
+      if (state != DemoNetworkMode.offline && _isRealNetworkConnected) {
+        final outbox = await EnterpriseStorageService.loadOutbox();
+        if (outbox.isNotEmpty) {
+          await triggerSync();
+        }
+      }
+    });
+
+    // 4. Initial sync upon entering POS
+    if (state != DemoNetworkMode.offline) {
+      Future.delayed(const Duration(milliseconds: 500), () => triggerSync());
+    }
+  }
+
+  void _handleConnectivityResults(List<ConnectivityResult> results) {
+    final hasInternet = results.any((r) => r != ConnectivityResult.none);
+    _isRealNetworkConnected = hasInternet;
+
+    if (!hasInternet) {
+      ref.read(enterpriseSyncStatusProvider.notifier).state = 'Offline - Local saved';
+    } else {
+      if (state != DemoNetworkMode.offline) {
+        // Automatically flush pending local data as soon as internet reconnects!
+        triggerSync();
+      }
+    }
   }
 
   Future<void> setMode(DemoNetworkMode mode) async {
     state = mode;
     await EnterpriseStorageService.saveNetworkMode(mode);
     _updateSyncStatus();
-    if (mode != DemoNetworkMode.offline) {
+    if (mode != DemoNetworkMode.offline && _isRealNetworkConnected) {
       await triggerSync();
     }
   }
 
   void _updateSyncStatus() {
-    if (state == DemoNetworkMode.offline) {
+    if (state == DemoNetworkMode.offline || !_isRealNetworkConnected) {
       ref.read(enterpriseSyncStatusProvider.notifier).state = 'Offline - Local saved';
     } else {
       ref.read(enterpriseSyncStatusProvider.notifier).state = 'Database me synced';
@@ -38,17 +86,36 @@ class EnterpriseNetworkNotifier extends StateNotifier<DemoNetworkMode> {
   }
 
   Future<void> triggerSync() async {
-    if (state == DemoNetworkMode.offline) {
+    if (state == DemoNetworkMode.offline || !_isRealNetworkConnected) {
       ref.read(enterpriseSyncStatusProvider.notifier).state = 'Offline - Local saved';
       return;
     }
+
     ref.read(enterpriseSyncStatusProvider.notifier).state = 'Syncing...';
     final ok = await EnterpriseStorageService.syncWithServer(state);
     if (ok) {
-      ref.read(enterpriseSyncStatusProvider.notifier).state = 'Database me synced';
+      final now = DateTime.now();
+      final timeStr =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      ref.read(enterpriseSyncStatusProvider.notifier).state = 'Database me synced ($timeStr)';
+
+      // Refresh providers with newly reconciled cloud data
+      ref.read(enterpriseFoodMenuProvider.notifier).load();
+      ref.read(enterpriseBillsProvider.notifier).load();
+      ref.read(enterpriseInventoryProvider.notifier).load();
+      ref.read(enterpriseUdhaarProvider.notifier).load();
+      ref.read(enterpriseStaffProvider.notifier).load();
+      ref.read(enterpriseProfileProvider.notifier).load();
     } else {
       ref.read(enterpriseSyncStatusProvider.notifier).state = 'Offline - Local saved';
     }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    _periodicSyncTimer?.cancel();
+    super.dispose();
   }
 }
 

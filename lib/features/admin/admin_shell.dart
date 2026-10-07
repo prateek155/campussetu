@@ -7,11 +7,14 @@ import '../../core/services/auth_service.dart';
 import 'widgets/admin_toast.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_users_screen.dart';
-import 'admin_ambassadors_screen.dart';
-import 'admin_content_screen.dart';
-import 'admin_pulse_screen.dart';
+import 'admin_tasks_screen.dart';
+import 'admin_events_screen.dart';
 import 'admin_faculty_screen.dart';
+import 'admin_wallpapers_screen.dart';
+import 'admin_content_screen.dart';
+import 'admin_ambassadors_screen.dart';
 import 'admin_points_transfers_screen.dart';
+import 'admin_pulse_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -30,11 +33,14 @@ class _AdminShellState extends State<AdminShell> {
   final _navDefinitions = const [
     (Icons.grid_view_rounded, Icons.grid_view_rounded, 'Overview', Color(0xFF38BDF8)),
     (Icons.people_outline_rounded, Icons.people_rounded, 'Users', Color(0xFF38BDF8)),
+    (Icons.assignment_outlined, Icons.assignment_rounded, 'Tasks', Color(0xFF10B981)),
+    (Icons.event_outlined, Icons.event_rounded, 'Events', Color(0xFF38BDF8)),
+    (Icons.school_outlined, Icons.school_rounded, 'Faculty', Color(0xFF818CF8)),
+    (Icons.wallpaper_outlined, Icons.wallpaper_rounded, 'Wallpapers', Color(0xFFA855F7)),
+    (Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Deals', Color(0xFFF59E0B)),
     (Icons.campaign_outlined, Icons.campaign_rounded, 'Ambassadors', Color(0xFFF59E0B)),
-    (Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Content', Color(0xFF38BDF8)),
     (Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'Transfers', Color(0xFF10B981)),
     (Icons.track_changes_outlined, Icons.track_changes_rounded, 'Pulse', Color(0xFF10B981)),
-    (Icons.school_outlined, Icons.school_rounded, 'Faculty', Color(0xFF818CF8)),
   ];
 
   Future<void> _handleSignOut(BuildContext context) async {
@@ -107,6 +113,19 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     final isDesktop = MediaQuery.of(context).size.width >= 850;
+
+    final screens = [
+      AdminDashboardScreen(onNavigateToUsers: _showUsers),
+      const AdminUsersScreen(),
+      const AdminTasksScreen(),
+      const AdminEventsScreen(),
+      const AdminFacultyScreen(),
+      const AdminWallpapersScreen(),
+      const AdminContentScreen(),
+      const AdminAmbassadorsScreen(),
+      const AdminPointsTransfersScreen(),
+      const AdminPulseScreen(),
+    ];
 
     if (isDesktop) {
       return Scaffold(
@@ -251,12 +270,12 @@ class _AdminShellState extends State<AdminShell> {
                     ),
                   ),
 
-                  // Bottom Controls (Signout + Green Shield as in image)
+                  // Bottom Controls (Signout + Green Shield)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                     child: Column(
                       children: [
-                        // Signout Button (above the shield icon)
+                        // Signout Button
                         if (_isCollapsed)
                           Tooltip(
                             message: 'Sign Out',
@@ -304,7 +323,7 @@ class _AdminShellState extends State<AdminShell> {
 
                         const SizedBox(height: 12),
 
-                        // Bottom Green Shield Icon Container (as in uploaded screenshot)
+                        // Bottom Green Shield Icon Container
                         if (_isCollapsed)
                           Tooltip(
                             message: 'Super Admin Security Active',
@@ -355,15 +374,7 @@ class _AdminShellState extends State<AdminShell> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: [
-                  AdminDashboardScreen(onNavigateToUsers: _showUsers),
-                  const AdminUsersScreen(),
-                  const AdminAmbassadorsScreen(),
-                  const AdminContentScreen(),
-                  const AdminPointsTransfersScreen(),
-                  const AdminPulseScreen(),
-                  const AdminFacultyScreen(),
-                ],
+                children: screens,
               ),
             ),
           ],
@@ -388,15 +399,7 @@ class _AdminShellState extends State<AdminShell> {
       ),
       body: IndexedStack(
         index: _tab,
-        children: [
-          AdminDashboardScreen(onNavigateToUsers: _showUsers),
-          const AdminUsersScreen(),
-          const AdminAmbassadorsScreen(),
-          const AdminContentScreen(),
-          const AdminPointsTransfersScreen(),
-          const AdminPulseScreen(),
-          const AdminFacultyScreen(),
-        ],
+        children: screens,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -407,19 +410,23 @@ class _AdminShellState extends State<AdminShell> {
           top: false,
           child: SizedBox(
             height: 60,
-            child: Row(
-              children: List.generate(_navDefinitions.length, (i) {
-                final def = _navDefinitions[i];
-                return _NavItem(
-                  icon: def.$1,
-                  activeIcon: def.$2,
-                  label: def.$3,
-                  index: i,
-                  current: _tab,
-                  accentColor: def.$4,
-                  onTap: (idx) => setState(() => _tab = idx),
-                );
-              }),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: List.generate(_navDefinitions.length, (i) {
+                  final def = _navDefinitions[i];
+                  return _NavItem(
+                    icon: def.$1,
+                    activeIcon: def.$2,
+                    label: def.$3,
+                    index: i,
+                    current: _tab,
+                    accentColor: def.$4,
+                    onTap: (idx) => setState(() => _tab = idx),
+                  );
+                }),
+              ),
             ),
           ),
         ),
@@ -451,7 +458,8 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isActive = index == current;
     final color = accentColor ?? const Color(0xFF38BDF8);
-    return Expanded(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: GestureDetector(
         onTap: () => onTap(index),
         behavior: HitTestBehavior.opaque,

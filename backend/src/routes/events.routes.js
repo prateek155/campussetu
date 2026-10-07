@@ -2,8 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('crypto');
-const { requireAuth, requireAdmin, requireStudent } = require('../middleware/auth');
+const { requireAuth, optionalAuth, requireAdmin, requireStudent, requireOrganizerOrAdmin } = require('../middleware/auth');
 const eventsController = require('../controllers/events.controller');
 
 const imageExtensions = {
@@ -31,18 +32,54 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
-router.use(requireAuth);
+const publicRegistrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many registration requests. Please wait a few minutes and try again.' },
+});
 
-// The controller caches the shared catalog, then adds each user's registration
-// state separately so one student's response can never be served to another.
-router.get('/', eventsController.getEvents);
+const publicEventLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-router.post('/:id/register', requireStudent, eventsController.registerForEvent);
-router.delete('/:id/register', requireStudent, eventsController.cancelEventRegistration);
-router.get('/:id/registrations', requireAdmin, eventsController.getEventRegistrations);
+const organizerLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many organizer login attempts. Please wait 15 minutes and try again.' },
+});
 
-// Admin mutations — invalidate cache on change
-router.post('/', requireAdmin, upload.single('image'), eventsController.createEvent);
-router.delete('/:id', requireAdmin, eventsController.deleteEvent);
+// ── Public Routes (no login required) ────────────────────────
+router.get('/public/:idOrCode', publicEventLimiter, eventsController.getPublicEvent);
+router.post('/:idOrCode/public-register', publicRegistrationLimiter, eventsController.publicRegisterForEvent);
+
+// ── Event Organizer Login ────────────────────────────────────
+router.post('/organizer/login', organizerLoginLimiter, eventsController.organizerLogin);
+
+// ── Event Catalog (public or authenticated) ──────────────────
+router.get('/', optionalAuth, eventsController.getEvents);
+
+// ── Student Protected Routes ──────────────────────────────────
+router.post('/:id/register', requireAuth, requireStudent, eventsController.registerForEvent);
+router.delete('/:id/register', requireAuth, requireStudent, eventsController.cancelEventRegistration);
+
+// ── Event Attendee Management (Admin or Event Organizer) ──────
+// Organizers can view, edit attendee info, and delete individual attendee
+router.get('/:id/registrations', requireOrganizerOrAdmin, eventsController.getEventRegistrations);
+router.put('/:id/registrations/:regId', requireOrganizerOrAdmin, eventsController.updateEventRegistration);
+router.delete('/:id/registrations/:regId', requireOrganizerOrAdmin, eventsController.deleteEventRegistration);
+
+// ── Super Admin Only (Organizers Strictly Blocked) ────────────
+// Wipe all registrations or mutating/deleting events requires Super Admin
+router.delete('/:id/registrations', requireAuth, requireAdmin, eventsController.deleteAllEventRegistrations);
+router.post('/', requireAuth, requireAdmin, upload.single('image'), eventsController.createEvent);
+router.put('/:id', requireAuth, requireAdmin, upload.single('image'), eventsController.updateEvent);
+router.delete('/:id', requireAuth, requireAdmin, eventsController.deleteEvent);
 
 module.exports = router;

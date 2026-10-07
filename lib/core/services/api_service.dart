@@ -17,7 +17,8 @@ class ApiService {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (_token != null) options.headers['Authorization'] = 'Bearer $_token';
+        final activeToken = _token ?? _organizerToken;
+        if (activeToken != null) options.headers['Authorization'] = 'Bearer $activeToken';
         if (kDebugMode) debugPrint('→ ${options.method} ${options.path}');
         handler.next(options);
       },
@@ -70,8 +71,26 @@ class ApiService {
 
   late final Dio _dio;
   String? _token;
+  String? _organizerToken;
+  String? _organizerEventId;
 
   void setToken(String? token) => _token = token;
+
+  void setOrganizerSession({required String token, required String eventId}) {
+    _organizerToken = token;
+    _organizerEventId = eventId;
+  }
+
+  void clearOrganizerSession() {
+    _organizerToken = null;
+    _organizerEventId = null;
+  }
+
+  bool isOrganizerFor(String eventId) =>
+      _organizerToken != null && _organizerEventId == eventId;
+
+  String? get organizerEventId => _organizerEventId;
+  bool get hasOrganizerSession => _organizerToken != null;
 
   // Generic methods
   Future<dynamic> get(String path,
@@ -239,6 +258,12 @@ class ApiService {
 
   Future<void> deleteAlarmWallpaper(String id) async {
     await _dio.delete('/alarm-wallpapers/' + id);
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dio.post('/users/logout');
+    } catch (_) {}
   }
 
   void clearToken() {
@@ -575,6 +600,32 @@ class ApiService {
     await _dio.delete('/helping/$id');
   }
 
+  Future<Map<String, dynamic>> getAdminTasks({
+    String? status,
+    String? q,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+    };
+    if (status != null && status.isNotEmpty && status != 'all') {
+      queryParams['status'] = status;
+    }
+    if (q != null && q.trim().isNotEmpty) {
+      queryParams['q'] = q.trim();
+    }
+    final res = await _dio.get('/helping/admin/all', queryParameters: queryParams);
+    return res.data is Map<String, dynamic>
+        ? res.data as Map<String, dynamic>
+        : Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<void> adminDeleteTask(String id) async {
+    await _dio.delete('/helping/admin/$id');
+  }
+
   Future<Map<String, dynamic>> getUserByCampusId(String campusId) async {
     final res = await _dio.get('/users/by-campus/$campusId');
     return res.data as Map<String, dynamic>;
@@ -627,6 +678,37 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateDeal(
+    String id,
+    Map<String, dynamic> data, {
+    String? photoPath,
+  }) async {
+    if (photoPath != null && photoPath.isNotEmpty) {
+      final formData = FormData.fromMap({
+        ...data,
+        'image': await MultipartFile.fromFile(photoPath),
+      });
+      final res = await _dio.put('/deals/$id', data: formData);
+      return res.data as Map<String, dynamic>;
+    }
+    final res = await _dio.put('/deals/$id', data: data);
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAdminDeals() async {
+    final res = await _dio.get('/deals/admin/all');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> getDealRedemptions(String dealId) async {
+    final res = await _dio.get('/deals/$dealId/redemptions');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<void> restoreDeal(String dealId) async {
+    await _dio.post('/deals/$dealId/restore');
+  }
+
   // ── Jobs Module Status ───────────────────────────────────────
 
   Future<bool> getJobsStatus() async {
@@ -676,6 +758,44 @@ class ApiService {
     return [];
   }
 
+  Future<Map<String, dynamic>> getPublicEvent(String idOrCode) async {
+    final res = await _dio.get('/events/public/$idOrCode');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> organizerLogin({
+    String? organizerId,
+    String? eventCode,
+    required String password,
+  }) async {
+    final payload = <String, dynamic>{
+      'password': password.trim(),
+    };
+    if (organizerId != null && organizerId.trim().isNotEmpty) {
+      payload['organizer_id'] = organizerId.trim();
+    }
+    if (eventCode != null && eventCode.trim().isNotEmpty) {
+      payload['event_code'] = eventCode.trim();
+    }
+    final res = await _dio.post('/events/organizer/login', data: payload);
+    final data = Map<String, dynamic>.from(res.data as Map);
+    final token = data['token']?.toString();
+    final eventMap = data['event'] is Map ? Map<String, dynamic>.from(data['event'] as Map) : null;
+    final eventId = eventMap?['id']?.toString() ?? '';
+    if (token != null && eventId.isNotEmpty) {
+      setOrganizerSession(token: token, eventId: eventId);
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> publicRegisterForEvent(
+    String idOrCode,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _dio.post('/events/$idOrCode/public-register', data: data);
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<Map<String, dynamic>> createEvent(
     Map<String, dynamic> data, {
     String? photoPath,
@@ -689,6 +809,23 @@ class ApiService {
       return res.data as Map<String, dynamic>;
     }
     final res = await _dio.post('/events', data: data);
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateEvent(
+    String id,
+    Map<String, dynamic> data, {
+    String? photoPath,
+  }) async {
+    if (photoPath != null && photoPath.isNotEmpty) {
+      final formData = FormData.fromMap({
+        ...data,
+        'image': await MultipartFile.fromFile(photoPath),
+      });
+      final res = await _dio.put('/events/$id', data: formData);
+      return res.data as Map<String, dynamic>;
+    }
+    final res = await _dio.put('/events/$id', data: data);
     return res.data as Map<String, dynamic>;
   }
 
@@ -706,6 +843,36 @@ class ApiService {
     final res = await _dio.get('/events/$eventId/registrations');
     return Map<String, dynamic>.from(res.data as Map);
   }
+
+  Future<Map<String, dynamic>> updateEventRegistration(
+    String eventId,
+    String registrationId,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _dio.put(
+      '/events/$eventId/registrations/$registrationId',
+      data: data,
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<bool> deleteEventRegistration(
+    String eventId,
+    String registrationId,
+  ) async {
+    await _dio.delete('/events/$eventId/registrations/$registrationId');
+    return true;
+  }
+
+  Future<int> deleteAllEventRegistrations(String eventId) async {
+    final res = await _dio.delete('/events/$eventId/registrations');
+    final data = res.data;
+    if (data is Map && data['count'] is num) {
+      return (data['count'] as num).toInt();
+    }
+    return 0;
+  }
+
 
   // ── Travel API ───────────────────────────────────────────────
 
@@ -898,8 +1065,11 @@ class ApiService {
     await _dio.delete('/admin/flatmates/$id');
   }
 
-  Future<void> deleteDeal(String id) async {
-    await _dio.delete('/deals/$id');
+  Future<void> deleteDeal(String id, {bool permanent = false}) async {
+    await _dio.delete(
+      '/deals/$id',
+      queryParameters: permanent ? {'permanent': 'true'} : null,
+    );
   }
 
   Future<void> deleteEvent(String id) async {

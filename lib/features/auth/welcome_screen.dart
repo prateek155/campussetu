@@ -8,6 +8,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/router/app_router.dart';
+import '../events/widgets/organizer_login_dialog.dart';
 
 class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
@@ -135,7 +136,19 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                 label: const Text('Sign in with email and password'),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => OrganizerLoginDialog.show(context),
+                icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFFF59E0B)),
+                label: const Text(
+                  'Event Organizer Desk Login',
+                  style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+
+              const SizedBox(height: 14),
               Text(
                 'By continuing, you agree to our Terms & Privacy Policy',
                 style: AppTypography.interCaption(),

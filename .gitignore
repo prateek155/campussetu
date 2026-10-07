@@ -46,5 +46,16 @@ app.*.map.json
 /android/app/build/
 
 **/firebase-service-account.json
-# Environment Variables
+# Environment & Secrets
 .env
+.env.*
+**/.env
+**/.env.*
+*.pem
+*.key
+*.cert
+*.crt
+# Uploads directory
+backend/uploads/*
+!backend/uploads/.gitkeep
+

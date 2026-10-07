@@ -474,3 +474,27 @@ exports.discoverStudents = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ── POST /users/logout ───────────────────────────────────
+exports.logout = async (req, res) => {
+  try {
+    const { revokeCachedToken } = require('../middleware/auth');
+    const admin = require('../config/firebase');
+
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      const idToken = header.split('Bearer ')[1];
+      await revokeCachedToken(idToken);
+    }
+    if (req.user?.uid) {
+      await admin.auth().revokeRefreshTokens(req.user.uid).catch(() => {});
+      await cache.invalidateUser(req.user.uid).catch(() => {});
+      await cache.invalidateJson(`user:me:${req.user.uid}`).catch(() => {});
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+};
+

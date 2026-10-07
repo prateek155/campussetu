@@ -67,7 +67,10 @@ exports.getTasks = async (req, res) => {
       `SELECT t.*,
         (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count,
         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
-          'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS poster
+          'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS poster,
+        (SELECT jsonb_build_object('id', ua.id, 'name', ua.name, 'photo_url', ua.photo_url,
+          'college', ua.college, 'city', ua.city, 'campus_id', ua.campus_id, 'is_verified', ua.is_verified)
+         FROM users ua WHERE ua.id = t.assignee_id) AS assignee
        FROM helping_tasks t JOIN users u ON u.id = t.poster_id
        ${conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''}
        ORDER BY t.created_at DESC LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
@@ -129,6 +132,9 @@ exports.getTask = async (req, res) => {
       `SELECT t.*,
         jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
           'college', u.college, 'city', u.city, 'campus_id', u.campus_id, 'is_verified', u.is_verified) AS poster,
+        (SELECT jsonb_build_object('id', ua.id, 'name', ua.name, 'photo_url', ua.photo_url,
+          'college', ua.college, 'city', ua.city, 'campus_id', ua.campus_id, 'is_verified', ua.is_verified)
+         FROM users ua WHERE ua.id = t.assignee_id) AS assignee,
         (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count
        FROM helping_tasks t JOIN users u ON u.id = t.poster_id WHERE t.id = $1`, [req.params.id]
     );
@@ -136,6 +142,7 @@ exports.getTask = async (req, res) => {
     rows[0].image_url = fullImageUrl(req, rows[0].image_url);
     const uid = await meId(req.user.uid);
     const isPoster = rows[0].poster_id === uid;
+    const isAssignee = rows[0].assignee_id === uid;
     const { rows: apps } = await db.query(
       `SELECT a.*,
          jsonb_build_object('id', u.id, 'name', u.name, 'photo_url', u.photo_url,
@@ -148,7 +155,13 @@ exports.getTask = async (req, res) => {
       [req.params.id, uid, isPoster]
     );
     const mine = apps.find((a) => a.applicant_id === uid);
-    res.json({ ...rows[0], applications: isPoster ? apps : [], my_application: mine || null, is_poster: isPoster });
+    res.json({
+      ...rows[0],
+      applications: isPoster ? apps : [],
+      my_application: mine || null,
+      is_poster: isPoster,
+      is_assignee: isAssignee,
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -192,45 +205,237 @@ exports.acceptApplication = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// ── POST /helping/:id/complete → points transfer (atomic) ──
+// ── POST /helping/:id/complete → Dual confirmation (poster + assignee) ──
 exports.completeTask = async (req, res) => {
   try {
     const uid = await meId(req.user.uid);
+    if (!uid) return res.status(401).json({ error: 'User not found' });
     const { rows: t } = await db.query('SELECT * FROM helping_tasks WHERE id = $1', [req.params.id]);
     if (!t.length) return res.status(404).json({ error: 'Task not found' });
-    if (t[0].poster_id !== uid) return res.status(403).json({ error: 'Only poster can complete' });
+
+    const isPoster = t[0].poster_id === uid;
+    const isAssignee = t[0].assignee_id === uid;
+    if (!isPoster && !isAssignee) {
+      return res.status(403).json({ error: 'Only the task poster or accepted helper can complete this task' });
+    }
+
     const client = await db.connect();
     try {
       await client.query('BEGIN');
       const { rows: locked } = await client.query('SELECT * FROM helping_tasks WHERE id = $1 FOR UPDATE', [req.params.id]);
       const task = locked[0];
-      if (!task || task.status === 'completed') { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Already completed' }); }
-      if (task.status !== 'assigned' || !task.assignee_id) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'No assignee yet' }); }
-      if (task.type === 'points') {
-        await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [uid]);
-        const { rows: b } = await client.query('SELECT COALESCE(SUM(amount),0)::int AS bal FROM points_ledger WHERE user_id=$1', [uid]);
-        if (b[0].bal < task.points) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Insufficient points. Balance: ${b[0].bal}` }); }
-        await client.query(`INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`, [uuidv4(), uid, -task.points, `helping_reward_sent:${task.id}`]);
-        await client.query(`INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`, [uuidv4(), task.assignee_id, task.points, `helping_reward_received:${task.id}`]);
+      if (!task || task.status === 'completed') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Task is already fully completed and closed' });
       }
-      await client.query(`UPDATE helping_tasks SET status='completed' WHERE id=$1`, [task.id]);
-      const affectedUsers = task.type === 'points'
-        ? (await client.query(
-            'SELECT id, firebase_uid FROM users WHERE id = ANY($1::uuid[])',
-            [[uid, task.assignee_id]],
-          )).rows
-        : [];
-      await client.query('COMMIT');
-      if (affectedUsers.length) {
-        await Promise.all([
-          ...affectedUsers.flatMap((user) => [
-            cache.invalidateUser(user.id),
-            cache.invalidateJson(`user:me:${user.firebase_uid}`),
-          ]),
-          cache.invalidateLeaderboard(),
-        ]);
+      if (task.status !== 'assigned' || !task.assignee_id) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Task must be assigned to an applicant before completion' });
       }
-      res.json({ task_id: task.id, status: 'completed', transferred_points: task.type === 'points' ? task.points : 0 });
-    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+      let nextPosterCompleted = task.poster_completed === true;
+      let nextAssigneeCompleted = task.assignee_completed === true;
+      let posterCompletedAt = task.poster_completed_at;
+      let assigneeCompletedAt = task.assignee_completed_at;
+
+      if (isPoster) {
+        if (nextPosterCompleted) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'You have already confirmed completion. Waiting for helper confirmation.' });
+        }
+        nextPosterCompleted = true;
+        posterCompletedAt = new Date();
+      }
+
+      if (isAssignee) {
+        if (nextAssigneeCompleted) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'You have already confirmed completion. Waiting for poster confirmation.' });
+        }
+        nextAssigneeCompleted = true;
+        assigneeCompletedAt = new Date();
+      }
+
+      const bothConfirmed = nextPosterCompleted && nextAssigneeCompleted;
+
+      if (bothConfirmed) {
+        if (task.type === 'points') {
+          await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [task.poster_id]);
+          const { rows: b } = await client.query('SELECT COALESCE(SUM(amount),0)::int AS bal FROM points_ledger WHERE user_id=$1', [task.poster_id]);
+          if ((b[0]?.bal || 0) < task.points) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `Poster points balance is insufficient (${b[0]?.bal || 0} pts)` });
+          }
+          await client.query(
+            `INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`,
+            [uuidv4(), task.poster_id, -task.points, `helping_reward_sent:${task.id}`]
+          );
+          await client.query(
+            `INSERT INTO points_ledger (id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`,
+            [uuidv4(), task.assignee_id, task.points, `helping_reward_received:${task.id}`]
+          );
+        }
+
+        await client.query(
+          `UPDATE helping_tasks
+           SET status = 'completed',
+               poster_completed = true,
+               assignee_completed = true,
+               poster_completed_at = COALESCE(poster_completed_at, $2),
+               assignee_completed_at = COALESCE(assignee_completed_at, $3),
+               completed_at = NOW()
+           WHERE id = $1`,
+          [task.id, posterCompletedAt, assigneeCompletedAt]
+        );
+
+        const affectedUsers = task.type === 'points'
+          ? (await client.query(
+              'SELECT id, firebase_uid FROM users WHERE id = ANY($1::uuid[])',
+              [[task.poster_id, task.assignee_id]],
+            )).rows
+          : [];
+
+        await client.query('COMMIT');
+
+        if (affectedUsers.length) {
+          await Promise.all([
+            ...affectedUsers.flatMap((user) => [
+              cache.invalidateUser(user.id),
+              cache.invalidateJson(`user:me:${user.firebase_uid}`),
+            ]),
+            cache.invalidateLeaderboard(),
+          ]);
+        }
+
+        return res.json({
+          task_id: task.id,
+          status: 'completed',
+          poster_completed: true,
+          assignee_completed: true,
+          transferred_points: task.type === 'points' ? task.points : 0,
+          message: 'Both parties confirmed! Task is closed successfully.'
+        });
+      } else {
+        await client.query(
+          `UPDATE helping_tasks
+           SET poster_completed = $2,
+               assignee_completed = $3,
+               poster_completed_at = $4,
+               assignee_completed_at = $5
+           WHERE id = $1`,
+          [task.id, nextPosterCompleted, nextAssigneeCompleted, posterCompletedAt, assigneeCompletedAt]
+        );
+        await client.query('COMMIT');
+
+        return res.json({
+          task_id: task.id,
+          status: 'assigned',
+          poster_completed: nextPosterCompleted,
+          assignee_completed: nextAssigneeCompleted,
+          waiting_for: isPoster ? 'assignee' : 'poster',
+          message: isPoster
+            ? 'Poster confirmed completion. Waiting for helper confirmation.'
+            : 'Helper confirmed completion. Waiting for poster confirmation.'
+        });
+      }
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET /helping/admin/all (Full details of every task for Admin) ──
+exports.getAdminTasks = async (req, res) => {
+  try {
+    await sweepExpired();
+    const { status, q, page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    const conditions = [];
+    const params = [];
+
+    if (status && status !== 'all') {
+      params.push(status);
+      conditions.push(`t.status = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      conditions.push(`(t.title ILIKE $${params.length} OR t.description ILIKE $${params.length})`);
+    }
+
+    params.push(parseInt(limit), parseInt(offset));
+    const limitIndex = params.length - 1;
+    const offsetIndex = params.length;
+
+    const { rows } = await db.query(
+      `SELECT t.*,
+        jsonb_build_object(
+          'id', up.id, 'name', up.name, 'email', up.email, 'photo_url', up.photo_url,
+          'college', up.college, 'city', up.city, 'campus_id', up.campus_id, 'is_verified', up.is_verified
+        ) AS poster,
+        (SELECT jsonb_build_object(
+          'id', ua.id, 'name', ua.name, 'email', ua.email, 'photo_url', ua.photo_url,
+          'college', ua.college, 'city', ua.city, 'campus_id', ua.campus_id, 'is_verified', ua.is_verified
+        ) FROM users ua WHERE ua.id = t.assignee_id) AS assignee,
+        (SELECT COUNT(*)::int FROM helping_applications a WHERE a.task_id = t.id) AS applications_count,
+        COALESCE((
+          SELECT jsonb_agg(
+            jsonb_build_object(
+              'id', app.id,
+              'applicant_id', app.applicant_id,
+              'status', app.status,
+              'created_at', app.created_at,
+              'name', uapp.name,
+              'email', uapp.email,
+              'college', uapp.college,
+              'city', uapp.city,
+              'campus_id', uapp.campus_id,
+              'photo_url', uapp.photo_url
+            ) ORDER BY app.created_at ASC
+          )
+          FROM helping_applications app
+          JOIN users uapp ON uapp.id = app.applicant_id
+          WHERE app.task_id = t.id
+        ), '[]'::jsonb) AS applications
+       FROM helping_tasks t
+       JOIN users up ON up.id = t.poster_id
+       ${conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''}
+       ORDER BY t.created_at DESC LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      params
+    );
+    rows.forEach((r) => { r.image_url = fullImageUrl(req, r.image_url); });
+
+    const countRes = await db.query(
+      `SELECT
+        COUNT(*)::int AS total,
+        COUNT(CASE WHEN status = 'open' THEN 1 END)::int AS open_count,
+        COUNT(CASE WHEN status = 'assigned' THEN 1 END)::int AS assigned_count,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END)::int AS completed_count,
+        COUNT(CASE WHEN status = 'on_hold' THEN 1 END)::int AS on_hold_count
+       FROM helping_tasks`
+    );
+
+    res.json({
+      data: rows,
+      stats: countRes.rows[0] || {},
+      page: parseInt(page)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── DELETE /helping/admin/:id ──
+exports.adminDeleteTask = async (req, res) => {
+  try {
+    const { rows } = await db.query('DELETE FROM helping_tasks WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    res.json({ deleted: req.params.id, message: 'Task deleted by admin' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

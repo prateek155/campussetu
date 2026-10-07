@@ -1,10 +1,10 @@
 // backend/src/routes/enterprise.routes.js
 const router = require('express').Router();
 const ec = require('../controllers/enterprise.controller');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireEnterprise } = require('../middleware/auth');
 
-// All enterprise POS routes require valid authentication
-router.use(requireAuth);
+// All enterprise POS routes require valid authentication & enterprise permission
+router.use(requireAuth, requireEnterprise);
 
 // Store Profile & Settings
 router.get('/profile', ec.getProfile);
@@ -39,7 +39,8 @@ router.post('/staff/advance', ec.addStaffAdvance);
 // CampusSetu Deal Redemption
 router.post('/redeem', ec.redeemDeal);
 
-// Offline-first Delta Sync
+// Offline-first Delta Sync & Consolidated State
+router.get('/consolidated', ec.getConsolidated);
 router.post('/sync', ec.syncDelta);
 
 module.exports = router;

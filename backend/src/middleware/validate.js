@@ -49,6 +49,25 @@ const schemas = {
     content: Joi.string().min(1).max(5000).required(),
     language: Joi.string().max(30).default('text'),
   }),
+
+  createJob: Joi.object({
+    title: Joi.string().trim().min(2).max(200).required(),
+    company: Joi.string().trim().min(2).max(200).required(),
+    description: Joi.string().trim().min(10).max(5000).required(),
+    type: Joi.string().valid('internship', 'full_time', 'part_time', 'freelance', 'contract').required(),
+    state: Joi.string().trim().max(100).allow('', null),
+    city: Joi.string().trim().max(100).allow('', null),
+    is_remote: Joi.boolean().default(false),
+    apply_url: Joi.string().trim().uri({ scheme: ['http', 'https'] }).max(1000).required(),
+    deadline: Joi.date().iso().allow(null, ''),
+  }),
+
+  createRide: Joi.object({
+    vehicle_type: Joi.string().trim().max(50).required(),
+    destination: Joi.string().trim().min(2).max(200).required(),
+    time_date: Joi.string().trim().max(100).required(),
+    contact_number: Joi.string().trim().pattern(/^[0-9+\-\s()]{7,20}$/).required(),
+  }),
 };
 
 module.exports = { validate, schemas };

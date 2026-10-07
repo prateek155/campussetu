@@ -150,6 +150,9 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    try {
+      await ApiService().logout();
+    } catch (_) {}
     _cachedToken = null;
     _cachedAt = null;
     ApiService().clearToken();

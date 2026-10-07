@@ -13,7 +13,7 @@ function normalizeEmail(value) {
 }
 
 function createOtp() {
-  return Array.from({ length: 4 }, () => randomInt(1, 10)).join('');
+  return String(randomInt(100000, 1000000));
 }
 
 function tokenHash(token) {
@@ -123,7 +123,7 @@ exports.requestOtp = async (req, res) => {
 exports.verifyOtp = async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const otp = typeof req.body?.otp === 'string' ? req.body.otp : '';
-  if (!EMAIL_RE.test(email) || !/^[1-9]{4}$/.test(otp)) {
+  if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(otp)) {
     return res.status(400).json({ error: 'The code is invalid or expired.' });
   }
 

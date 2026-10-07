@@ -335,6 +335,13 @@ END $$;
 UPDATE helping_tasks SET status = 'on_hold' WHERE status = 'open' AND COALESCE(expires_at, created_at + INTERVAL '7 days') <= NOW();
 CREATE INDEX IF NOT EXISTS idx_helping_expires ON helping_tasks (expires_at, status);
 
+-- ── Dual-Confirmation Task Completion ──
+ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS poster_completed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS assignee_completed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS poster_completed_at TIMESTAMPTZ;
+ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS assignee_completed_at TIMESTAMPTZ;
+ALTER TABLE IF EXISTS helping_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+
 -- ── Migration: Campus ID for points transfer + identity card ──
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS campus_id TEXT UNIQUE;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_campus_id ON users (campus_id);
@@ -354,8 +361,12 @@ CREATE TABLE IF NOT EXISTS deals (
   banner_url TEXT,
   city TEXT,
   state TEXT,
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS deal_redemptions (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -395,16 +406,42 @@ BEGIN
       CHECK (registration_mode IN ('external', 'internal'));
   END IF;
 END $$;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_event_code ON events (event_code);
+UPDATE events SET event_code = 'EVT-' || UPPER(SUBSTRING(REPLACE(id::text, '-', ''), 1, 6)) WHERE event_code IS NULL;
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_access_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_id TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_password_hash TEXT;
+CREATE INDEX IF NOT EXISTS idx_events_organizer_id ON events (LOWER(organizer_id)) WHERE organizer_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS event_registrations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'confirmed',
+  custom_name TEXT,
+  custom_email TEXT,
+  phone TEXT,
+  custom_college TEXT,
+  custom_branch TEXT,
+  notes TEXT,
   registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (event_id, user_id)
 );
+ALTER TABLE event_registrations ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'confirmed';
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_name TEXT;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_email TEXT;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_college TEXT;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS custom_branch TEXT;
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS notes TEXT;
 CREATE INDEX IF NOT EXISTS idx_event_registrations_user_event
   ON event_registrations (user_id, event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_reg_guest_email
+  ON event_registrations (event_id, LOWER(custom_email))
+  WHERE user_id IS NULL AND custom_email IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS travel_rides (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -591,6 +628,7 @@ CREATE TABLE IF NOT EXISTS enterprise_bills (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ent_bills_store_date ON enterprise_bills (store_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ent_bills_store_bill_num ON enterprise_bills (store_id, bill_number);
 
 CREATE TABLE IF NOT EXISTS enterprise_inventory (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

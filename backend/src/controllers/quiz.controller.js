@@ -9,7 +9,13 @@ const cache = require('../config/redis');
 const { submitQuizAnswer } = require('../services/quizAnswer.service');
 
 
-// ── Multer setup for question images ──────────────────────────
+// ── Multer setup for question images (SVG blocked to prevent Stored XSS) ──
+const SAFE_IMAGE_EXT = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+};
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '../../uploads/quiz');
@@ -17,16 +23,16 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `quiz-${Date.now()}${ext}`);
+    const ext = SAFE_IMAGE_EXT[file.mimetype] || '.jpg';
+    cb(null, `quiz-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
   },
 });
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only images allowed'));
+    if (SAFE_IMAGE_EXT[file.mimetype]) cb(null, true);
+    else cb(new Error('Only JPG, PNG, and WEBP image formats are allowed'));
   },
 });
 exports.uploadMiddleware = upload.single('image');

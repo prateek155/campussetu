@@ -14,6 +14,12 @@ class HelpingTask {
   final String? expiresAt;
   final int applicationsCount;
   final Map<String, dynamic>? poster;
+  final Map<String, dynamic>? assignee;
+  final bool posterCompleted;
+  final bool assigneeCompleted;
+  final String? posterCompletedAt;
+  final String? assigneeCompletedAt;
+  final String? completedAt;
 
   const HelpingTask({
     required this.id,
@@ -31,10 +37,22 @@ class HelpingTask {
     this.expiresAt,
     this.applicationsCount = 0,
     this.poster,
+    this.assignee,
+    this.posterCompleted = false,
+    this.assigneeCompleted = false,
+    this.posterCompletedAt,
+    this.assigneeCompletedAt,
+    this.completedAt,
   });
 
   bool get isPaid => type == 'paid';
   bool get isOnHold => status == 'on_hold';
+  bool get isAssigned => status == 'assigned';
+  bool get isCompleted => status == 'completed';
+  bool get isFullyCompleted => isCompleted || (posterCompleted && assigneeCompleted);
+  bool get isWaitingPoster => isAssigned && assigneeCompleted && !posterCompleted;
+  bool get isWaitingAssignee => isAssigned && posterCompleted && !assigneeCompleted;
+
   String get rewardLabel {
     if (isPaid) {
       final a = amount ?? 0.0;
@@ -42,6 +60,7 @@ class HelpingTask {
     }
     return '${points ?? 0} pts';
   }
+
   DateTime? get createdDate => DateTime.tryParse(createdAt);
   DateTime? get expiryDate => expiresAt != null ? DateTime.tryParse(expiresAt!) : createdDate?.add(const Duration(days: 7));
   int get daysLeft {
@@ -66,5 +85,11 @@ class HelpingTask {
         expiresAt: j['expires_at']?.toString(),
         applicationsCount: int.tryParse((j['applications_count'] ?? 0).toString()) ?? 0,
         poster: j['poster'] is Map ? Map<String, dynamic>.from(j['poster'] as Map) : null,
+        assignee: j['assignee'] is Map ? Map<String, dynamic>.from(j['assignee'] as Map) : null,
+        posterCompleted: j['poster_completed'] == true,
+        assigneeCompleted: j['assignee_completed'] == true,
+        posterCompletedAt: j['poster_completed_at']?.toString(),
+        assigneeCompletedAt: j['assignee_completed_at']?.toString(),
+        completedAt: j['completed_at']?.toString(),
       );
 }

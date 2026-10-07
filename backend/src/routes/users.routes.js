@@ -47,6 +47,7 @@ const upload = multer({
 });
 
 router.get('/me', requireAuth, c.getMe);
+router.post('/logout', requireAuth, c.logout);
 router.post('/password-reset/request', passwordResetRequestLimiter, passwordReset.requestOtp);
 router.post('/password-reset/verify', passwordReset.verifyOtp);
 router.post('/password-reset/complete', passwordReset.complete);

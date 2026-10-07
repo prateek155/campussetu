@@ -13,7 +13,6 @@ const ALLOWED_MIME = {
   'image/jpg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
-  'application/octet-stream': '.riv', // Rive files
   'video/mp4': '.mp4',
 };
 
@@ -21,18 +20,19 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) =>
     cb(null, process.env.UPLOAD_DIR || './uploads'),
   filename: (req, file, cb) => {
-    const ext = ALLOWED_MIME[file.mimetype] || path.extname(file.originalname) || '.bin';
-    cb(null, `wallpaper-${randomUUID()}${ext}`);
+    const ext = path.extname(file.originalname).toLowerCase();
+    const finalExt = ext === '.riv' ? '.riv' : (ALLOWED_MIME[file.mimetype] || '.jpg');
+    cb(null, `wallpaper-${randomUUID()}${finalExt}`);
   },
 });
 
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = Object.keys(ALLOWED_MIME);
-    // Also allow by extension for .riv files (browsers send wrong mime)
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(file.mimetype) || ext === '.riv') {
+    const isImageOrVideo = ALLOWED_MIME[file.mimetype];
+    const isRive = ext === '.riv' && (file.mimetype === 'application/octet-stream' || file.mimetype === 'application/x-rive' || file.mimetype === 'application/rive');
+    if (isImageOrVideo || isRive) {
       cb(null, true);
     } else {
       cb(new Error(`File type not allowed. Allowed: jpg, png, webp, .riv, mp4`));

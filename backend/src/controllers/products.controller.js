@@ -75,6 +75,9 @@ exports.getProduct = async (req, res) => {
 exports.updateProductStatus = async (req, res) => {
   try {
     const { status } = req.body; // 'active' | 'sold' | 'removed'
+    if (!status || !['active', 'sold', 'removed'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be one of: active, sold, removed' });
+    }
     const { rows: me } = await db.query('SELECT id FROM users WHERE firebase_uid = $1', [req.user.uid]);
     if (!me.length) return res.status(404).json({ error: 'User not found' });
 

@@ -8,16 +8,19 @@ const { requireAuth } = require('../middleware/auth');
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, process.env.UPLOAD_DIR || './uploads'),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+    cb(null, `note-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
   },
 });
 
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') cb(null, true);
-    else cb(new Error('Only PDF files are allowed'));
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (file.mimetype === 'application/pdf' && ext === '.pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files (.pdf) are allowed'));
+    }
   },
   limits: { fileSize: (parseInt(process.env.MAX_FILE_SIZE_MB || '10')) * 1024 * 1024 },
 });

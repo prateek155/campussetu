@@ -138,7 +138,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       });
       _startResendCooldown();
       if (!isResend) {
-        _showInfo('If your account exists, a 4-digit code is on its way.');
+        _showInfo('If your account exists, a 6-digit code is on its way.');
       }
     } catch (error) {
       _showError(_friendlyError(error));
@@ -163,8 +163,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
 
   Future<void> _verifyOtp() async {
     final code = _otp.text.trim();
-    if (!RegExp(r'^[1-9]{4}$').hasMatch(code)) {
-      _showError('Enter the 4-digit code from your email.');
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      _showError('Enter the 6-digit code from your email.');
       return;
     }
     setState(() => _busy = true);
@@ -424,7 +424,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         _emailField(readOnly: _resetStep > 0),
         const SizedBox(height: 14),
         if (_resetStep == 0) ...[
-          Text('We’ll email you a one-time 4-digit code.',
+          Text('We’ll email you a one-time 6-digit code.',
               style: AppTypography.interCaption(color: AppColors.inkSoft)),
           const SizedBox(height: 18),
           _primaryButton(
@@ -438,12 +438,12 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             controller: _otp,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.done,
-            maxLength: 4,
+            maxLength: 6,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[1-9]')),
-              LengthLimitingTextInputFormatter(4),
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
             ],
-            decoration: _decoration('4-digit code', Icons.password_rounded)
+            decoration: _decoration('6-digit code', Icons.password_rounded)
                 .copyWith(counterText: ''),
           ),
           const SizedBox(height: 12),

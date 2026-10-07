@@ -46,7 +46,13 @@ function setupQuizWebSocket(server) {
       const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
       const p = url.pathname;
       if (p === '/quiz' || p.startsWith('/quiz') || p === '/api/v1/quiz' || p.startsWith('/api/v1/quiz')) {
-        const token = url.searchParams.get('token');
+        let token = url.searchParams.get('token');
+        if (!token && request.headers.authorization && request.headers.authorization.startsWith('Bearer ')) {
+          token = request.headers.authorization.split('Bearer ')[1];
+        }
+        if (!token && request.headers['sec-websocket-protocol']) {
+          token = request.headers['sec-websocket-protocol'].split(',')[0].trim();
+        }
         if (!token) {
           socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
           return socket.destroy();

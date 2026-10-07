@@ -253,7 +253,7 @@ class EnterpriseStorageService {
     await sp.remove(_kOutbox);
   }
 
-  // Perform sync with Cloud backend
+  // Perform sync with Cloud backend and reconcile local storage cache
   static Future<bool> syncWithServer(DemoNetworkMode networkMode) async {
     if (networkMode == DemoNetworkMode.offline) {
       return false; // Offline mode deliberately skips network
@@ -261,7 +261,7 @@ class EnterpriseStorageService {
 
     if (networkMode == DemoNetworkMode.dheema) {
       // Simulate slow network latency
-      await Future.delayed(const Duration(milliseconds: 2000));
+      await Future.delayed(const Duration(milliseconds: 1500));
     }
 
     try {
@@ -270,12 +270,85 @@ class EnterpriseStorageService {
         'mutations': outbox,
       });
 
-      if (res != null) {
+      if (res != null && res is Map) {
+        // 1. Sync store profile
+        if (res['store'] != null && res['store'] is Map) {
+          try {
+            final p = EnterpriseStoreProfile.fromJson(Map<String, dynamic>.from(res['store'] as Map));
+            await saveProfile(p);
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Profile parse error: $e');
+          }
+        }
+
+        // 2. Sync food items
+        if (res['food_items'] != null && res['food_items'] is List) {
+          try {
+            final items = (res['food_items'] as List)
+                .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList();
+            if (items.isNotEmpty) {
+              await saveFoodItems(items);
+            }
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Food items parse error: $e');
+          }
+        }
+
+        // 3. Sync bills
+        if (res['bills'] != null && res['bills'] is List) {
+          try {
+            final bills = (res['bills'] as List)
+                .map((e) => EnterpriseBill.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList();
+            await saveBills(bills);
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Bills parse error: $e');
+          }
+        }
+
+        // 4. Sync inventory
+        if (res['inventory'] != null && res['inventory'] is List) {
+          try {
+            final inv = (res['inventory'] as List)
+                .map((e) => InventoryItem.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList();
+            await saveInventory(inv);
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Inventory parse error: $e');
+          }
+        }
+
+        // 5. Sync udhaar
+        if (res['udhaar'] != null && res['udhaar'] is List) {
+          try {
+            final udh = (res['udhaar'] as List)
+                .map((e) => UdhaarRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList();
+            await saveUdhaar(udh);
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Udhaar parse error: $e');
+          }
+        }
+
+        // 6. Sync staff
+        if (res['staff'] != null && res['staff'] is List) {
+          try {
+            final stf = (res['staff'] as List)
+                .map((e) => StaffMember.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList();
+            await saveStaff(stf);
+          } catch (e) {
+            debugPrint('[EnterpriseSync] Staff parse error: $e');
+          }
+        }
+
+        // Clear flushed outbox ONLY after successful database reconciliation
         await clearOutbox();
         return true;
       }
     } catch (e) {
-      debugPrint('[EnterpriseSync] Local fallback retained: $e');
+      debugPrint('[EnterpriseSync] Local fallback retained (offline/weak network): $e');
     }
     return false;
   }

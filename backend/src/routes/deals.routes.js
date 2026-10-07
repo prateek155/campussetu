@@ -32,9 +32,13 @@ router.use(requireAuth);
 // The controller caches only the public deal catalog, avoiding duplicate
 // response caches with conflicting invalidation rules.
 router.get('/', dealsController.getDeals);
+router.get('/admin/all', requireAdmin, dealsController.getAdminDeals);
+router.get('/:id/redemptions', requireAdmin, dealsController.getDealRedemptions);
 
 // Admin mutations update PostgreSQL first, then refresh the catalog cache.
 router.post('/', requireAdmin, upload.single('image'), dealsController.createDeal);
+router.put('/:id', requireAdmin, upload.single('image'), dealsController.updateDeal);
+router.post('/:id/restore', requireAdmin, dealsController.restoreDeal);
 router.delete('/:id', requireAdmin, dealsController.deleteDeal);
 
 module.exports = router;

@@ -1,12 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/config/app_config.dart';
 import '../../core/services/api_service.dart';
 import 'widgets/admin_toast.dart';
 
 class AddEventScreen extends StatefulWidget {
-  const AddEventScreen({super.key});
+  final Map<String, dynamic>? event;
+  const AddEventScreen({super.key, this.event});
 
   @override
   State<AddEventScreen> createState() => _AddEventScreenState();
@@ -28,9 +31,34 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final _linkCtrl = TextEditingController();
   
   XFile? _photo;
+  String? _existingPictureUrl;
   bool _loading = false;
   bool _inAppRegistration = false;
+  bool _enableOrganizerAccess = false;
+  final _organizerIdCtrl = TextEditingController();
+  final _organizerPasswordCtrl = TextEditingController();
+  bool _showOrganizerPassword = false;
   final _picker = ImagePicker();
+
+  bool get _isEditing => widget.event != null;
+  String get _eventId => (widget.event?['_id'] ?? widget.event?['id'] ?? '').toString();
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      final e = widget.event!;
+      _nameCtrl.text = (e['name'] ?? e['title'] ?? '').toString();
+      _descCtrl.text = (e['description'] ?? '').toString();
+      _placeCtrl.text = (e['place'] ?? e['venue'] ?? '').toString();
+      _timeDateCtrl.text = (e['time_date'] ?? e['date'] ?? '').toString();
+      _inAppRegistration = e['registration_mode'] == 'internal';
+      _linkCtrl.text = (e['registration_link'] ?? e['link'] ?? '').toString();
+      _existingPictureUrl = (e['picture_url'] ?? e['image_url'] ?? e['image'] ?? '').toString();
+      _enableOrganizerAccess = e['organizer_access_enabled'] == true;
+      _organizerIdCtrl.text = (e['organizer_id'] ?? '').toString();
+    }
+  }
 
   Future<void> _submit() async {
     if (_nameCtrl.text.trim().isEmpty) {
@@ -64,18 +92,36 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
     setState(() => _loading = true);
     try {
-      await ApiService().createEvent({
+      final payload = {
         'name': _nameCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         'place': _placeCtrl.text.trim(),
         'time_date': _timeDateCtrl.text.trim(),
         'registration_mode': _inAppRegistration ? 'internal' : 'external',
-        if (!_inAppRegistration) 'registration_link': _linkCtrl.text.trim(),
-      }, photoPath: _photo?.path);
+        'registration_link': _inAppRegistration ? null : _linkCtrl.text.trim(),
+        if (_inAppRegistration) ...{
+          'organizer_access_enabled': _enableOrganizerAccess,
+          if (_enableOrganizerAccess) ...{
+            if (_organizerIdCtrl.text.trim().isNotEmpty)
+              'organizer_id': _organizerIdCtrl.text.trim(),
+            if (_organizerPasswordCtrl.text.trim().isNotEmpty)
+              'organizer_password': _organizerPasswordCtrl.text.trim(),
+          },
+        },
+      };
 
-      if (mounted) {
-        _snack('Event added successfully!', _green);
-        context.pop();
+      if (_isEditing) {
+        await ApiService().updateEvent(_eventId, payload, photoPath: _photo?.path);
+        if (mounted) {
+          _snack('Event updated successfully!', _green);
+          context.pop(true);
+        }
+      } else {
+        await ApiService().createEvent(payload, photoPath: _photo?.path);
+        if (mounted) {
+          _snack('Event added successfully!', _green);
+          context.pop(true);
+        }
       }
     } catch (e) {
       if (mounted) _snack('Error: $e', _red);
@@ -99,6 +145,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
     _placeCtrl.dispose();
     _timeDateCtrl.dispose();
     _linkCtrl.dispose();
+    _organizerIdCtrl.dispose();
+    _organizerPasswordCtrl.dispose();
     super.dispose();
   }
 
@@ -109,7 +157,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
       appBar: AppBar(
         backgroundColor: _card,
         elevation: 0,
-        title: const Text('Add Campus Event', style: TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w600)),
+        title: Text(
+          _isEditing ? 'Edit Campus Event' : 'Add Campus Event',
+          style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w600),
+        ),
         iconTheme: const IconThemeData(color: _ink),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -130,74 +181,184 @@ class _AddEventScreenState extends State<AddEventScreen> {
             const SizedBox(height: 20),
             
             const _Label('Place / Venue'),
-            _Field(controller: _placeCtrl, hint: 'e.g. Main Auditorium'),
+            _Field(controller: _placeCtrl, hint: 'e.g. Main Auditorium / Campus Ground'),
             const SizedBox(height: 20),
             
             const _Label('Time & Date'),
-            _Field(controller: _timeDateCtrl, hint: 'e.g. Oct 12, 10:00 AM'),
+            _Field(controller: _timeDateCtrl, hint: 'e.g. Tomorrow at 5:00 PM'),
             const SizedBox(height: 20),
-            
-            const _Label('How can students register?'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('External registration link'),
-                  selected: !_inAppRegistration,
-                  onSelected: _loading ? null : (_) => setState(() => _inAppRegistration = false),
-                  selectedColor: _purple.withValues(alpha: 0.25),
-                  labelStyle: TextStyle(color: !_inAppRegistration ? _ink : const Color(0xFF9CA3AF)),
+
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF141728),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _inAppRegistration
+                      ? const Color(0xFF3FD8F5).withValues(alpha: 0.5)
+                      : _border,
                 ),
-                ChoiceChip(
-                  label: const Text('Register on CampusSetu'),
-                  selected: _inAppRegistration,
-                  onSelected: _loading ? null : (_) => setState(() => _inAppRegistration = true),
-                  selectedColor: _purple.withValues(alpha: 0.25),
-                  labelStyle: TextStyle(color: _inAppRegistration ? _ink : const Color(0xFF9CA3AF)),
-                ),
-              ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _inAppRegistration ? Icons.how_to_reg_rounded : Icons.link_rounded,
+                        color: _inAppRegistration ? const Color(0xFF3FD8F5) : const Color(0xFF9CA3AF),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'In-App Registration',
+                          style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Switch(
+                        value: _inAppRegistration,
+                        onChanged: (val) => setState(() => _inAppRegistration = val),
+                        activeThumbColor: const Color(0xFF3FD8F5),
+                        activeTrackColor: const Color(0xFF3FD8F5).withValues(alpha: 0.3),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _inAppRegistration
+                        ? 'Students can register directly inside CampusSetu with 1 tap. You can track, manage, edit, and export attendees.'
+                        : 'Students will be directed to your external Google Form / website link.',
+                    style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+                  ),
+                  if (!_inAppRegistration) ...[
+                    const SizedBox(height: 14),
+                    const _Label('Registration Link'),
+                    _Field(controller: _linkCtrl, hint: 'https://forms.gle/...'),
+                  ] else ...[
+                    const SizedBox(height: 16),
+                    const Divider(color: _border),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, color: Color(0xFFF59E0B), size: 18),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Organizer / Manager Login Access',
+                            style: TextStyle(color: Color(0xFFE9EBEE), fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Switch(
+                          value: _enableOrganizerAccess,
+                          onChanged: (val) => setState(() => _enableOrganizerAccess = val),
+                          activeThumbColor: const Color(0xFFF59E0B),
+                          activeTrackColor: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Allow college fest / event club team to view attendees, mark attendance, and export Excel on desk without Super Admin access.',
+                      style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
+                    ),
+                    if (_enableOrganizerAccess) ...[
+                      const SizedBox(height: 14),
+                      const _Label('Organizer Username / ID'),
+                      _Field(
+                        controller: _organizerIdCtrl,
+                        hint: 'e.g. techfest2026 or leave blank for auto code',
+                      ),
+                      const SizedBox(height: 14),
+                      const _Label('Organizer Password'),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141728),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _border),
+                        ),
+                        child: TextField(
+                          controller: _organizerPasswordCtrl,
+                          obscureText: !_showOrganizerPassword,
+                          style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: _isEditing ? 'Enter new password to update' : 'Set password for event desk team',
+                            hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: InputBorder.none,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _showOrganizerPassword ? Icons.visibility_off : Icons.visibility,
+                                color: const Color(0xFF9CA3AF),
+                                size: 18,
+                              ),
+                              onPressed: () => setState(() => _showOrganizerPassword = !_showOrganizerPassword),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            final orgId = _organizerIdCtrl.text.trim().isNotEmpty
+                                ? _organizerIdCtrl.text.trim()
+                                : (_isEditing ? (widget.event?['event_code'] ?? widget.event?['id']) : 'Auto Event Code');
+                            final pwd = _organizerPasswordCtrl.text.trim();
+                            final link = '${AppConfig.userWebBaseUrl}/events?manage=true';
+                            final creds = 'Event: ${_nameCtrl.text.trim()}\nOrganizer ID: $orgId\nPassword: $pwd\nLogin Link: $link';
+                            Clipboard.setData(ClipboardData(text: creds));
+                            AdminToast.success(context, 'Organizer credentials copied to clipboard!');
+                          },
+                          icon: const Icon(Icons.copy_rounded, color: Color(0xFFF59E0B), size: 16),
+                          label: const Text(
+                            'Copy Organizer Credentials',
+                            style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            if (_inAppRegistration)
-              const Padding(
-                padding: EdgeInsets.only(left: 2, top: 4),
-                child: Text(
-                  'Students can register with their CampusSetu account. You can view the attendee list from Content Management.',
-                  style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, height: 1.45),
-                ),
-              )
-            else ...[
-              const _Label('Registration Link (URL)'),
-              _Field(controller: _linkCtrl, hint: 'e.g. https://forms.gle/...'),
-            ],
             const SizedBox(height: 20),
-            
-            const _Label('Picture (Optional)'),
+
+            const _Label('Event Banner / Photo (Optional)'),
             _PhotoPicker(
               photo: _photo,
+              existingImageUrl: _existingPictureUrl,
               onTap: () async {
                 final xf = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
                 if (xf != null) setState(() => _photo = xf);
               },
             ),
-            
             const SizedBox(height: 32),
+
             GestureDetector(
               onTap: _loading ? null : _submit,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+              child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: _loading ? _purple.withValues(alpha: 0.5) : _purple,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: _loading ? [] : [BoxShadow(color: _purple.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _purple.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: _loading
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Publish Event', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(
+                          _isEditing ? 'Update Event' : 'Publish Event',
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
                 ),
               ),
             ),
@@ -253,15 +414,22 @@ class _Field extends StatelessWidget {
 
 class _PhotoPicker extends StatelessWidget {
   final XFile? photo;
+  final String? existingImageUrl;
   final VoidCallback onTap;
 
-  const _PhotoPicker({required this.photo, required this.onTap});
+  const _PhotoPicker({
+    required this.photo,
+    this.existingImageUrl,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     const border  = Color(0xFF252840);
     const purple  = Color(0xFFA855F7);
     const cardAlt = Color(0xFF1C2033);
+
+    final hasExisting = existingImageUrl != null && existingImageUrl!.isNotEmpty;
 
     return GestureDetector(
       onTap: onTap,
@@ -271,7 +439,7 @@ class _PhotoPicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardAlt,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: photo != null ? purple.withValues(alpha: 0.4) : border),
+          border: Border.all(color: (photo != null || hasExisting) ? purple.withValues(alpha: 0.4) : border),
         ),
         clipBehavior: Clip.antiAlias,
         child: photo != null
@@ -286,11 +454,30 @@ class _PhotoPicker extends StatelessWidget {
                   ),
                 ),
               ])
-            : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.add_photo_alternate_outlined, color: purple, size: 32),
-                SizedBox(height: 8),
-                Text('Add event photo', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
-              ]),
+            : hasExisting
+                ? Stack(fit: StackFit.expand, children: [
+                    Image.network(existingImageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.grey))),
+                    Positioned(
+                      top: 8, right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.65), borderRadius: BorderRadius.circular(8)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('Change Image', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ])
+                : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, color: purple, size: 32),
+                    SizedBox(height: 8),
+                    Text('Add event photo', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                  ]),
       ),
     );
   }

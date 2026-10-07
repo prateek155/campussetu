@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/services/api_service.dart';
-
 import 'widgets/admin_toast.dart';
 
 class AddDealScreen extends StatefulWidget {
-  const AddDealScreen({super.key});
+  final Map<String, dynamic>? deal;
+  const AddDealScreen({super.key, this.deal});
 
   @override
   State<AddDealScreen> createState() => _AddDealScreenState();
@@ -29,8 +29,26 @@ class _AddDealScreenState extends State<AddDealScreen> {
   final _stateCtrl = TextEditingController();
   
   XFile? _photo;
+  String? _existingBannerUrl;
   bool _loading = false;
   final _picker = ImagePicker();
+
+  bool get _isEditing => widget.deal != null;
+  String get _dealId => (widget.deal?['_id'] ?? widget.deal?['id'] ?? '').toString();
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      final d = widget.deal!;
+      _titleCtrl.text = (d['title'] ?? '').toString();
+      _descCtrl.text = (d['description'] ?? '').toString();
+      _codeCtrl.text = (d['discount_code'] ?? d['code'] ?? '').toString();
+      _cityCtrl.text = (d['city'] ?? '').toString();
+      _stateCtrl.text = (d['state'] ?? '').toString();
+      _existingBannerUrl = (d['banner_url'] ?? d['image'] ?? '').toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -54,17 +72,26 @@ class _AddDealScreenState extends State<AddDealScreen> {
 
     setState(() => _loading = true);
     try {
-      await ApiService().createDeal({
+      final payload = {
         'title': _titleCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
-        if (_codeCtrl.text.trim().isNotEmpty) 'discount_code': _codeCtrl.text.trim(),
-        if (_cityCtrl.text.trim().isNotEmpty) 'city': _cityCtrl.text.trim(),
-        if (_stateCtrl.text.trim().isNotEmpty) 'state': _stateCtrl.text.trim(),
-      }, photoPath: _photo?.path);
+        'discount_code': _codeCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+      };
 
-      if (mounted) {
-        _snack('Deal added successfully!', _green);
-        context.pop();
+      if (_isEditing) {
+        await ApiService().updateDeal(_dealId, payload, photoPath: _photo?.path);
+        if (mounted) {
+          _snack('Deal updated successfully!', _green);
+          context.pop(true);
+        }
+      } else {
+        await ApiService().createDeal(payload, photoPath: _photo?.path);
+        if (mounted) {
+          _snack('Deal added successfully!', _green);
+          context.pop(true);
+        }
       }
     } catch (e) {
       if (mounted) _snack('Error: $e', _red);
@@ -88,7 +115,10 @@ class _AddDealScreenState extends State<AddDealScreen> {
       appBar: AppBar(
         backgroundColor: _card,
         elevation: 0,
-        title: const Text('Add New Deal', style: TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w600)),
+        title: Text(
+          _isEditing ? 'Edit Deal' : 'Add New Deal',
+          style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w600),
+        ),
         iconTheme: const IconThemeData(color: _ink),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -145,6 +175,7 @@ class _AddDealScreenState extends State<AddDealScreen> {
             const _Label('Banner Image (Optional)'),
             _PhotoPicker(
               photo: _photo,
+              existingImageUrl: _existingBannerUrl,
               onTap: () async {
                 final xf = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
                 if (xf != null) setState(() => _photo = xf);
@@ -160,14 +191,30 @@ class _AddDealScreenState extends State<AddDealScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 decoration: BoxDecoration(
                   color: _loading ? _purple.withValues(alpha: 0.5) : _purple,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: _loading ? [] : [BoxShadow(color: _purple.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _purple.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Center(
-                  child: _loading
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Post Deal', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-                ),
+                alignment: Alignment.center,
+                child: _loading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        _isEditing ? 'Update Deal' : 'Publish Deal',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -184,8 +231,16 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 2),
-      child: Text(text, style: const TextStyle(color: Color(0xFFE9EBEE), fontSize: 14, fontWeight: FontWeight.w500)),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFE9EBEE),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
     );
   }
 }
@@ -222,15 +277,22 @@ class _Field extends StatelessWidget {
 
 class _PhotoPicker extends StatelessWidget {
   final XFile? photo;
+  final String? existingImageUrl;
   final VoidCallback onTap;
 
-  const _PhotoPicker({required this.photo, required this.onTap});
+  const _PhotoPicker({
+    required this.photo,
+    this.existingImageUrl,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     const border  = Color(0xFF252840);
     const purple  = Color(0xFFA855F7);
     const cardAlt = Color(0xFF1C2033);
+
+    final hasExisting = existingImageUrl != null && existingImageUrl!.isNotEmpty;
 
     return GestureDetector(
       onTap: onTap,
@@ -240,7 +302,7 @@ class _PhotoPicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardAlt,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: photo != null ? purple.withValues(alpha: 0.4) : border),
+          border: Border.all(color: (photo != null || hasExisting) ? purple.withValues(alpha: 0.4) : border),
         ),
         clipBehavior: Clip.antiAlias,
         child: photo != null
@@ -255,11 +317,30 @@ class _PhotoPicker extends StatelessWidget {
                   ),
                 ),
               ])
-            : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.add_photo_alternate_outlined, color: purple, size: 32),
-                SizedBox(height: 8),
-                Text('Add banner photo', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
-              ]),
+            : hasExisting
+                ? Stack(fit: StackFit.expand, children: [
+                    Image.network(existingImageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.grey))),
+                    Positioned(
+                      top: 8, right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.65), borderRadius: BorderRadius.circular(8)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('Change Image', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ])
+                : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, color: purple, size: 32),
+                    SizedBox(height: 8),
+                    Text('Add banner photo', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                  ]),
       ),
     );
   }
