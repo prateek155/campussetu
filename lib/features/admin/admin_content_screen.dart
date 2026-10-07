@@ -833,8 +833,8 @@ class _FlatmateCard extends StatelessWidget {
 // ── Add Flatmate BottomSheet ─────────────────────────────────
 
 class AddFlatmateSheet extends StatefulWidget {
-  final VoidCallback onSubmitted;
-  const AddFlatmateSheet({super.key, required this.onSubmitted});
+  final VoidCallback? onSubmitted;
+  const AddFlatmateSheet({super.key, this.onSubmitted});
 
   @override
   State<AddFlatmateSheet> createState() => _AddFlatmateSheetState();
@@ -899,7 +899,7 @@ class _AddFlatmateSheetState extends State<AddFlatmateSheet> {
       if (mounted) {
         Navigator.pop(context);
         AdminToast.success(context, 'Flatmate listing added');
-        widget.onSubmitted();
+        widget.onSubmitted?.call();
       }
     } catch (e) {
       if (mounted) AdminToast.error(context, 'Error: $e');
