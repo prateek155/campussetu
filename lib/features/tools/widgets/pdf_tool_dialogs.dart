@@ -115,6 +115,21 @@ class PdfToolDialogs {
       ),
     );
   }
+
+  /// 8. PDF TO PPT / PPTX (.pptx)
+  static void showPdfToPptxDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _ToolModalShell(
+        title: 'PDF to PowerPoint (.pptx)',
+        icon: Icons.co_present_rounded,
+        color: Color(0xFFFB923C),
+        child: _PdfToPptxContent(),
+      ),
+    );
+  }
 }
 
 // ── Common Primary Action Button ──────────────────────────────
@@ -402,6 +417,171 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
             text: 'Download Word (.docx)',
             icon: Icons.download_rounded,
             onPressed: _downloadDocx,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── 8. PDF TO PPT / PPTX CONTENT ──────────────────────────────
+class _PdfToPptxContent extends StatefulWidget {
+  const _PdfToPptxContent();
+  @override
+  State<_PdfToPptxContent> createState() => _PdfToPptxContentState();
+}
+
+class _PdfToPptxContentState extends State<_PdfToPptxContent> {
+  String? _fileName;
+  Uint8List? _pdfBytes;
+  int _totalPages = 0;
+  int _fileSize = 0;
+  bool _isProcessing = false;
+  Uint8List? _pptxBytes;
+
+  Future<void> _pickPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    Uint8List? bytes = file.bytes;
+    if (bytes == null && !kIsWeb && file.path != null) {
+      bytes = await File(file.path!).readAsBytes();
+    }
+    if (bytes == null) return;
+
+    final count = PdfToolsService.getPageCount(bytes);
+    setState(() {
+      _fileName = file.name;
+      _pdfBytes = bytes;
+      _totalPages = count;
+      _fileSize = bytes!.lengthInBytes;
+      _isProcessing = false;
+      _pptxBytes = null;
+    });
+  }
+
+  Future<void> _convertToPptx() async {
+    if (_pdfBytes == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final base = (_fileName ?? 'presentation').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+      final res = await PdfToolsService.pdfToPptx(_pdfBytes!, title: base);
+      if (mounted) setState(() => _pptxBytes = res);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error converting PDF to PowerPoint: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _downloadPptx() async {
+    if (_pptxBytes == null) return;
+    final name = (_fileName ?? 'converted').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+    await saveAndDownloadFile(_pptxBytes!, '${name}_presentation.pptx');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('PowerPoint presentation (.pptx) downloaded successfully!'),
+        backgroundColor: AppColors.success,
+      ));
+    }
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        NeuCard(
+          padding: const EdgeInsets.all(20),
+          onTap: _pickPdf,
+          child: Column(
+            children: [
+              const Icon(Icons.co_present_rounded, size: 40, color: Color(0xFFFB923C)),
+              const SizedBox(height: 8),
+              Text(
+                _fileName ?? 'Select or Drop PDF file',
+                style: AppTypography.interBody(weight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _pdfBytes != null
+                    ? '$_totalPages slide(s) • ${_formatSize(_fileSize)}'
+                    : 'Convert PDF pages into editable PowerPoint slides (.pptx)',
+                style: AppTypography.interCaption(color: AppColors.inkSoft),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_isProcessing)
+          const Center(child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Rendering slides & creating presentation...'),
+              ],
+            ),
+          ))
+        else if (_pdfBytes != null && _pptxBytes == null) ...[
+          _ToolActionButton(
+            text: 'Convert to PowerPoint (.pptx)',
+            icon: Icons.slideshow_rounded,
+            onPressed: _convertToPptx,
+          ),
+        ] else if (_pptxBytes != null) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFB923C).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Color(0xFFFB923C), size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Conversion Complete!',
+                        style: AppTypography.interLabel(color: AppColors.ink),
+                      ),
+                      Text(
+                        'PowerPoint (.pptx) with $_totalPages slide(s) is ready',
+                        style: AppTypography.interCaption(color: AppColors.inkSoft),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _ToolActionButton(
+            text: 'Download PowerPoint (.pptx)',
+            icon: Icons.download_rounded,
+            onPressed: _downloadPptx,
           ),
         ],
       ],
@@ -879,6 +1059,7 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
   String? _fileName;
   Uint8List? _compressedBytes;
   bool _isCompressing = false;
+  int _qualityLevel = 2; // 1 = High Quality, 2 = Balanced, 3 = Maximum Compression
 
   Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
@@ -905,7 +1086,7 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
     if (_originalBytes == null) return;
     setState(() => _isCompressing = true);
     try {
-      final compressed = await PdfToolsService.compressPdf(_originalBytes!);
+      final compressed = await PdfToolsService.compressPdf(_originalBytes!, qualityLevel: _qualityLevel);
       setState(() => _compressedBytes = compressed);
     } catch (e) {
       if (mounted) {
@@ -939,15 +1120,59 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
                 style: AppTypography.interBody(weight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
-              if (_originalBytes != null)
+              if (_originalBytes != null) ...[
+                const SizedBox(height: 4),
                 Text('Original Size: ${_formatSize(_originalBytes!.lengthInBytes)}', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+              ],
             ],
           ),
         ),
         if (_originalBytes != null) ...[
+          const SizedBox(height: 14),
+          Text('Compression Level:', style: AppTypography.interLabel(color: AppColors.ink)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Balanced', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _qualityLevel == 2,
+                  onSelected: (sel) => setState(() => _qualityLevel = 2),
+                  selectedColor: AppColors.cyanDeep.withValues(alpha: 0.2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Maximum', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _qualityLevel == 3,
+                  onSelected: (sel) => setState(() => _qualityLevel = 3),
+                  selectedColor: Colors.purple.withValues(alpha: 0.2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('High Quality', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _qualityLevel == 1,
+                  onSelected: (sel) => setState(() => _qualityLevel = 1),
+                  selectedColor: Colors.blue.withValues(alpha: 0.2),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (_isCompressing)
-            const Center(child: CircularProgressIndicator())
+            const Center(child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Optimizing & compressing PDF pages...'),
+                ],
+              ),
+            ))
           else
             _ToolActionButton(
               text: 'Compress PDF Now',
@@ -956,27 +1181,41 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
             ),
           if (_compressedBytes != null) ...[
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: AppColors.success),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Compressed Size: ${_formatSize(_compressedBytes!.lengthInBytes)}', style: AppTypography.interLabel(color: AppColors.ink)),
-                        Text('Optimized streams & objects', style: AppTypography.interCaption(color: AppColors.inkSoft)),
-                      ],
-                    ),
+            Builder(
+              builder: (context) {
+                final orig = _originalBytes!.lengthInBytes;
+                final comp = _compressedBytes!.lengthInBytes;
+                final double savedPct = orig > 0 ? ((orig - comp) / orig * 100).clamp(0.0, 99.9) : 0.0;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Compressed: ${_formatSize(comp)} (${savedPct.toStringAsFixed(1)}% saved!)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.success),
+                            ),
+                            Text(
+                              'Original: ${_formatSize(orig)} • All content intact',
+                              style: AppTypography.interCaption(color: AppColors.inkSoft),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
             _ToolActionButton(

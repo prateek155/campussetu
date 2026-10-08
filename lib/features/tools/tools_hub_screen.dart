@@ -151,6 +151,13 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                             onTap: () => PdfToolDialogs.showPdfToWordDialog(context),
                           ),
                           _ToolItem(
+                            title: 'PDF to PPT / PPTX',
+                            description: 'Convert PDF slides into editable PowerPoint presentations.',
+                            icon: Icons.co_present_rounded,
+                            iconColor: const Color(0xFFFB923C),
+                            onTap: () => PdfToolDialogs.showPdfToPptxDialog(context),
+                          ),
+                          _ToolItem(
                             title: 'Add Watermark',
                             description: 'Add a translucent text watermark to each PDF page on this device.',
                             icon: Icons.branding_watermark_rounded,

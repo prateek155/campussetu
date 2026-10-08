@@ -83,6 +83,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   double _pdfWatermarkOpacity = 0.22;
   Uint8List? _pdfWatermarkedBytes;
 
+  // Compress PDF state
+  int _pdfCompressQuality = 2;
+  Uint8List? _compressedPdfResultBytes;
+
   // Word to PDF state
   final TextEditingController _wordTitleCtrl = TextEditingController(text: 'CampusSetu Document');
   final TextEditingController _wordTextCtrl = TextEditingController();
@@ -1405,7 +1409,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           ),
           const SizedBox(height: 20),
           if (_isProcessing)
-            const CircularProgressIndicator()
+            const Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Rendering slides & creating PowerPoint (.pptx)...'),
+              ],
+            )
           else if (_convertedPptxBytes == null)
             _buildActionExecuteButton(
               label: 'Convert to PowerPoint (.pptx)',
@@ -1826,7 +1836,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
           const SizedBox(height: 18),
           if (_isProcessing)
-            const CircularProgressIndicator()
+            const Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Preserving layout & creating Word document (.docx)...'),
+              ],
+            )
           else if (_pdfToWordResult == null)
             _buildActionExecuteButton(
               label: 'Convert to Word (.docx)',
@@ -2255,7 +2271,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       children: [
         _buildPrimarySelectButton(
           label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF',
-          onTap: () => _pickSingleFile(extensions: ['pdf']),
+          onTap: () {
+            setState(() => _compressedPdfResultBytes = null);
+            _pickSingleFile(extensions: ['pdf']);
+          },
         ),
         const SizedBox(height: 6),
         Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
@@ -2263,34 +2282,122 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           const SizedBox(height: 20),
           Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
           Text('Original Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Compression Level:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Balanced', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _pdfCompressQuality == 2,
+                  onSelected: (sel) => setState(() => _pdfCompressQuality = 2),
+                  selectedColor: AppColors.cyanDeep.withValues(alpha: 0.2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Maximum', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _pdfCompressQuality == 3,
+                  onSelected: (sel) => setState(() => _pdfCompressQuality = 3),
+                  selectedColor: Colors.purple.withValues(alpha: 0.2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('High Quality', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  selected: _pdfCompressQuality == 1,
+                  onSelected: (sel) => setState(() => _pdfCompressQuality = 1),
+                  selectedColor: Colors.blue.withValues(alpha: 0.2),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           if (_isProcessing)
-            const CircularProgressIndicator()
-          else
+            const Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Optimizing & compressing PDF pages...'),
+              ],
+            )
+          else if (_compressedPdfResultBytes == null)
             _buildActionExecuteButton(
-              label: 'Compress & Download PDF',
+              label: 'Compress PDF Now',
               icon: Icons.bolt_rounded,
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final compressed = await PdfToolsService.compressPdf(_selectedFileBytes!);
-                  final base = (_selectedFileName ?? 'doc').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                  final outName = '${base}_compressed.pdf';
-                  await saveAndDownloadFile(compressed, outName);
-                  _recordRecentFile(outName, compressed, true);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Compressed to ${_formatSize(compressed.lengthInBytes)}!'),
-                      backgroundColor: AppColors.success,
-                    ));
-                  }
+                  final compressed = await PdfToolsService.compressPdf(_selectedFileBytes!, qualityLevel: _pdfCompressQuality);
+                  setState(() => _compressedPdfResultBytes = compressed);
                 } catch (e) {
                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
               },
+            )
+          else ...[
+            Builder(
+              builder: (context) {
+                final orig = _selectedFileBytes!.lengthInBytes;
+                final comp = _compressedPdfResultBytes!.lengthInBytes;
+                final double savedPct = orig > 0 ? ((orig - comp) / orig * 100).clamp(0.0, 99.9) : 0.0;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Compressed: ${_formatSize(comp)} (${savedPct.toStringAsFixed(1)}% saved!)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF10B981)),
+                            ),
+                            Text(
+                              'Original: ${_formatSize(orig)} • All pages & content intact',
+                              style: TextStyle(fontSize: 12, color: textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
+            const SizedBox(height: 16),
+            _buildActionExecuteButton(
+              label: 'Download Compressed PDF',
+              icon: Icons.download_rounded,
+              onTap: () async {
+                final base = (_selectedFileName ?? 'doc').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                final outName = '${base}_compressed.pdf';
+                await saveAndDownloadFile(_compressedPdfResultBytes!, outName);
+                _recordRecentFile(outName, _compressedPdfResultBytes!, true);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Compressed PDF downloaded!'),
+                    backgroundColor: AppColors.success,
+                  ));
+                }
+              },
+            ),
+          ],
         ],
       ],
     );
