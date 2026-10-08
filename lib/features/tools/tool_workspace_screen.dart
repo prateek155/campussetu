@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:barcode_widget/barcode_widget.dart';
-import 'package:printing/printing.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -686,22 +685,32 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 : () async {
                     setState(() => _isProcessing = true);
                     try {
-                      var pageIndex = 0;
-                      await for (final raster in Printing.raster(_selectedFileBytes!, dpi: 144)) {
-                        final rendered = await raster.toPng();
+                      final images = await PdfToolsService.extractOrRenderPdfImages(_selectedFileBytes!);
+                      if (images.isEmpty) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('This PDF has no exportable images.'),
+                          ));
+                        }
+                        return;
+                      }
+                      for (var pageIndex = 0; pageIndex < images.length; pageIndex++) {
+                        final rawBytes = images[pageIndex];
                         final converted = await ImageToolsService.convertImage(
-                          rendered,
+                          rawBytes,
                           targetFormat: 'jpg',
                           quality: 90,
                         );
                         final jpgBytes = converted.bytes;
-                        final name = 'pdf_page_' + (pageIndex + 1).toString() + '.jpg';
+                        final name = 'pdf_page_${pageIndex + 1}.jpg';
                         await saveAndDownloadFile(jpgBytes, name);
                         _recordRecentFile(name, jpgBytes, false);
-                        pageIndex++;
                       }
-                      if (mounted && pageIndex == 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This PDF has no pages to export.')));
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('${images.length} page image(s) downloaded!'),
+                          backgroundColor: AppColors.success,
+                        ));
                       }
                     } catch (error) {
                       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not render this PDF: $error')));

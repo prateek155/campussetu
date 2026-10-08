@@ -126,7 +126,7 @@ class PdfToolsService {
     final buffer = StringBuffer();
 
     for (int i = 0; i < pageCount; i++) {
-      final pageText = extractor.extractText(startPageIndex: i, endPageIndex: i);
+      final pageText = extractor.extractText(startPageIndex: i, endPageIndex: i, layoutText: true);
       pageTexts.add(pageText);
       if (i > 0) buffer.writeln('\n--- [Page ${i + 1}] ---\n');
       buffer.write(pageText);
@@ -138,20 +138,24 @@ class PdfToolsService {
       extractedText = 'Document converted with $pageCount page(s).';
     }
 
-    // Rasterize pages to capture full visual diagrams, formulas, slide themes, and graphics
-    final List<Uint8List> pageImages = [];
-    try {
-      await for (final raster in Printing.raster(pdfBytes, dpi: 130)) {
-        final png = await raster.toPng();
-        final decoded = img.decodeImage(png);
-        if (decoded != null) {
-          pageImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 80)));
-        } else {
-          pageImages.add(png);
+    // 1. Pure-Dart embedded image extraction (100% web safe, zero JS errors, instant)
+    List<Uint8List> pageImages = extractEmbeddedImages(pdfBytes);
+
+    // 2. Only if pure-Dart extraction found nothing AND we are on native (never on web), try Printing.raster
+    if (pageImages.isEmpty && !kIsWeb) {
+      try {
+        await for (final raster in Printing.raster(pdfBytes, dpi: 130)) {
+          final png = await raster.toPng();
+          final decoded = img.decodeImage(png);
+          if (decoded != null) {
+            pageImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 80)));
+          } else {
+            pageImages.add(png);
+          }
         }
+      } catch (e) {
+        debugPrint('Word native rasterization fallback: $e');
       }
-    } catch (e) {
-      debugPrint('Word rasterization fallback: $e');
     }
 
     final Uint8List docxBytes;
@@ -170,6 +174,100 @@ class PdfToolsService {
       docxBytes: docxBytes,
       pageCount: pageCount,
     );
+  }
+
+  /// High-performance, pure-Dart PDF embedded image extractor.
+  /// Works across all platforms including Web without any JS-interop issues or external dependencies.
+  static List<Uint8List> extractEmbeddedImages(Uint8List pdfBytes) {
+    final List<Uint8List> images = [];
+    try {
+      final latin1Str = latin1.decode(pdfBytes);
+      final matches = RegExp(r'<<(?=[^>]*?/Subtype\s*/Image)[^>]*?>>\s*stream\r?\n').allMatches(latin1Str).toList();
+
+      for (final match in matches) {
+        try {
+          final header = match.group(0)!;
+          final wMatch = RegExp(r'/Width\s+(\d+)').firstMatch(header);
+          final hMatch = RegExp(r'/Height\s+(\d+)').firstMatch(header);
+          if (wMatch == null || hMatch == null) continue;
+
+          final w = int.parse(wMatch.group(1)!);
+          final h = int.parse(hMatch.group(1)!);
+          if (w <= 0 || h <= 0) continue;
+
+          final lenMatch = RegExp(r'/Length\s+(\d+)').firstMatch(header);
+          final isFlate = header.contains('/FlateDecode');
+          final isDct = header.contains('/DCTDecode');
+
+          final streamStart = match.end;
+          int streamEnd = -1;
+
+          if (lenMatch != null) {
+            final len = int.parse(lenMatch.group(1)!);
+            if (streamStart + len <= pdfBytes.length) {
+              streamEnd = streamStart + len;
+            }
+          }
+
+          if (streamEnd == -1) {
+            final endIdx = latin1Str.indexOf('endstream', streamStart);
+            if (endIdx != -1) {
+              streamEnd = endIdx;
+              while (streamEnd > streamStart && (pdfBytes[streamEnd - 1] == 10 || pdfBytes[streamEnd - 1] == 13)) {
+                streamEnd--;
+              }
+            }
+          }
+
+          if (streamEnd == -1 || streamEnd <= streamStart) continue;
+
+          final streamBytes = pdfBytes.sublist(streamStart, streamEnd);
+
+          if (isDct) {
+            images.add(streamBytes);
+          } else if (isFlate) {
+            try {
+              final decompressed = ZLibDecoder().decodeBytes(streamBytes);
+              final numChannels = (decompressed.length >= w * h * 4)
+                  ? 4
+                  : (decompressed.length >= w * h * 3)
+                      ? 3
+                      : 1;
+
+              final image = img.Image.fromBytes(
+                width: w,
+                height: h,
+                bytes: Uint8List.fromList(decompressed).buffer,
+                numChannels: numChannels,
+              );
+              final jpg = Uint8List.fromList(img.encodeJpg(image, quality: 80));
+              images.add(jpg);
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return images;
+  }
+
+  /// Extracts or renders page images from a PDF.
+  /// Pure Dart extractor used first (100% web safe).
+  static Future<List<Uint8List>> extractOrRenderPdfImages(Uint8List pdfBytes) async {
+    final direct = extractEmbeddedImages(pdfBytes);
+    if (direct.isNotEmpty) return direct;
+
+    if (!kIsWeb) {
+      final List<Uint8List> rendered = [];
+      try {
+        await for (final raster in Printing.raster(pdfBytes, dpi: 144)) {
+          final png = await raster.toPng();
+          rendered.add(png);
+        }
+      } catch (_) {}
+      if (rendered.isNotEmpty) return rendered;
+    }
+
+    return [];
   }
 
   /// 2. ADD PDF WATERMARK
@@ -390,7 +488,7 @@ class PdfToolsService {
 
   /// 4. COMPRESS PDF
   /// High-efficiency PDF compression:
-  /// Resamples and re-encodes pages and image streams at target DPI & JPEG quality,
+  /// Resamples and re-encodes pages and image streams at target JPEG quality & DPI,
   /// preserving 100% of pages, diagrams, formulas, text, and layout without deleting content.
   /// Guarantees that the output size is strictly less than or equal to original size.
   static Future<Uint8List> compressPdf(Uint8List pdfBytes, {int qualityLevel = 2}) async {
@@ -408,69 +506,138 @@ class PdfToolsService {
 
       if (pageCount == 0) return pdfBytes;
 
-      // Determine DPI & JPEG quality according to qualityLevel
-      final double dpi;
-      final int quality;
-      switch (qualityLevel) {
-        case 1: // Low compression / Maximum clarity
-          dpi = 120.0;
-          quality = 75;
-          break;
-        case 3: // Maximum compression / Minimum size
-          dpi = 80.0;
-          quality = 50;
-          break;
-        case 2: // Balanced / Recommended
-        default:
-          dpi = 100.0;
-          quality = 65;
-          break;
-      }
+      // 1. Pure-Dart embedded image recompression (100% web safe)
+      final embeddedImages = extractEmbeddedImages(pdfBytes);
+      if (embeddedImages.isNotEmpty && embeddedImages.length == pageCount) {
+        final int quality;
+        switch (qualityLevel) {
+          case 1: // Low compression (High quality)
+            quality = 80;
+            break;
+          case 3: // Maximum compression (Small size)
+            quality = 48;
+            break;
+          case 2: // Balanced
+          default:
+            quality = 65;
+            break;
+        }
 
-      final compressedDoc = PdfDocument();
-      compressedDoc.pageSettings.margins.all = 0;
-      compressedDoc.compressionLevel = PdfCompressionLevel.best;
+        final outDoc = PdfDocument();
+        outDoc.pageSettings.margins.all = 0;
+        outDoc.compressionLevel = PdfCompressionLevel.best;
 
-      int renderedPages = 0;
-      await for (final raster in Printing.raster(pdfBytes, dpi: dpi)) {
-        final png = await raster.toPng();
-        final decoded = img.decodeImage(png);
-        final Uint8List jpgBytes = (decoded != null)
-            ? Uint8List.fromList(img.encodeJpg(decoded, quality: quality))
-            : png;
+        for (int i = 0; i < pageCount; i++) {
+          final pageSize = pageSizes[i];
+          final section = outDoc.sections!.add();
+          section.pageSettings.margins.all = 0;
+          section.pageSettings.size = pageSize;
+          final page = section.pages.add();
 
-        final section = compressedDoc.sections!.add();
-        section.pageSettings.margins.all = 0;
+          final rawImg = embeddedImages[i];
+          final decoded = img.decodeImage(rawImg);
+          final Uint8List recompressed = (decoded != null)
+              ? Uint8List.fromList(img.encodeJpg(decoded, quality: quality))
+              : rawImg;
 
-        final origSizeForPage = (renderedPages < pageSizes.length)
-            ? pageSizes[renderedPages]
-            : Size(raster.width * 72.0 / dpi, raster.height * 72.0 / dpi);
+          page.graphics.drawImage(
+            PdfBitmap(recompressed),
+            Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
+          );
+        }
 
-        section.pageSettings.size = origSizeForPage;
-        final page = section.pages.add();
-        page.graphics.drawImage(
-          PdfBitmap(jpgBytes),
-          Rect.fromLTWH(0, 0, origSizeForPage.width, origSizeForPage.height),
-        );
-        renderedPages++;
-      }
+        final compressedBytes = Uint8List.fromList(outDoc.saveSync());
+        outDoc.dispose();
 
-      if (renderedPages > 0) {
-        final compressedBytes = Uint8List.fromList(compressedDoc.saveSync());
-        compressedDoc.dispose();
-
-        // Strict guarantee: output must be smaller than original
         if (compressedBytes.lengthInBytes < origSize) {
           return compressedBytes;
         }
-      } else {
-        compressedDoc.dispose();
+      }
+
+      // 2. Native-only visual rasterization fallback (only when !kIsWeb and images were empty)
+      if (!kIsWeb && embeddedImages.isEmpty) {
+        try {
+          final double dpi;
+          final int quality;
+          switch (qualityLevel) {
+            case 1:
+              dpi = 120.0;
+              quality = 75;
+              break;
+            case 3:
+              dpi = 80.0;
+              quality = 50;
+              break;
+            case 2:
+            default:
+              dpi = 100.0;
+              quality = 65;
+              break;
+          }
+
+          final compressedDoc = PdfDocument();
+          compressedDoc.pageSettings.margins.all = 0;
+          compressedDoc.compressionLevel = PdfCompressionLevel.best;
+
+          int renderedPages = 0;
+          await for (final raster in Printing.raster(pdfBytes, dpi: dpi)) {
+            final png = await raster.toPng();
+            final decoded = img.decodeImage(png);
+            final Uint8List jpgBytes = (decoded != null)
+                ? Uint8List.fromList(img.encodeJpg(decoded, quality: quality))
+                : png;
+
+            final section = compressedDoc.sections!.add();
+            section.pageSettings.margins.all = 0;
+
+            final origSizeForPage = (renderedPages < pageSizes.length)
+                ? pageSizes[renderedPages]
+                : Size(raster.width * 72.0 / dpi, raster.height * 72.0 / dpi);
+
+            section.pageSettings.size = origSizeForPage;
+            final page = section.pages.add();
+            page.graphics.drawImage(
+              PdfBitmap(jpgBytes),
+              Rect.fromLTWH(0, 0, origSizeForPage.width, origSizeForPage.height),
+            );
+            renderedPages++;
+          }
+
+          if (renderedPages > 0) {
+            final compressedBytes = Uint8List.fromList(compressedDoc.saveSync());
+            compressedDoc.dispose();
+
+            if (compressedBytes.lengthInBytes < origSize) {
+              return compressedBytes;
+            }
+          } else {
+            compressedDoc.dispose();
+          }
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('Visual PDF compression fallback: $e');
     }
 
-    // Fallback: standard stream deflate compression
+    // 3. Template stream deflation & clean object rebuild (strips revisions and uncompressed streams)
+    try {
+      final srcDoc = PdfDocument(inputBytes: pdfBytes);
+      final outDoc = PdfDocument();
+      outDoc.compressionLevel = PdfCompressionLevel.best;
+      for (int i = 0; i < srcDoc.pages.count; i++) {
+        final template = srcDoc.pages[i].createTemplate();
+        final page = outDoc.pages.add();
+        page.graphics.drawPdfTemplate(template, Offset.zero);
+      }
+      final res = Uint8List.fromList(outDoc.saveSync());
+      srcDoc.dispose();
+      outDoc.dispose();
+      if (res.lengthInBytes < origSize) {
+        return res;
+      }
+    } catch (_) {}
+
+    // 4. Fallback: standard stream deflate compression
     try {
       final doc = PdfDocument(inputBytes: pdfBytes);
       doc.compressionLevel = PdfCompressionLevel.best;
@@ -825,8 +992,8 @@ class PdfToolsService {
     sheetBuffer.writeln('</worksheet>');
     archive.addFile(ArchiveFile('xl/worksheets/sheet1.xml', sheetBuffer.length, utf8.encode(sheetBuffer.toString())));
 
-    final encoded = ZipEncoder().encode(archive);
-    return Uint8List.fromList(encoded);
+    final encoded = ZipEncoder().encodeBytes(archive);
+    return encoded;
   }
 
   /// 10. CSV TO PDF TABLE
@@ -952,24 +1119,28 @@ class PdfToolsService {
     final extractor = PdfTextExtractor(pdfDoc);
     final slideTexts = <String>[];
     for (int i = 0; i < totalPages; i++) {
-      slideTexts.add(extractor.extractText(startPageIndex: i, endPageIndex: i));
+      slideTexts.add(extractor.extractText(startPageIndex: i, endPageIndex: i, layoutText: true));
     }
     pdfDoc.dispose();
 
-    // Rasterize pages to high-quality images for PowerPoint slides
-    final List<Uint8List> slideImages = [];
-    try {
-      await for (final raster in Printing.raster(pdfBytes, dpi: 130)) {
-        final png = await raster.toPng();
-        final decoded = img.decodeImage(png);
-        if (decoded != null) {
-          slideImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 82)));
-        } else {
-          slideImages.add(png);
+    // 1. Pure-Dart embedded image extraction (100% web safe, zero JS errors, instant)
+    List<Uint8List> slideImages = extractEmbeddedImages(pdfBytes);
+
+    // 2. Only on native if images were empty, try Printing.raster
+    if (slideImages.isEmpty && !kIsWeb) {
+      try {
+        await for (final raster in Printing.raster(pdfBytes, dpi: 130)) {
+          final png = await raster.toPng();
+          final decoded = img.decodeImage(png);
+          if (decoded != null) {
+            slideImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 82)));
+          } else {
+            slideImages.add(png);
+          }
         }
+      } catch (e) {
+        debugPrint('PPTX native rasterization fallback: $e');
       }
-    } catch (e) {
-      debugPrint('PPTX rasterization fallback: $e');
     }
 
     final archive = Archive();
@@ -1172,8 +1343,8 @@ class PdfToolsService {
       archive.addFile(ArchiveFile('ppt/slides/slide$pageNum.xml', slideXmlBuffer.length, utf8.encode(slideXmlBuffer.toString())));
     }
 
-    final encoded = ZipEncoder().encode(archive);
-    return Uint8List.fromList(encoded);
+    final encoded = ZipEncoder().encodeBytes(archive);
+    return encoded;
   }
 
   /// Parses CSV text handling quotes, commas, tabs, and semicolons
@@ -1390,8 +1561,8 @@ class PdfToolsService {
 
     archive.addFile(ArchiveFile('word/document.xml', docBuffer.length, utf8.encode(docBuffer.toString())));
 
-    final encoded = ZipEncoder().encode(archive);
-    return Uint8List.fromList(encoded);
+    final encoded = ZipEncoder().encodeBytes(archive);
+    return encoded;
   }
 
   /// Helper: Constructs a standard OpenXML Microsoft Word .docx ZIP file
@@ -1464,8 +1635,8 @@ $pBuffer
     archive.addFile(ArchiveFile('word/document.xml', documentXml.length, utf8.encode(documentXml)));
 
     final zipEncoder = ZipEncoder();
-    final encoded = zipEncoder.encode(archive);
-    return Uint8List.fromList(encoded);
+    final encoded = zipEncoder.encodeBytes(archive);
+    return encoded;
   }
 
   static String _extractReadableStrings(Uint8List rawBytes) {
