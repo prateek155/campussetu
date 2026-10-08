@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import '../../core/models/deal_model.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/app_providers.dart';
@@ -38,6 +40,16 @@ class DealsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         title: Text('Campus Deals', style: AppTypography.soraHeading3()),
         iconTheme: IconThemeData(color: AppColors.ink),
         actions: [

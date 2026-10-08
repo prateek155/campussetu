@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import '../../core/models/flatmate_model.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -28,6 +30,16 @@ class FlatmatesScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         title: Text('Flatmates & Rooms', style: AppTypography.soraHeading3()),
         iconTheme: IconThemeData(color: AppColors.ink),
       ),

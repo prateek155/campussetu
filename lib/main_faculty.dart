@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app_faculty.dart';
 import 'firebase_options.dart';
+import 'core/utils/url_strategy/url_strategy.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureUrlStrategy();
   await dotenv.load(fileName: '.env');
 
   await Firebase.initializeApp(

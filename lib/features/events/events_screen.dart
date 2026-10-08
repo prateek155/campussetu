@@ -7,6 +7,7 @@ import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../core/router/app_router.dart';
 import 'widgets/organizer_login_dialog.dart';
 
@@ -42,6 +43,19 @@ class _EventsScreenState extends State<EventsScreen> {
   void initState() {
     super.initState();
     _fetchEvents();
+    if (widget.initialEventCode != null || widget.initialEventId != null) {
+      _checkInitialTarget();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant EventsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialEventCode != oldWidget.initialEventCode ||
+        widget.initialEventId != oldWidget.initialEventId) {
+      _initialTargetHandled = false;
+      _checkInitialTarget();
+    }
   }
 
   Future<void> _fetchEvents() async {
@@ -53,6 +67,7 @@ class _EventsScreenState extends State<EventsScreen> {
       });
       _checkInitialTarget();
     } catch (e) {
+      _checkInitialTarget();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load events: $e')),
@@ -92,6 +107,7 @@ class _EventsScreenState extends State<EventsScreen> {
     if (found != null) {
       setState(() {
         _focusedEvent = found;
+        _isLoading = false;
       });
       if (widget.openOrganizerLogin) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -112,6 +128,7 @@ class _EventsScreenState extends State<EventsScreen> {
         if (mounted) {
           setState(() {
             _focusedEvent = publicEvent;
+            _isLoading = false;
             if (!_events.any((e) => e.id == publicEvent.id)) {
               _events.insert(0, publicEvent);
             }
@@ -673,7 +690,12 @@ class _EventsScreenState extends State<EventsScreen> {
             children: [
               InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => setState(() => _focusedEvent = null),
+                onTap: () {
+                  setState(() => _focusedEvent = null);
+                  if (kIsWeb) {
+                    context.go('/events');
+                  }
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                   child: Row(
@@ -748,9 +770,24 @@ class _EventsScreenState extends State<EventsScreen> {
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: 'All Events',
-                onPressed: () => setState(() => _focusedEvent = null),
+                onPressed: () {
+                  setState(() => _focusedEvent = null);
+                  if (kIsWeb) {
+                    context.go('/events');
+                  }
+                },
               )
-            : null,
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Back to Home',
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutes.home);
+                  }
+                },
+              ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),

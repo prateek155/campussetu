@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_admin.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'core/utils/url_strategy/url_strategy.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureUrlStrategy();
   await dotenv.load(fileName: ".env");
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([

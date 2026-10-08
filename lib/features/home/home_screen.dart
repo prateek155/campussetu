@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -148,6 +149,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  void _openFeature(String route) {
+    if (kIsWeb) {
+      context.go(route);
+    } else {
+      context.push(route);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
@@ -271,15 +280,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       rowHeight: 88,
                       gap: 10,
                       tiles: [
-                        BentoTile(id: 'tools', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.auto_fix_high_rounded, color: const Color(0xFF0284C7), title: 'Tools', subtitle: 'PDF & image utilities', onTap: () => context.push(AppRoutes.tools)),
-                        BentoTile(id: 'alarms', kind: BentoKind.small, w: 1, h: 1, icon: Icons.alarm_rounded, color: const Color(0xFFDB2777), title: 'Alarms', onTap: () => context.push(AppRoutes.alarms)),
-                        BentoTile(id: 'learning', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.quiz_rounded, color: const Color(0xFF7C3AED), title: 'Learning', subtitle: 'Live quizzes & tests', count: (counts['live_quizzes'] ?? 0).toString(), onTap: () => context.push('/quiz')),
-                        BentoTile(id: 'travel', kind: BentoKind.small, w: 1, h: 1, icon: Icons.directions_car_rounded, color: const Color(0xFF0D9488), title: 'Travel', count: (counts['travels'] ?? 0).toString(), onTap: () => context.push('/travel')),
-                        BentoTile(id: 'events', kind: BentoKind.small, w: 1, h: 1, icon: Icons.event_rounded, color: const Color(0xFF4F46E5), title: 'Events', count: (counts['events'] ?? 0).toString(), onTap: () => context.push('/events')),
-                        BentoTile(id: 'helping', kind: BentoKind.small, w: 1, h: 1, icon: Icons.handshake_outlined, color: const Color(0xFFEA580C), title: 'Helping', count: (counts['tasks'] ?? 0).toString(), onTap: () => context.push(AppRoutes.helping)),
-                        BentoTile(id: 'deals', kind: BentoKind.small, w: 1, h: 1, icon: Icons.local_offer_outlined, color: const Color(0xFF16A34A), title: 'Deals', count: (counts['deals'] ?? 0).toString(), onTap: () => context.push(AppRoutes.deals)),
-                        BentoTile(id: 'flatmates', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.home_work_outlined, color: const Color(0xFFE11D48), title: 'Flatmates', subtitle: 'Find rooms and roommates', count: (counts['flatmates'] ?? 0).toString(), onTap: () => context.push(AppRoutes.flatmates)),
-                        if (isAmbassadorOpen) BentoTile(id: 'ambassador', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.campaign_rounded, color: const Color(0xFFF59E0B), title: 'Campus Ambassador', subtitle: 'Lead your campus', badge: 'APPLY', onTap: () => context.push(AppRoutes.ambassador)),
+                        BentoTile(id: 'tools', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.auto_fix_high_rounded, color: const Color(0xFF0284C7), title: 'Tools', subtitle: 'PDF & image utilities', onTap: () => _openFeature(AppRoutes.tools)),
+                        BentoTile(id: 'alarms', kind: BentoKind.small, w: 1, h: 1, icon: Icons.alarm_rounded, color: const Color(0xFFDB2777), title: 'Alarms', onTap: () => _openFeature(AppRoutes.alarms)),
+                        BentoTile(id: 'learning', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.quiz_rounded, color: const Color(0xFF7C3AED), title: 'Learning', subtitle: 'Live quizzes & tests', count: (counts['live_quizzes'] ?? 0).toString(), onTap: () => _openFeature('/quiz')),
+                        BentoTile(id: 'travel', kind: BentoKind.small, w: 1, h: 1, icon: Icons.directions_car_rounded, color: const Color(0xFF0D9488), title: 'Travel', count: (counts['travels'] ?? 0).toString(), onTap: () => _openFeature('/travel')),
+                        BentoTile(id: 'events', kind: BentoKind.small, w: 1, h: 1, icon: Icons.event_rounded, color: const Color(0xFF4F46E5), title: 'Events', count: (counts['events'] ?? 0).toString(), onTap: () => _openFeature('/events')),
+                        BentoTile(id: 'helping', kind: BentoKind.small, w: 1, h: 1, icon: Icons.handshake_outlined, color: const Color(0xFFEA580C), title: 'Helping', count: (counts['tasks'] ?? 0).toString(), onTap: () => _openFeature(AppRoutes.helping)),
+                        BentoTile(id: 'deals', kind: BentoKind.small, w: 1, h: 1, icon: Icons.local_offer_outlined, color: const Color(0xFF16A34A), title: 'Deals', count: (counts['deals'] ?? 0).toString(), onTap: () => _openFeature(AppRoutes.deals)),
+                        BentoTile(id: 'flatmates', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.home_work_outlined, color: const Color(0xFFE11D48), title: 'Flatmates', subtitle: 'Find rooms and roommates', count: (counts['flatmates'] ?? 0).toString(), onTap: () => _openFeature(AppRoutes.flatmates)),
+                        if (isAmbassadorOpen) BentoTile(id: 'ambassador', kind: BentoKind.wide, w: 2, h: 1, icon: Icons.campaign_rounded, color: const Color(0xFFF59E0B), title: 'Campus Ambassador', subtitle: 'Lead your campus', badge: 'APPLY', onTap: () => _openFeature(AppRoutes.ambassador)),
                       ],
                     ),
                   ),

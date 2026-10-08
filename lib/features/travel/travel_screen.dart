@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:campussetu/core/models/travel_model.dart';
 import 'package:campussetu/core/services/api_service.dart';
 import 'package:campussetu/core/theme/app_colors.dart';
+import 'package:campussetu/core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -70,6 +71,16 @@ class _TravelScreenState extends State<TravelScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Helping Travel'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {

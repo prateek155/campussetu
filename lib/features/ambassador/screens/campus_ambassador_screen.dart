@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_typography.dart';
 import '../models/campus_ambassador_model.dart';
@@ -164,7 +165,7 @@ class _CampusAmbassadorScreenState extends ConsumerState<CampusAmbassadorScreen>
             color: isDark ? Colors.white : const Color(0xFF1F2937),
             size: 20,
           ),
-          onPressed: () => context.pop(),
+          onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.home),
         ),
         title: Text(
           'Campus Ambassador',
