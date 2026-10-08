@@ -490,7 +490,7 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                           children: entry.value.map((tool) => ActionChip(
                             avatar: Icon(tool.icon, size: 16, color: tool.iconColor),
                             label: Text(tool.name),
-                            onPressed: () => context.push('/tools/workspace?toolId=' + tool.id),
+                            onPressed: () => context.push('/tools/workspace?toolId=${tool.id}'),
                           )).toList(),
                         ),
                       ],

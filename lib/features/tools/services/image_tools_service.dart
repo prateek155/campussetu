@@ -1,7 +1,6 @@
 // lib/features/tools/services/image_tools_service.dart
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -36,10 +35,10 @@ class ConvertedImageResult {
 
 class ImageToolsService {
   /// 1. IMAGE CONVERTER
-  /// Converts an image to target format (PNG, JPG, BMP, GIF, SVG).
+  /// Converts an image to target format (PNG, JPG, WEBP, BMP, GIF, SVG).
   static Future<ConvertedImageResult> convertImage(
     Uint8List inputBytes, {
-    required String targetFormat, // 'png', 'jpg', 'bmp', 'gif', 'svg'
+    required String targetFormat, // 'png', 'jpg', 'webp', 'bmp', 'gif', 'svg'
     int quality = 90,
   }) async {
     Uint8List effectiveBytes = inputBytes;
@@ -61,6 +60,11 @@ class ImageToolsService {
       case 'png':
         output = Uint8List.fromList(img.encodePng(decoded));
         break;
+      case 'webp':
+        output = Uint8List.fromList(
+          img.encodeWebP(decoded, lossless: false, quality: quality),
+        );
+        break;
       case 'bmp':
         output = Uint8List.fromList(img.encodeBmp(decoded));
         break;
@@ -78,8 +82,11 @@ class ImageToolsService {
         output = Uint8List.fromList(utf8.encode(svgXml));
         break;
       default:
-        output = Uint8List.fromList(img.encodePng(decoded));
-        break;
+        throw ArgumentError.value(
+          targetFormat,
+          'targetFormat',
+          'Choose PNG, JPG, WEBP, BMP, GIF, or SVG.',
+        );
     }
 
     return ConvertedImageResult(
@@ -122,7 +129,8 @@ class ImageToolsService {
     if (decoded == null) throw Exception('Unable to decode image file');
 
     img.Image working = decoded;
-    if (maxDimension != null && (working.width > maxDimension || working.height > maxDimension)) {
+    if (maxDimension != null &&
+        (working.width > maxDimension || working.height > maxDimension)) {
       if (working.width >= working.height) {
         working = img.copyResize(working, width: maxDimension);
       } else {
@@ -130,7 +138,8 @@ class ImageToolsService {
       }
     }
 
-    final compressed = Uint8List.fromList(img.encodeJpg(working, quality: quality));
+    final compressed =
+        Uint8List.fromList(img.encodeJpg(working, quality: quality));
 
     return ConvertedImageResult(
       bytes: compressed,
@@ -164,14 +173,21 @@ class ImageToolsService {
     final decoded = img.decodeImage(inputBytes);
     if (decoded == null) throw Exception('Unable to decode image');
 
-    final xStart = (relativeArea.left * decoded.width).toInt().clamp(0, decoded.width - 1);
-    final yStart = (relativeArea.top * decoded.height).toInt().clamp(0, decoded.height - 1);
-    final w = (relativeArea.width * decoded.width).toInt().clamp(1, decoded.width - xStart);
-    final h = (relativeArea.height * decoded.height).toInt().clamp(1, decoded.height - yStart);
+    final xStart =
+        (relativeArea.left * decoded.width).toInt().clamp(0, decoded.width - 1);
+    final yStart = (relativeArea.top * decoded.height)
+        .toInt()
+        .clamp(0, decoded.height - 1);
+    final w = (relativeArea.width * decoded.width)
+        .toInt()
+        .clamp(1, decoded.width - xStart);
+    final h = (relativeArea.height * decoded.height)
+        .toInt()
+        .clamp(1, decoded.height - yStart);
 
     // Sample border colors around the watermark region to blend seamlessly
     int rSum = 0, gSum = 0, bSum = 0, sampleCount = 0;
-    
+
     // Top & bottom perimeter
     for (int px = xStart; px < xStart + w; px++) {
       final yTop = (yStart - 2).clamp(0, decoded.height - 1);
@@ -294,7 +310,8 @@ Uint8List _removeBackgroundTask(Map<String, Object> args) {
   final height = decoded.height;
   final pixelCount = width * height;
   if (pixelCount > 6000000) {
-    throw ArgumentError('For this offline tool, choose an image up to 6 megapixels.');
+    throw ArgumentError(
+        'For this offline tool, choose an image up to 6 megapixels.');
   }
 
   // Estimate a dominant edge color from a small border sample. The connected
@@ -385,7 +402,8 @@ Uint8List _removeBackgroundTask(Map<String, Object> args) {
         final distance = math.sqrt(dr * dr + dg * dg + db * db);
         final coverage = distance <= hardDistance
             ? 0.0
-            : ((distance - hardDistance) / (softDistance - hardDistance)).clamp(0.0, 1.0);
+            : ((distance - hardDistance) / (softDistance - hardDistance))
+                .clamp(0.0, 1.0);
         alpha = (alpha * coverage).round();
       }
       output.setPixelRgba(
@@ -417,7 +435,8 @@ class _BarcodeCanvasPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Fill white background
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = Colors.white);
 
     const padding = 20.0;
     final textHeight = drawText ? 24.0 : 0.0;
@@ -473,7 +492,9 @@ class _BarcodeCanvasPainter extends CustomPainter {
     } catch (_) {
       // Draw error message on canvas
       final tp = TextPainter(
-        text: TextSpan(text: 'Invalid barcode data: "$data"', style: const TextStyle(color: Colors.red, fontSize: 12)),
+        text: TextSpan(
+            text: 'Invalid barcode data: "$data"',
+            style: const TextStyle(color: Colors.red, fontSize: 12)),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: size.width);
       tp.paint(canvas, const Offset(20.0, 20.0));

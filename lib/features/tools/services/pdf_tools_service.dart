@@ -1,7 +1,6 @@
 // lib/features/tools/services/pdf_tools_service.dart
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, Offset, Rect, Size;
 import 'package:archive/archive.dart';
@@ -46,6 +45,218 @@ enum ImagePdfPageFit {
 }
 
 class PdfToolsService {
+  /// Syncfusion's PDF reader currently assumes a present `/Outlines` catalog
+  /// value is a dictionary or reference. Some valid PDFs serialize an empty
+  /// outline tree as `/Outlines null`, which causes a runtime cast before a
+  /// document can be opened. Rename only that null-valued catalog key to an
+  /// unknown, same-length name so PDF offsets and all page content stay intact.
+  static PdfDocument _openExistingPdf(Uint8List pdfBytes) {
+    return PdfDocument(inputBytes: _normalizeNullCatalogOutlines(pdfBytes));
+  }
+
+  static Uint8List _normalizeNullCatalogOutlines(Uint8List pdfBytes) {
+    if (pdfBytes.isEmpty) return pdfBytes;
+
+    final source = latin1.decode(pdfBytes);
+    if (!source.contains('/Type') || !source.contains('/Outlines')) {
+      return pdfBytes;
+    }
+
+    final catalogTypePattern = RegExp(r'/Type\s*/Catalog\b');
+    for (final catalogType in catalogTypePattern.allMatches(source)) {
+      final objectHeaders = RegExp(r'\b\d+\s+\d+\s+obj\b')
+          .allMatches(source.substring(0, catalogType.start))
+          .toList(growable: false);
+      for (final header in objectHeaders.reversed) {
+        final dictionaryStart = source.indexOf('<<', header.end);
+        if (dictionaryStart < 0 || dictionaryStart >= catalogType.start) {
+          continue;
+        }
+
+        final nullOutlinesKey = _findNullOutlinesCatalogKey(
+          source,
+          dictionaryStart,
+        );
+        if (nullOutlinesKey == null) continue;
+
+        // Both names are nine bytes, so every cross-reference offset remains
+        // valid and the input file length does not change.
+        const replacementName = '/Ignoredx';
+        const originalName = '/Outlines';
+        if (replacementName.length != originalName.length) return pdfBytes;
+        final normalized = source.replaceRange(
+          nullOutlinesKey,
+          nullOutlinesKey + originalName.length,
+          replacementName,
+        );
+        return Uint8List.fromList(latin1.encode(normalized));
+      }
+    }
+
+    return pdfBytes;
+  }
+
+  /// Finds a direct `/Outlines null` key on a catalog dictionary's top level.
+  /// Strings, comments, arrays, and nested dictionaries are skipped so page
+  /// content containing similar text is never modified.
+  static int? _findNullOutlinesCatalogKey(String source, int dictionaryStart) {
+    var dictionaryDepth = 0;
+    var arrayDepth = 0;
+    var isCatalog = false;
+    int? nullOutlinesKey;
+    var index = dictionaryStart;
+
+    while (index < source.length) {
+      final current = source[index];
+
+      if (current == '%') {
+        index = _skipPdfComment(source, index);
+        continue;
+      }
+      if (current == '(') {
+        index = _skipPdfLiteralString(source, index);
+        continue;
+      }
+      if (current == '<') {
+        if (source.startsWith('<<', index)) {
+          dictionaryDepth++;
+          index += 2;
+        } else {
+          index = _skipPdfHexString(source, index);
+        }
+        continue;
+      }
+      if (current == '>' && source.startsWith('>>', index)) {
+        dictionaryDepth--;
+        index += 2;
+        if (dictionaryDepth == 0) break;
+        continue;
+      }
+      if (current == '[') {
+        arrayDepth++;
+        index++;
+        continue;
+      }
+      if (current == ']') {
+        if (arrayDepth > 0) arrayDepth--;
+        index++;
+        continue;
+      }
+
+      if (dictionaryDepth == 1 && arrayDepth == 0 && current == '/') {
+        final keyStart = index;
+        final keyEnd = _scanPdfName(source, index);
+        final key = source.substring(keyStart, keyEnd);
+        final valueStart = _skipPdfWhitespaceAndComments(source, keyEnd);
+        final valueEnd = _scanPdfToken(source, valueStart);
+        final value = source.substring(valueStart, valueEnd);
+
+        if (key == '/Type' && value == '/Catalog') isCatalog = true;
+        if (key == '/Outlines' && value == 'null') {
+          nullOutlinesKey = keyStart;
+        }
+
+        // A name used as a simple value is not another dictionary key.
+        if (valueStart < source.length && source[valueStart] == '/') {
+          index = valueEnd;
+          continue;
+        }
+        index = keyEnd;
+        continue;
+      }
+
+      index++;
+    }
+
+    return isCatalog ? nullOutlinesKey : null;
+  }
+
+  static int _skipPdfComment(String source, int index) {
+    while (index < source.length &&
+        source[index] != '\n' &&
+        source[index] != '\r') {
+      index++;
+    }
+    return index;
+  }
+
+  static int _skipPdfLiteralString(String source, int index) {
+    var nesting = 0;
+    var escaped = false;
+    while (index < source.length) {
+      final current = source[index++];
+      if (escaped) {
+        escaped = false;
+      } else if (current == r'\') {
+        escaped = true;
+      } else if (current == '(') {
+        nesting++;
+      } else if (current == ')') {
+        nesting--;
+        if (nesting == 0) break;
+      }
+    }
+    return index;
+  }
+
+  static int _skipPdfHexString(String source, int index) {
+    index++;
+    while (index < source.length && source[index] != '>') {
+      index++;
+    }
+    return index < source.length ? index + 1 : index;
+  }
+
+  static int _skipPdfWhitespaceAndComments(String source, int index) {
+    while (index < source.length) {
+      final code = source.codeUnitAt(index);
+      if (code == 0 ||
+          code == 9 ||
+          code == 10 ||
+          code == 12 ||
+          code == 13 ||
+          code == 32) {
+        index++;
+      } else if (source[index] == '%') {
+        index = _skipPdfComment(source, index);
+      } else {
+        break;
+      }
+    }
+    return index;
+  }
+
+  static int _scanPdfName(String source, int index) {
+    index++;
+    while (index < source.length && !_isPdfDelimiter(source, index)) {
+      index++;
+    }
+    return index;
+  }
+
+  static int _scanPdfToken(String source, int index) {
+    if (index >= source.length) return index;
+    if (source.startsWith('<<', index) || source.startsWith('>>', index)) {
+      return index + 2;
+    }
+    if (source[index] == '/') return _scanPdfName(source, index);
+    while (index < source.length && !_isPdfDelimiter(source, index)) {
+      index++;
+    }
+    return index;
+  }
+
+  static bool _isPdfDelimiter(String source, int index) {
+    final code = source.codeUnitAt(index);
+    return code == 0 ||
+        code == 9 ||
+        code == 10 ||
+        code == 12 ||
+        code == 13 ||
+        code == 32 ||
+        '()<>[]{}/%'.contains(source[index]);
+  }
+
   static Future<Uint8List> mergePdfFiles(List<Uint8List> files) async {
     if (files.length < 2) {
       throw ArgumentError('Select at least two PDF files to merge.');
@@ -53,7 +264,7 @@ class PdfToolsService {
     final output = PdfDocument();
     try {
       for (final bytes in files) {
-        final source = PdfDocument(inputBytes: bytes);
+        final source = _openExistingPdf(bytes);
         try {
           for (var i = 0; i < source.pages.count; i++) {
             final template = source.pages[i].createTemplate();
@@ -72,7 +283,7 @@ class PdfToolsService {
 
   static Future<Uint8List> extractPdfPages(
       Uint8List pdfBytes, List<int> pageNumbers) async {
-    final source = PdfDocument(inputBytes: pdfBytes);
+    final source = _openExistingPdf(pdfBytes);
     final output = PdfDocument();
     try {
       final pages = pageNumbers.toSet().toList()..sort();
@@ -90,11 +301,18 @@ class PdfToolsService {
     }
   }
 
-  static Future<Uint8List> htmlToPdf(String html, {String title = 'Document'}) async {
+  static Future<Uint8List> htmlToPdf(String html,
+      {String title = 'Document'}) async {
     var text = html
         .replaceAll(RegExp(r'<!--[\s\S]*?-->'), '')
-        .replaceAll(RegExp(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', caseSensitive: false), ' ')
-        .replaceAll(RegExp(r'<br\s*/?>|</(p|div|h[1-6]|li|tr|section|article)>', caseSensitive: false), '\n')
+        .replaceAll(
+            RegExp(r'<(script|style)\b[^>]*>[\s\S]*?</\1>',
+                caseSensitive: false),
+            ' ')
+        .replaceAll(
+            RegExp(r'<br\s*/?>|</(p|div|h[1-6]|li|tr|section|article)>',
+                caseSensitive: false),
+            '\n')
         .replaceAll(RegExp(r'<[^>]*>'), ' ')
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&amp;', '&')
@@ -114,19 +332,20 @@ class PdfToolsService {
   /// Preserves 100% of diagrams, slides, layouts, formulas, and visual graphics,
   /// while also providing an editable text layer for searchable text and copying.
   static Future<PdfExtractionResult> pdfToWordDocx(Uint8List pdfBytes) async {
-    final document = PdfDocument(inputBytes: pdfBytes);
+    final document = _openExistingPdf(pdfBytes);
     final pageCount = document.pages.count;
     final pageSizes = <Size>[];
     for (int i = 0; i < pageCount; i++) {
       pageSizes.add(document.pages[i].size);
     }
-    
+
     final extractor = PdfTextExtractor(document);
     final pageTexts = <String>[];
     final buffer = StringBuffer();
 
     for (int i = 0; i < pageCount; i++) {
-      final pageText = extractor.extractText(startPageIndex: i, endPageIndex: i, layoutText: true);
+      final pageText = extractor.extractText(
+          startPageIndex: i, endPageIndex: i, layoutText: true);
       pageTexts.add(pageText);
       if (i > 0) buffer.writeln('\n--- [Page ${i + 1}] ---\n');
       buffer.write(pageText);
@@ -148,7 +367,8 @@ class PdfToolsService {
           final png = await raster.toPng();
           final decoded = img.decodeImage(png);
           if (decoded != null) {
-            pageImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 80)));
+            pageImages
+                .add(Uint8List.fromList(img.encodeJpg(decoded, quality: 80)));
           } else {
             pageImages.add(png);
           }
@@ -182,7 +402,10 @@ class PdfToolsService {
     final List<Uint8List> images = [];
     try {
       final latin1Str = latin1.decode(pdfBytes);
-      final matches = RegExp(r'<<(?=[^>]*?/Subtype\s*/Image)[^>]*?>>\s*stream\r?\n').allMatches(latin1Str).toList();
+      final matches =
+          RegExp(r'<<(?=[^>]*?/Subtype\s*/Image)[^>]*?>>\s*stream\r?\n')
+              .allMatches(latin1Str)
+              .toList();
 
       for (final match in matches) {
         try {
@@ -213,7 +436,9 @@ class PdfToolsService {
             final endIdx = latin1Str.indexOf('endstream', streamStart);
             if (endIdx != -1) {
               streamEnd = endIdx;
-              while (streamEnd > streamStart && (pdfBytes[streamEnd - 1] == 10 || pdfBytes[streamEnd - 1] == 13)) {
+              while (streamEnd > streamStart &&
+                  (pdfBytes[streamEnd - 1] == 10 ||
+                      pdfBytes[streamEnd - 1] == 13)) {
                 streamEnd--;
               }
             }
@@ -227,7 +452,7 @@ class PdfToolsService {
             images.add(streamBytes);
           } else if (isFlate) {
             try {
-              final decompressed = ZLibDecoder().decodeBytes(streamBytes);
+              final decompressed = const ZLibDecoder().decodeBytes(streamBytes);
               final numChannels = (decompressed.length >= w * h * 4)
                   ? 4
                   : (decompressed.length >= w * h * 3)
@@ -252,7 +477,8 @@ class PdfToolsService {
 
   /// Extracts or renders page images from a PDF.
   /// Pure Dart extractor used first (100% web safe).
-  static Future<List<Uint8List>> extractOrRenderPdfImages(Uint8List pdfBytes) async {
+  static Future<List<Uint8List>> extractOrRenderPdfImages(
+      Uint8List pdfBytes) async {
     final direct = extractEmbeddedImages(pdfBytes);
     if (direct.isNotEmpty) return direct;
 
@@ -286,7 +512,7 @@ class PdfToolsService {
   }) async {
     final label = watermark.trim();
     if (label.isEmpty) throw ArgumentError('Enter watermark text.');
-    final document = PdfDocument(inputBytes: pdfBytes);
+    final document = _openExistingPdf(pdfBytes);
     try {
       final wmColor = color != null
           ? PdfColor(
@@ -305,7 +531,9 @@ class PdfToolsService {
         graphics.setTransparency(opacity);
 
         if (style == WatermarkStyle.centerDiagonal) {
-          final font = PdfStandardFont(PdfFontFamily.helvetica, fontSize.toDouble(), style: PdfFontStyle.bold);
+          final font = PdfStandardFont(
+              PdfFontFamily.helvetica, fontSize.toDouble(),
+              style: PdfFontStyle.bold);
           final textSize = font.measureString(label);
           graphics.translateTransform(size.width / 2, size.height / 2);
           graphics.rotateTransform(-40);
@@ -313,22 +541,27 @@ class PdfToolsService {
             label,
             font,
             brush: brush,
-            bounds: Rect.fromLTWH(-textSize.width / 2, -textSize.height / 2, textSize.width + 20, textSize.height + 10),
+            bounds: Rect.fromLTWH(-textSize.width / 2, -textSize.height / 2,
+                textSize.width + 20, textSize.height + 10),
             format: PdfStringFormat(alignment: PdfTextAlignment.center),
           );
         } else if (style == WatermarkStyle.centerHorizontal) {
-          final font = PdfStandardFont(PdfFontFamily.helvetica, fontSize.toDouble(), style: PdfFontStyle.bold);
+          final font = PdfStandardFont(
+              PdfFontFamily.helvetica, fontSize.toDouble(),
+              style: PdfFontStyle.bold);
           final textSize = font.measureString(label);
           graphics.drawString(
             label,
             font,
             brush: brush,
-            bounds: Rect.fromLTWH(0, (size.height - textSize.height) / 2, size.width, textSize.height + 10),
+            bounds: Rect.fromLTWH(0, (size.height - textSize.height) / 2,
+                size.width, textSize.height + 10),
             format: PdfStringFormat(alignment: PdfTextAlignment.center),
           );
         } else if (style == WatermarkStyle.tiledDiagonal) {
           final tileFontSize = (fontSize * 0.48).clamp(14.0, 22.0);
-          final font = PdfStandardFont(PdfFontFamily.helvetica, tileFontSize, style: PdfFontStyle.bold);
+          final font = PdfStandardFont(PdfFontFamily.helvetica, tileFontSize,
+              style: PdfFontStyle.bold);
           final textWithSpace = '   $label   ';
           final textSize = font.measureString(textWithSpace);
 
@@ -338,7 +571,8 @@ class PdfToolsService {
           graphics.translateTransform(size.width / 2, size.height / 2);
           graphics.rotateTransform(-35);
 
-          final diag = math.sqrt(size.width * size.width + size.height * size.height);
+          final diag =
+              math.sqrt(size.width * size.width + size.height * size.height);
           final startX = -diag;
           final endX = diag;
           final startY = -diag;
@@ -369,7 +603,8 @@ class PdfToolsService {
 
   /// 3. WORD / DOCX FILE TO PDF
   /// Takes a Word document (.docx or .doc) binary and converts it into a formatted multi-page PDF.
-  static Future<Uint8List> docxToPdf(Uint8List docxBytes, {String title = 'Document'}) async {
+  static Future<Uint8List> docxToPdf(Uint8List docxBytes,
+      {String title = 'Document'}) async {
     final pdfDoc = PdfDocument();
     pdfDoc.pageSettings.margins.all = 36;
     pdfDoc.pageSettings.size = PdfPageSize.a4;
@@ -383,14 +618,18 @@ class PdfToolsService {
         (f) => f.name == 'word/document.xml',
         orElse: () => throw Exception('Not a docx archive'),
       );
-      final xmlStr = utf8.decode(docXmlFile.content as List<int>, allowMalformed: true);
+      final xmlStr =
+          utf8.decode(docXmlFile.content as List<int>, allowMalformed: true);
 
       // Extract each <w:p>
-      final pMatches = RegExp(r'<w:p\b[^>]*>(.*?)</w:p>', dotAll: true).allMatches(xmlStr);
+      final pMatches =
+          RegExp(r'<w:p\b[^>]*>(.*?)</w:p>', dotAll: true).allMatches(xmlStr);
       for (final pm in pMatches) {
         final pContent = pm.group(1) ?? '';
-        final tMatches = RegExp(r'<w:t\b[^>]*>(.*?)</w:t>', dotAll: true).allMatches(pContent);
-        final fullPText = tMatches.map((m) => _unescapeXml(m.group(1) ?? '')).join('').trim();
+        final tMatches = RegExp(r'<w:t\b[^>]*>(.*?)</w:t>', dotAll: true)
+            .allMatches(pContent);
+        final fullPText =
+            tMatches.map((m) => _unescapeXml(m.group(1) ?? '')).join('').trim();
         if (fullPText.isNotEmpty) {
           paragraphs.add(fullPText);
         }
@@ -398,7 +637,11 @@ class PdfToolsService {
     } catch (_) {
       // Fallback: extract clean text strings from binary or text
       final rawStr = _extractReadableStrings(docxBytes);
-      final lines = rawStr.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+      final lines = rawStr
+          .split(RegExp(r'\r?\n'))
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
       paragraphs.addAll(lines);
     }
 
@@ -406,7 +649,9 @@ class PdfToolsService {
       paragraphs.add('Empty Word document content');
     }
 
-    if (docTitle == 'Document' && paragraphs.isNotEmpty && paragraphs.first.length < 60) {
+    if (docTitle == 'Document' &&
+        paragraphs.isNotEmpty &&
+        paragraphs.first.length < 60) {
       docTitle = paragraphs.first;
     }
 
@@ -447,11 +692,13 @@ class PdfToolsService {
   }
 
   /// Takes editable text contents and converts into a cleanly formatted PDF.
-  static Future<Uint8List> wordToPdf(String text, {String title = 'Document'}) async {
+  static Future<Uint8List> wordToPdf(String text,
+      {String title = 'Document'}) async {
     final document = PdfDocument();
-    
+
     final font = PdfStandardFont(PdfFontFamily.helvetica, 11);
-    final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 18, style: PdfFontStyle.bold);
+    final titleFont =
+        PdfStandardFont(PdfFontFamily.helvetica, 18, style: PdfFontStyle.bold);
 
     PdfPage page = document.pages.add();
     double currentY = 0;
@@ -477,7 +724,8 @@ class PdfToolsService {
 
     textElement.draw(
       page: page,
-      bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width, page.getClientSize().height - currentY),
+      bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width,
+          page.getClientSize().height - currentY),
       format: layoutFormat,
     );
 
@@ -491,12 +739,13 @@ class PdfToolsService {
   /// Resamples and re-encodes pages and image streams at target JPEG quality & DPI,
   /// preserving 100% of pages, diagrams, formulas, text, and layout without deleting content.
   /// Guarantees that the output size is strictly less than or equal to original size.
-  static Future<Uint8List> compressPdf(Uint8List pdfBytes, {int qualityLevel = 2}) async {
+  static Future<Uint8List> compressPdf(Uint8List pdfBytes,
+      {int qualityLevel = 2}) async {
     final origSize = pdfBytes.lengthInBytes;
     if (origSize <= 0) return pdfBytes;
 
     try {
-      final srcDoc = PdfDocument(inputBytes: pdfBytes);
+      final srcDoc = _openExistingPdf(pdfBytes);
       final pageCount = srcDoc.pages.count;
       final pageSizes = <Size>[];
       for (int i = 0; i < pageCount; i++) {
@@ -598,13 +847,15 @@ class PdfToolsService {
             final page = section.pages.add();
             page.graphics.drawImage(
               PdfBitmap(jpgBytes),
-              Rect.fromLTWH(0, 0, origSizeForPage.width, origSizeForPage.height),
+              Rect.fromLTWH(
+                  0, 0, origSizeForPage.width, origSizeForPage.height),
             );
             renderedPages++;
           }
 
           if (renderedPages > 0) {
-            final compressedBytes = Uint8List.fromList(compressedDoc.saveSync());
+            final compressedBytes =
+                Uint8List.fromList(compressedDoc.saveSync());
             compressedDoc.dispose();
 
             if (compressedBytes.lengthInBytes < origSize) {
@@ -621,7 +872,7 @@ class PdfToolsService {
 
     // 3. Template stream deflation & clean object rebuild (strips revisions and uncompressed streams)
     try {
-      final srcDoc = PdfDocument(inputBytes: pdfBytes);
+      final srcDoc = _openExistingPdf(pdfBytes);
       final outDoc = PdfDocument();
       outDoc.compressionLevel = PdfCompressionLevel.best;
       for (int i = 0; i < srcDoc.pages.count; i++) {
@@ -639,7 +890,7 @@ class PdfToolsService {
 
     // 4. Fallback: standard stream deflate compression
     try {
-      final doc = PdfDocument(inputBytes: pdfBytes);
+      final doc = _openExistingPdf(pdfBytes);
       doc.compressionLevel = PdfCompressionLevel.best;
       final res = Uint8List.fromList(doc.saveSync());
       doc.dispose();
@@ -707,8 +958,10 @@ class PdfToolsService {
         } else {
           // A4 page with auto orientation (matches image aspect ratio)
           final isLandscape = imgW > imgH;
-          final pageWidth = isLandscape ? PdfPageSize.a4.height : PdfPageSize.a4.width;
-          final pageHeight = isLandscape ? PdfPageSize.a4.width : PdfPageSize.a4.height;
+          final pageWidth =
+              isLandscape ? PdfPageSize.a4.height : PdfPageSize.a4.width;
+          final pageHeight =
+              isLandscape ? PdfPageSize.a4.width : PdfPageSize.a4.height;
 
           section.pageSettings.size = Size(pageWidth, pageHeight);
           final page = section.pages.add();
@@ -743,12 +996,15 @@ class PdfToolsService {
     Uint8List pdfBytes,
     List<int> pagesToDelete,
   ) async {
-    final document = PdfDocument(inputBytes: pdfBytes);
-    final sortedUnique = pagesToDelete.toSet().toList()..sort((a, b) => b.compareTo(a));
+    final document = _openExistingPdf(pdfBytes);
+    final sortedUnique = pagesToDelete.toSet().toList()
+      ..sort((a, b) => b.compareTo(a));
 
     for (final pageNum in sortedUnique) {
       final index = pageNum - 1;
-      if (index >= 0 && index < document.pages.count && document.pages.count > 1) {
+      if (index >= 0 &&
+          index < document.pages.count &&
+          document.pages.count > 1) {
         document.pages.removeAt(index);
       }
     }
@@ -764,7 +1020,7 @@ class PdfToolsService {
     Uint8List pdfBytes,
     List<int> newOrder,
   ) async {
-    final original = PdfDocument(inputBytes: pdfBytes);
+    final original = _openExistingPdf(pdfBytes);
     final reordered = PdfDocument();
 
     for (final pageNum in newOrder) {
@@ -792,12 +1048,21 @@ class PdfToolsService {
     try {
       final archive = ZipDecoder().decodeBytes(pptxBytes);
       final slideFiles = archive.files
-          .where((f) => f.name.startsWith('ppt/slides/slide') && f.name.endsWith('.xml') && !f.name.contains('_rels'))
+          .where((f) =>
+              f.name.startsWith('ppt/slides/slide') &&
+              f.name.endsWith('.xml') &&
+              !f.name.contains('_rels'))
           .toList();
 
       slideFiles.sort((a, b) {
-        final numA = int.tryParse(RegExp(r'slide(\d+)\.xml').firstMatch(a.name)?.group(1) ?? '0') ?? 0;
-        final numB = int.tryParse(RegExp(r'slide(\d+)\.xml').firstMatch(b.name)?.group(1) ?? '0') ?? 0;
+        final numA = int.tryParse(
+                RegExp(r'slide(\d+)\.xml').firstMatch(a.name)?.group(1) ??
+                    '0') ??
+            0;
+        final numB = int.tryParse(
+                RegExp(r'slide(\d+)\.xml').firstMatch(b.name)?.group(1) ??
+                    '0') ??
+            0;
         return numA.compareTo(numB);
       });
 
@@ -807,23 +1072,35 @@ class PdfToolsService {
         final totalSlides = slideFiles.length;
         for (int i = 0; i < totalSlides; i++) {
           final file = slideFiles[i];
-          final xmlStr = utf8.decode(file.content as List<int>, allowMalformed: true);
-          
-          final pMatches = RegExp(r'<a:p\b[^>]*>(.*?)</a:p>', dotAll: true).allMatches(xmlStr);
+          final xmlStr =
+              utf8.decode(file.content as List<int>, allowMalformed: true);
+
+          final pMatches = RegExp(r'<a:p\b[^>]*>(.*?)</a:p>', dotAll: true)
+              .allMatches(xmlStr);
           final paragraphs = <String>[];
           for (final pm in pMatches) {
             final pXml = pm.group(1) ?? '';
-            final tMatches = RegExp(r'<a:t\b[^>]*>(.*?)</a:t>', dotAll: true).allMatches(pXml);
-            final pText = tMatches.map((m) => _unescapeXml(m.group(1) ?? '')).join('').trim();
+            final tMatches = RegExp(r'<a:t\b[^>]*>(.*?)</a:t>', dotAll: true)
+                .allMatches(pXml);
+            final pText = tMatches
+                .map((m) => _unescapeXml(m.group(1) ?? ''))
+                .join('')
+                .trim();
             if (pText.isNotEmpty) {
               paragraphs.add(pText);
             }
           }
 
-          final slideTitle = paragraphs.isNotEmpty ? paragraphs.first : 'Slide ${i + 1}';
-          final bulletPoints = paragraphs.length > 1 ? paragraphs.sublist(1) : <String>[];
+          final slideTitle =
+              paragraphs.isNotEmpty ? paragraphs.first : 'Slide ${i + 1}';
+          final bulletPoints =
+              paragraphs.length > 1 ? paragraphs.sublist(1) : <String>[];
 
-          _renderPdfSlide(pdfDoc, slideIndex: i + 1, totalSlides: totalSlides, title: slideTitle, bullets: bulletPoints);
+          _renderPdfSlide(pdfDoc,
+              slideIndex: i + 1,
+              totalSlides: totalSlides,
+              title: slideTitle,
+              bullets: bulletPoints);
         }
       }
     } catch (_) {
@@ -914,14 +1191,22 @@ class PdfToolsService {
       final b = rawBytes[i];
       if ((b >= 32 && b <= 126) || b == 10 || b == 13) {
         buffer.writeCharCode(b);
-      } else if (buffer.isNotEmpty && buffer.toString().endsWith(' ') == false) {
+      } else if (buffer.isNotEmpty &&
+          buffer.toString().endsWith(' ') == false) {
         buffer.write(' ');
       }
     }
     final text = buffer.toString();
-    final chunks = text.split(RegExp(r'\s{4,}|\n{2,}')).where((s) => s.trim().length > 3).toList();
+    final chunks = text
+        .split(RegExp(r'\s{4,}|\n{2,}'))
+        .where((s) => s.trim().length > 3)
+        .toList();
     if (chunks.isEmpty) {
-      _renderPdfSlide(doc, slideIndex: 1, totalSlides: 1, title: 'PowerPoint Presentation', bullets: ['Imported presentation document']);
+      _renderPdfSlide(doc,
+          slideIndex: 1,
+          totalSlides: 1,
+          title: 'PowerPoint Presentation',
+          bullets: ['Imported presentation document']);
       return;
     }
 
@@ -930,9 +1215,15 @@ class PdfToolsService {
       final start = s * 5;
       final end = (start + 5).clamp(0, chunks.length);
       final slideChunks = chunks.sublist(start, end);
-      final title = slideChunks.isNotEmpty ? slideChunks.first : 'Slide ${s + 1}';
-      final bullets = slideChunks.length > 1 ? slideChunks.sublist(1) : <String>[];
-      _renderPdfSlide(doc, slideIndex: s + 1, totalSlides: slidesCount, title: title, bullets: bullets);
+      final title =
+          slideChunks.isNotEmpty ? slideChunks.first : 'Slide ${s + 1}';
+      final bullets =
+          slideChunks.length > 1 ? slideChunks.sublist(1) : <String>[];
+      _renderPdfSlide(doc,
+          slideIndex: s + 1,
+          totalSlides: slidesCount,
+          title: title,
+          bullets: bullets);
     }
   }
 
@@ -948,19 +1239,22 @@ class PdfToolsService {
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
 </Types>''';
-    archive.addFile(ArchiveFile('[Content_Types].xml', ctXml.length, utf8.encode(ctXml)));
+    archive.addFile(
+        ArchiveFile('[Content_Types].xml', ctXml.length, utf8.encode(ctXml)));
 
     const rootRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
+    archive.addFile(
+        ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
 
     const wbRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('xl/_rels/workbook.xml.rels', wbRels.length, utf8.encode(wbRels)));
+    archive.addFile(ArchiveFile(
+        'xl/_rels/workbook.xml.rels', wbRels.length, utf8.encode(wbRels)));
 
     const wbXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
@@ -968,11 +1262,14 @@ class PdfToolsService {
     <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
   </sheets>
 </workbook>''';
-    archive.addFile(ArchiveFile('xl/workbook.xml', wbXml.length, utf8.encode(wbXml)));
+    archive.addFile(
+        ArchiveFile('xl/workbook.xml', wbXml.length, utf8.encode(wbXml)));
 
     final sheetBuffer = StringBuffer();
-    sheetBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    sheetBuffer.writeln('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
+    sheetBuffer
+        .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    sheetBuffer.writeln(
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
     sheetBuffer.writeln('  <sheetData>');
 
     for (int r = 0; r < rows.length; r++) {
@@ -983,14 +1280,16 @@ class PdfToolsService {
         final colLetter = _getExcelColumnName(c);
         final cellRef = '$colLetter$rowNum';
         final val = _escapeXml(row[c]);
-        sheetBuffer.writeln('      <c r="$cellRef" t="inlineStr"><is><t xml:space="preserve">$val</t></is></c>');
+        sheetBuffer.writeln(
+            '      <c r="$cellRef" t="inlineStr"><is><t xml:space="preserve">$val</t></is></c>');
       }
       sheetBuffer.writeln('    </row>');
     }
 
     sheetBuffer.writeln('  </sheetData>');
     sheetBuffer.writeln('</worksheet>');
-    archive.addFile(ArchiveFile('xl/worksheets/sheet1.xml', sheetBuffer.length, utf8.encode(sheetBuffer.toString())));
+    archive.addFile(ArchiveFile('xl/worksheets/sheet1.xml', sheetBuffer.length,
+        utf8.encode(sheetBuffer.toString())));
 
     final encoded = ZipEncoder().encodeBytes(archive);
     return encoded;
@@ -1025,16 +1324,22 @@ class PdfToolsService {
       final headerRow = rows.first;
       for (int c = 0; c < colsCount; c++) {
         header.cells[c].value = c < headerRow.length ? headerRow[c] : '';
-        header.cells[c].style.backgroundBrush = PdfSolidBrush(PdfColor(15, 23, 42));
-        header.cells[c].style.textBrush = PdfSolidBrush(PdfColor(255, 255, 255));
-        header.cells[c].style.font = PdfStandardFont(PdfFontFamily.helvetica, 10, style: PdfFontStyle.bold);
+        header.cells[c].style.backgroundBrush =
+            PdfSolidBrush(PdfColor(15, 23, 42));
+        header.cells[c].style.textBrush =
+            PdfSolidBrush(PdfColor(255, 255, 255));
+        header.cells[c].style.font = PdfStandardFont(
+            PdfFontFamily.helvetica, 10,
+            style: PdfFontStyle.bold);
       }
 
       for (int r = 1; r < rows.length; r++) {
         final dataRow = rows[r];
         final row = grid.rows.add();
         final isEven = r % 2 == 0;
-        final bgBrush = isEven ? PdfSolidBrush(PdfColor(248, 250, 252)) : PdfSolidBrush(PdfColor(255, 255, 255));
+        final bgBrush = isEven
+            ? PdfSolidBrush(PdfColor(248, 250, 252))
+            : PdfSolidBrush(PdfColor(255, 255, 255));
 
         for (int c = 0; c < colsCount; c++) {
           row.cells[c].value = c < dataRow.length ? dataRow[c] : '';
@@ -1048,7 +1353,10 @@ class PdfToolsService {
         borderOverlapStyle: PdfBorderOverlapStyle.inside,
       );
 
-      grid.draw(page: page, bounds: Rect.fromLTWH(0, 36, clientSize.width, clientSize.height - 40));
+      grid.draw(
+          page: page,
+          bounds:
+              Rect.fromLTWH(0, 36, clientSize.width, clientSize.height - 40));
     }
 
     final output = Uint8List.fromList(doc.saveSync());
@@ -1096,10 +1404,12 @@ class PdfToolsService {
 
   /// 13. PDF TO POWERPOINT (.pptx)
   /// Converts PDF pages into a standard, fully compliant Microsoft PowerPoint presentation (.pptx).
-  static Future<Uint8List> pdfToPptx(Uint8List pdfBytes, {String title = 'Presentation'}) async {
-    final pdfDoc = PdfDocument(inputBytes: pdfBytes);
+  static Future<Uint8List> pdfToPptx(Uint8List pdfBytes,
+      {String title = 'Presentation'}) async {
+    final pdfDoc = _openExistingPdf(pdfBytes);
     final totalPages = pdfDoc.pages.count;
-    final firstPageSize = totalPages > 0 ? pdfDoc.pages[0].size : const Size(960, 540);
+    final firstPageSize =
+        totalPages > 0 ? pdfDoc.pages[0].size : const Size(960, 540);
     final isLandscape = firstPageSize.width >= firstPageSize.height;
 
     final double aspect = firstPageSize.height > 0
@@ -1119,7 +1429,8 @@ class PdfToolsService {
     final extractor = PdfTextExtractor(pdfDoc);
     final slideTexts = <String>[];
     for (int i = 0; i < totalPages; i++) {
-      slideTexts.add(extractor.extractText(startPageIndex: i, endPageIndex: i, layoutText: true));
+      slideTexts.add(extractor.extractText(
+          startPageIndex: i, endPageIndex: i, layoutText: true));
     }
     pdfDoc.dispose();
 
@@ -1133,7 +1444,8 @@ class PdfToolsService {
           final png = await raster.toPng();
           final decoded = img.decodeImage(png);
           if (decoded != null) {
-            slideImages.add(Uint8List.fromList(img.encodeJpg(decoded, quality: 82)));
+            slideImages
+                .add(Uint8List.fromList(img.encodeJpg(decoded, quality: 82)));
           } else {
             slideImages.add(png);
           }
@@ -1148,43 +1460,59 @@ class PdfToolsService {
     // 1. [Content_Types].xml
     final ctBuffer = StringBuffer();
     ctBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    ctBuffer.writeln('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">');
-    ctBuffer.writeln('  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>');
-    ctBuffer.writeln('  <Default Extension="xml" ContentType="application/xml"/>');
+    ctBuffer.writeln(
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">');
+    ctBuffer.writeln(
+        '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>');
+    ctBuffer
+        .writeln('  <Default Extension="xml" ContentType="application/xml"/>');
     ctBuffer.writeln('  <Default Extension="jpg" ContentType="image/jpeg"/>');
     ctBuffer.writeln('  <Default Extension="jpeg" ContentType="image/jpeg"/>');
     ctBuffer.writeln('  <Default Extension="png" ContentType="image/png"/>');
-    ctBuffer.writeln('  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>');
-    ctBuffer.writeln('  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>');
-    ctBuffer.writeln('  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>');
+    ctBuffer.writeln(
+        '  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>');
+    ctBuffer.writeln(
+        '  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>');
+    ctBuffer.writeln(
+        '  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>');
     for (int i = 1; i <= totalPages; i++) {
-      ctBuffer.writeln('  <Override PartName="/ppt/slides/slide$i.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>');
+      ctBuffer.writeln(
+          '  <Override PartName="/ppt/slides/slide$i.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>');
     }
     ctBuffer.writeln('</Types>');
-    archive.addFile(ArchiveFile('[Content_Types].xml', ctBuffer.length, utf8.encode(ctBuffer.toString())));
+    archive.addFile(ArchiveFile('[Content_Types].xml', ctBuffer.length,
+        utf8.encode(ctBuffer.toString())));
 
     // 2. _rels/.rels
     const rootRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
+    archive.addFile(
+        ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
 
     // 3. ppt/_rels/presentation.xml.rels
     final presRelsBuffer = StringBuffer();
-    presRelsBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    presRelsBuffer.writeln('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
-    presRelsBuffer.writeln('  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>');
+    presRelsBuffer
+        .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    presRelsBuffer.writeln(
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
+    presRelsBuffer.writeln(
+        '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>');
     for (int i = 1; i <= totalPages; i++) {
-      presRelsBuffer.writeln('  <Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide$i.xml"/>');
+      presRelsBuffer.writeln(
+          '  <Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide$i.xml"/>');
     }
     presRelsBuffer.writeln('</Relationships>');
-    archive.addFile(ArchiveFile('ppt/_rels/presentation.xml.rels', presRelsBuffer.length, utf8.encode(presRelsBuffer.toString())));
+    archive.addFile(ArchiveFile('ppt/_rels/presentation.xml.rels',
+        presRelsBuffer.length, utf8.encode(presRelsBuffer.toString())));
 
     // 4. ppt/presentation.xml
     final presBuffer = StringBuffer();
-    presBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    presBuffer.writeln('<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">');
+    presBuffer
+        .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    presBuffer.writeln(
+        '<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">');
     presBuffer.writeln('  <p:sldMasterIdLst>');
     presBuffer.writeln('    <p:sldMasterId id="2147483648" r:id="rId1"/>');
     presBuffer.writeln('  </p:sldMasterIdLst>');
@@ -1196,7 +1524,8 @@ class PdfToolsService {
     presBuffer.writeln('  <p:sldSz cx="$slideWidthEmu" cy="$slideHeightEmu"/>');
     presBuffer.writeln('  <p:notesSz cx="6858000" cy="9144000"/>');
     presBuffer.writeln('</p:presentation>');
-    archive.addFile(ArchiveFile('ppt/presentation.xml', presBuffer.length, utf8.encode(presBuffer.toString())));
+    archive.addFile(ArchiveFile('ppt/presentation.xml', presBuffer.length,
+        utf8.encode(presBuffer.toString())));
 
     // 5. ppt/slideMasters/slideMaster1.xml & rels
     const masterXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1213,13 +1542,16 @@ class PdfToolsService {
   </p:sldLayoutIdLst>
   <p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles>
 </p:sldMaster>''';
-    archive.addFile(ArchiveFile('ppt/slideMasters/slideMaster1.xml', masterXml.length, utf8.encode(masterXml)));
+    archive.addFile(ArchiveFile('ppt/slideMasters/slideMaster1.xml',
+        masterXml.length, utf8.encode(masterXml)));
 
-    const masterRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const masterRels =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('ppt/slideMasters/_rels/slideMaster1.xml.rels', masterRels.length, utf8.encode(masterRels)));
+    archive.addFile(ArchiveFile('ppt/slideMasters/_rels/slideMaster1.xml.rels',
+        masterRels.length, utf8.encode(masterRels)));
 
     // 6. ppt/slideLayouts/slideLayout1.xml & rels
     const layoutXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1232,13 +1564,16 @@ class PdfToolsService {
   </p:cSld>
   <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
 </p:sldLayout>''';
-    archive.addFile(ArchiveFile('ppt/slideLayouts/slideLayout1.xml', layoutXml.length, utf8.encode(layoutXml)));
+    archive.addFile(ArchiveFile('ppt/slideLayouts/slideLayout1.xml',
+        layoutXml.length, utf8.encode(layoutXml)));
 
-    const layoutRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const layoutRels =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('ppt/slideLayouts/_rels/slideLayout1.xml.rels', layoutRels.length, utf8.encode(layoutRels)));
+    archive.addFile(ArchiveFile('ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+        layoutRels.length, utf8.encode(layoutRels)));
 
     // 7. For each slide: slide$i.xml & slide$i.xml.rels
     for (int i = 0; i < totalPages; i++) {
@@ -1246,41 +1581,58 @@ class PdfToolsService {
       final hasImage = i < slideImages.length;
 
       final slideRelsBuffer = StringBuffer();
-      slideRelsBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-      slideRelsBuffer.writeln('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
-      slideRelsBuffer.writeln('  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>');
+      slideRelsBuffer
+          .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+      slideRelsBuffer.writeln(
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
+      slideRelsBuffer.writeln(
+          '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>');
       if (hasImage) {
-        slideRelsBuffer.writeln('  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/slide$pageNum.jpg"/>');
+        slideRelsBuffer.writeln(
+            '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/slide$pageNum.jpg"/>');
       }
       slideRelsBuffer.writeln('</Relationships>');
-      archive.addFile(ArchiveFile('ppt/slides/_rels/slide$pageNum.xml.rels', slideRelsBuffer.length, utf8.encode(slideRelsBuffer.toString())));
+      archive.addFile(ArchiveFile('ppt/slides/_rels/slide$pageNum.xml.rels',
+          slideRelsBuffer.length, utf8.encode(slideRelsBuffer.toString())));
 
       final pageText = (i < slideTexts.length) ? slideTexts[i] : '';
-      final rawLines = pageText.split(RegExp(r'\r?\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      final rawLines = pageText
+          .split(RegExp(r'\r?\n'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
 
       final slideXmlBuffer = StringBuffer();
-      slideXmlBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-      slideXmlBuffer.writeln('<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">');
+      slideXmlBuffer
+          .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+      slideXmlBuffer.writeln(
+          '<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">');
       slideXmlBuffer.writeln('  <p:cSld>');
       slideXmlBuffer.writeln('    <p:spTree>');
-      slideXmlBuffer.writeln('      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:grpSpPr/></p:nvGrpSpPr>');
+      slideXmlBuffer.writeln(
+          '      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:grpSpPr/></p:nvGrpSpPr>');
       slideXmlBuffer.writeln('      <p:grpSpPr/>');
 
       if (hasImage) {
         // High-fidelity full-bleed visual image
         slideXmlBuffer.writeln('      <p:pic>');
         slideXmlBuffer.writeln('        <p:nvPicPr>');
-        slideXmlBuffer.writeln('          <p:cNvPr id="2" name="Slide $pageNum Visual"/>');
-        slideXmlBuffer.writeln('          <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>');
+        slideXmlBuffer.writeln(
+            '          <p:cNvPr id="2" name="Slide $pageNum Visual"/>');
+        slideXmlBuffer.writeln(
+            '          <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>');
         slideXmlBuffer.writeln('          <p:nvPr/>');
         slideXmlBuffer.writeln('        </p:nvPicPr>');
         slideXmlBuffer.writeln('        <p:blipFill>');
         slideXmlBuffer.writeln('          <a:blip r:embed="rId2"/>');
-        slideXmlBuffer.writeln('          <a:stretch><a:fillRect/></a:stretch>');
+        slideXmlBuffer
+            .writeln('          <a:stretch><a:fillRect/></a:stretch>');
         slideXmlBuffer.writeln('        </p:blipFill>');
         slideXmlBuffer.writeln('        <p:spPr>');
-        slideXmlBuffer.writeln('          <a:xfrm><a:off x="0" y="0"/><a:ext cx="$slideWidthEmu" cy="$slideHeightEmu"/></a:xfrm>');
-        slideXmlBuffer.writeln('          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
+        slideXmlBuffer.writeln(
+            '          <a:xfrm><a:off x="0" y="0"/><a:ext cx="$slideWidthEmu" cy="$slideHeightEmu"/></a:xfrm>');
+        slideXmlBuffer.writeln(
+            '          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
         slideXmlBuffer.writeln('        </p:spPr>');
         slideXmlBuffer.writeln('      </p:pic>');
 
@@ -1288,48 +1640,62 @@ class PdfToolsService {
         if (rawLines.isNotEmpty) {
           slideXmlBuffer.writeln('      <p:sp>');
           slideXmlBuffer.writeln('        <p:nvSpPr>');
-          slideXmlBuffer.writeln('          <p:cNvPr id="3" name="Searchable Content Layer"/>');
-          slideXmlBuffer.writeln('          <p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>');
+          slideXmlBuffer.writeln(
+              '          <p:cNvPr id="3" name="Searchable Content Layer"/>');
+          slideXmlBuffer.writeln(
+              '          <p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>');
           slideXmlBuffer.writeln('          <p:nvPr/>');
           slideXmlBuffer.writeln('        </p:nvSpPr>');
           slideXmlBuffer.writeln('        <p:spPr>');
-          slideXmlBuffer.writeln('          <a:xfrm><a:off x="0" y="0"/><a:ext cx="$slideWidthEmu" cy="$slideHeightEmu"/></a:xfrm>');
-          slideXmlBuffer.writeln('          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
+          slideXmlBuffer.writeln(
+              '          <a:xfrm><a:off x="0" y="0"/><a:ext cx="$slideWidthEmu" cy="$slideHeightEmu"/></a:xfrm>');
+          slideXmlBuffer.writeln(
+              '          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
           slideXmlBuffer.writeln('          <a:noFill/>');
           slideXmlBuffer.writeln('          <a:ln><a:noFill/></a:ln>');
           slideXmlBuffer.writeln('        </p:spPr>');
           slideXmlBuffer.writeln('        <p:txBody>');
-          slideXmlBuffer.writeln('          <a:bodyPr lIns="91440" tIns="91440" rIns="91440" bIns="91440"/>');
+          slideXmlBuffer.writeln(
+              '          <a:bodyPr lIns="91440" tIns="91440" rIns="91440" bIns="91440"/>');
           slideXmlBuffer.writeln('          <a:lstStyle/>');
           for (final line in rawLines.take(30)) {
-            slideXmlBuffer.writeln('          <a:p><a:r><a:rPr lang="en-US" sz="1000"><a:noFill/></a:rPr><a:t>${_escapeXml(line)}</a:t></a:r></a:p>');
+            slideXmlBuffer.writeln(
+                '          <a:p><a:r><a:rPr lang="en-US" sz="1000"><a:noFill/></a:rPr><a:t>${_escapeXml(line)}</a:t></a:r></a:p>');
           }
           slideXmlBuffer.writeln('        </p:txBody>');
           slideXmlBuffer.writeln('      </p:sp>');
         }
 
         // Add media image file
-        archive.addFile(ArchiveFile('ppt/media/slide$pageNum.jpg', slideImages[i].length, slideImages[i]));
+        archive.addFile(ArchiveFile('ppt/media/slide$pageNum.jpg',
+            slideImages[i].length, slideImages[i]));
       } else {
         // Fallback text-based slide
-        final slideTitle = rawLines.isNotEmpty ? _escapeXml(rawLines.first) : 'Page $pageNum';
+        final slideTitle =
+            rawLines.isNotEmpty ? _escapeXml(rawLines.first) : 'Page $pageNum';
         final bodyLines = rawLines.length > 1
             ? rawLines.sublist(1)
             : <String>['Presentation slide content from page $pageNum'];
 
         final pBuffer = StringBuffer();
         for (final b in bodyLines.take(14)) {
-          pBuffer.writeln('            <a:p><a:pPr lvl="0"/><a:r><a:rPr lang="en-US" sz="1500"/><a:t>${_escapeXml(b)}</a:t></a:r></a:p>');
+          pBuffer.writeln(
+              '            <a:p><a:pPr lvl="0"/><a:r><a:rPr lang="en-US" sz="1500"/><a:t>${_escapeXml(b)}</a:t></a:r></a:p>');
         }
 
         slideXmlBuffer.writeln('      <p:sp>');
-        slideXmlBuffer.writeln('        <p:nvSpPr><p:cNvPr id="2" name="Slide Header"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>');
-        slideXmlBuffer.writeln('        <p:spPr><a:xfrm><a:off x="457200" y="365760"/><a:ext cx="8229600" cy="822960"/></a:xfrm></p:spPr>');
-        slideXmlBuffer.writeln('        <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" b="1" sz="2200"/><a:t>$slideTitle</a:t></a:r></a:p></p:txBody>');
+        slideXmlBuffer.writeln(
+            '        <p:nvSpPr><p:cNvPr id="2" name="Slide Header"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>');
+        slideXmlBuffer.writeln(
+            '        <p:spPr><a:xfrm><a:off x="457200" y="365760"/><a:ext cx="8229600" cy="822960"/></a:xfrm></p:spPr>');
+        slideXmlBuffer.writeln(
+            '        <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" b="1" sz="2200"/><a:t>$slideTitle</a:t></a:r></a:p></p:txBody>');
         slideXmlBuffer.writeln('      </p:sp>');
         slideXmlBuffer.writeln('      <p:sp>');
-        slideXmlBuffer.writeln('        <p:nvSpPr><p:cNvPr id="3" name="Content Body"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>');
-        slideXmlBuffer.writeln('        <p:spPr><a:xfrm><a:off x="457200" y="1371600"/><a:ext cx="8229600" cy="3429000"/></a:xfrm></p:spPr>');
+        slideXmlBuffer.writeln(
+            '        <p:nvSpPr><p:cNvPr id="3" name="Content Body"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>');
+        slideXmlBuffer.writeln(
+            '        <p:spPr><a:xfrm><a:off x="457200" y="1371600"/><a:ext cx="8229600" cy="3429000"/></a:xfrm></p:spPr>');
         slideXmlBuffer.writeln('        <p:txBody><a:bodyPr/><a:lstStyle/>');
         slideXmlBuffer.write(pBuffer.toString());
         slideXmlBuffer.writeln('        </p:txBody>');
@@ -1340,7 +1706,8 @@ class PdfToolsService {
       slideXmlBuffer.writeln('  </p:cSld>');
       slideXmlBuffer.writeln('</p:sld>');
 
-      archive.addFile(ArchiveFile('ppt/slides/slide$pageNum.xml', slideXmlBuffer.length, utf8.encode(slideXmlBuffer.toString())));
+      archive.addFile(ArchiveFile('ppt/slides/slide$pageNum.xml',
+          slideXmlBuffer.length, utf8.encode(slideXmlBuffer.toString())));
     }
 
     final encoded = ZipEncoder().encodeBytes(archive);
@@ -1393,13 +1760,15 @@ class PdfToolsService {
 
   /// Helper to get page count of a PDF
   static int getPageCount(Uint8List pdfBytes) {
+    PdfDocument? document;
     try {
-      final document = PdfDocument(inputBytes: pdfBytes);
-      final count = document.pages.count;
-      document.dispose();
-      return count;
+      document = _openExistingPdf(pdfBytes);
+      return document.pages.count;
     } catch (_) {
-      return 1;
+      // Do not misreport an unreadable PDF as a one-page document.
+      return 0;
+    } finally {
+      document?.dispose();
     }
   }
 
@@ -1416,34 +1785,46 @@ class PdfToolsService {
     // 1. [Content_Types].xml
     final ctBuffer = StringBuffer();
     ctBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    ctBuffer.writeln('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">');
-    ctBuffer.writeln('  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>');
-    ctBuffer.writeln('  <Default Extension="xml" ContentType="application/xml"/>');
+    ctBuffer.writeln(
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">');
+    ctBuffer.writeln(
+        '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>');
+    ctBuffer
+        .writeln('  <Default Extension="xml" ContentType="application/xml"/>');
     ctBuffer.writeln('  <Default Extension="jpg" ContentType="image/jpeg"/>');
     ctBuffer.writeln('  <Default Extension="jpeg" ContentType="image/jpeg"/>');
     ctBuffer.writeln('  <Default Extension="png" ContentType="image/png"/>');
-    ctBuffer.writeln('  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>');
-    ctBuffer.writeln('  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>');
+    ctBuffer.writeln(
+        '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>');
+    ctBuffer.writeln(
+        '  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>');
     ctBuffer.writeln('</Types>');
-    archive.addFile(ArchiveFile('[Content_Types].xml', ctBuffer.length, utf8.encode(ctBuffer.toString())));
+    archive.addFile(ArchiveFile('[Content_Types].xml', ctBuffer.length,
+        utf8.encode(ctBuffer.toString())));
 
     // 2. _rels/.rels
     const rootRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
+    archive.addFile(
+        ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
 
     // 3. word/_rels/document.xml.rels
     final docRelsBuffer = StringBuffer();
-    docRelsBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    docRelsBuffer.writeln('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
-    docRelsBuffer.writeln('  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
+    docRelsBuffer
+        .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    docRelsBuffer.writeln(
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">');
+    docRelsBuffer.writeln(
+        '  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
     for (int i = 1; i <= count; i++) {
-      docRelsBuffer.writeln('  <Relationship Id="rIdImg$i" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page_$i.jpg"/>');
+      docRelsBuffer.writeln(
+          '  <Relationship Id="rIdImg$i" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page_$i.jpg"/>');
     }
     docRelsBuffer.writeln('</Relationships>');
-    archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRelsBuffer.length, utf8.encode(docRelsBuffer.toString())));
+    archive.addFile(ArchiveFile('word/_rels/document.xml.rels',
+        docRelsBuffer.length, utf8.encode(docRelsBuffer.toString())));
 
     // 4. word/styles.xml
     const stylesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1460,7 +1841,8 @@ class PdfToolsService {
     <w:name w:val="Normal"/>
   </w:style>
 </w:styles>''';
-    archive.addFile(ArchiveFile('word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
+    archive.addFile(ArchiveFile(
+        'word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
 
     // 5. Determine orientation
     bool isLandscape = false;
@@ -1470,14 +1852,18 @@ class PdfToolsService {
 
     // 6. word/document.xml
     final docBuffer = StringBuffer();
-    docBuffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    docBuffer.writeln('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">');
+    docBuffer
+        .writeln('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    docBuffer.writeln(
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">');
     docBuffer.writeln('  <w:body>');
 
     for (int i = 0; i < count; i++) {
       final pageNum = i + 1;
-      final pageSize = (i < pageSizes.length) ? pageSizes[i] : const Size(595, 842);
-      final double aspect = pageSize.height > 0 ? (pageSize.width / pageSize.height) : (16 / 9);
+      final pageSize =
+          (i < pageSizes.length) ? pageSizes[i] : const Size(595, 842);
+      final double aspect =
+          pageSize.height > 0 ? (pageSize.width / pageSize.height) : (16 / 9);
 
       final int extentW;
       final int extentH;
@@ -1494,25 +1880,35 @@ class PdfToolsService {
       docBuffer.writeln('      <w:pPr><w:jc w:val="center"/></w:pPr>');
       docBuffer.writeln('      <w:r>');
       docBuffer.writeln('        <w:drawing>');
-      docBuffer.writeln('          <wp:inline distT="0" distB="0" distL="0" distR="0">');
+      docBuffer.writeln(
+          '          <wp:inline distT="0" distB="0" distL="0" distR="0">');
       docBuffer.writeln('            <wp:extent cx="$extentW" cy="$extentH"/>');
-      docBuffer.writeln('            <wp:effectExtent l="0" t="0" r="0" b="0"/>');
-      docBuffer.writeln('            <wp:docPr id="$pageNum" name="Page $pageNum"/>');
-      docBuffer.writeln('            <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>');
+      docBuffer
+          .writeln('            <wp:effectExtent l="0" t="0" r="0" b="0"/>');
+      docBuffer.writeln(
+          '            <wp:docPr id="$pageNum" name="Page $pageNum"/>');
+      docBuffer.writeln(
+          '            <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>');
       docBuffer.writeln('            <a:graphic>');
-      docBuffer.writeln('              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">');
+      docBuffer.writeln(
+          '              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">');
       docBuffer.writeln('                <pic:pic>');
       docBuffer.writeln('                  <pic:nvPicPr>');
-      docBuffer.writeln('                    <pic:cNvPr id="$pageNum" name="PageImage$pageNum"/>');
+      docBuffer.writeln(
+          '                    <pic:cNvPr id="$pageNum" name="PageImage$pageNum"/>');
       docBuffer.writeln('                    <pic:cNvPicPr/>');
       docBuffer.writeln('                  </pic:nvPicPr>');
       docBuffer.writeln('                  <pic:blipFill>');
-      docBuffer.writeln('                    <a:blip r:embed="rIdImg$pageNum"/>');
-      docBuffer.writeln('                    <a:stretch><a:fillRect/></a:stretch>');
+      docBuffer
+          .writeln('                    <a:blip r:embed="rIdImg$pageNum"/>');
+      docBuffer
+          .writeln('                    <a:stretch><a:fillRect/></a:stretch>');
       docBuffer.writeln('                  </pic:blipFill>');
       docBuffer.writeln('                  <pic:spPr>');
-      docBuffer.writeln('                    <a:xfrm><a:off x="0" y="0"/><a:ext cx="$extentW" cy="$extentH"/></a:xfrm>');
-      docBuffer.writeln('                    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
+      docBuffer.writeln(
+          '                    <a:xfrm><a:off x="0" y="0"/><a:ext cx="$extentW" cy="$extentH"/></a:xfrm>');
+      docBuffer.writeln(
+          '                    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
       docBuffer.writeln('                  </pic:spPr>');
       docBuffer.writeln('                </pic:pic>');
       docBuffer.writeln('              </a:graphicData>');
@@ -1524,14 +1920,21 @@ class PdfToolsService {
 
       // If text exists for this page, add structured editable text section
       if (i < pageTexts.length && pageTexts[i].trim().isNotEmpty) {
-        final lines = pageTexts[i].split(RegExp(r'\r?\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        final lines = pageTexts[i]
+            .split(RegExp(r'\r?\n'))
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
         if (lines.isNotEmpty) {
           docBuffer.writeln('    <w:p>');
-          docBuffer.writeln('      <w:pPr><w:spacing w:before="140" w:after="60"/></w:pPr>');
-          docBuffer.writeln('      <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="2B579A"/></w:rPr><w:t>Page $pageNum Text (Editable):</w:t></w:r>');
+          docBuffer.writeln(
+              '      <w:pPr><w:spacing w:before="140" w:after="60"/></w:pPr>');
+          docBuffer.writeln(
+              '      <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="2B579A"/></w:rPr><w:t>Page $pageNum Text (Editable):</w:t></w:r>');
           docBuffer.writeln('    </w:p>');
           for (final line in lines) {
-            docBuffer.writeln('    <w:p><w:r><w:t xml:space="preserve">${_escapeXml(line)}</w:t></w:r></w:p>');
+            docBuffer.writeln(
+                '    <w:p><w:r><w:t xml:space="preserve">${_escapeXml(line)}</w:t></w:r></w:p>');
           }
         }
       }
@@ -1542,24 +1945,29 @@ class PdfToolsService {
       }
 
       // Add image file to archive
-      archive.addFile(ArchiveFile('word/media/page_$pageNum.jpg', pageImages[i].length, pageImages[i]));
+      archive.addFile(ArchiveFile(
+          'word/media/page_$pageNum.jpg', pageImages[i].length, pageImages[i]));
     }
 
     if (isLandscape) {
       docBuffer.writeln('    <w:sectPr>');
-      docBuffer.writeln('      <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>');
-      docBuffer.writeln('      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/>');
+      docBuffer.writeln(
+          '      <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>');
+      docBuffer.writeln(
+          '      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/>');
       docBuffer.writeln('    </w:sectPr>');
     } else {
       docBuffer.writeln('    <w:sectPr>');
       docBuffer.writeln('      <w:pgSz w:w="11906" w:h="16838"/>');
-      docBuffer.writeln('      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>');
+      docBuffer.writeln(
+          '      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>');
       docBuffer.writeln('    </w:sectPr>');
     }
     docBuffer.writeln('  </w:body>');
     docBuffer.writeln('</w:document>');
 
-    archive.addFile(ArchiveFile('word/document.xml', docBuffer.length, utf8.encode(docBuffer.toString())));
+    archive.addFile(ArchiveFile('word/document.xml', docBuffer.length,
+        utf8.encode(docBuffer.toString())));
 
     final encoded = ZipEncoder().encodeBytes(archive);
     return encoded;
@@ -1570,28 +1978,32 @@ class PdfToolsService {
     final archive = Archive();
 
     // 1. [Content_Types].xml
-    const contentTypesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const contentTypesXml =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>''';
-    archive.addFile(ArchiveFile('[Content_Types].xml', contentTypesXml.length, utf8.encode(contentTypesXml)));
+    archive.addFile(ArchiveFile('[Content_Types].xml', contentTypesXml.length,
+        utf8.encode(contentTypesXml)));
 
     // 2. _rels/.rels
     const rootRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
+    archive.addFile(
+        ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
 
     // 3. word/_rels/document.xml.rels
     const docRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRels.length, utf8.encode(docRels)));
+    archive.addFile(ArchiveFile(
+        'word/_rels/document.xml.rels', docRels.length, utf8.encode(docRels)));
 
     // 4. word/styles.xml
     const stylesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1608,7 +2020,8 @@ class PdfToolsService {
     <w:name w:val="Normal"/>
   </w:style>
 </w:styles>''';
-    archive.addFile(ArchiveFile('word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
+    archive.addFile(ArchiveFile(
+        'word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
 
     // 5. word/document.xml
     final lines = text.split(RegExp(r'\r?\n'));
@@ -1618,11 +2031,13 @@ class PdfToolsService {
         pBuffer.writeln('    <w:p><w:r><w:br w:type="page"/></w:r></w:p>');
       } else {
         final escaped = _escapeXml(line);
-        pBuffer.writeln('    <w:p><w:r><w:t xml:space="preserve">$escaped</w:t></w:r></w:p>');
+        pBuffer.writeln(
+            '    <w:p><w:r><w:t xml:space="preserve">$escaped</w:t></w:r></w:p>');
       }
     }
 
-    final documentXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    final documentXml =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
 $pBuffer
@@ -1632,7 +2047,8 @@ $pBuffer
     </w:sectPr>
   </w:body>
 </w:document>''';
-    archive.addFile(ArchiveFile('word/document.xml', documentXml.length, utf8.encode(documentXml)));
+    archive.addFile(ArchiveFile(
+        'word/document.xml', documentXml.length, utf8.encode(documentXml)));
 
     final zipEncoder = ZipEncoder();
     final encoded = zipEncoder.encodeBytes(archive);

@@ -586,7 +586,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             }),
           ),
           const SizedBox(height: 8),
-          Text('Selected pages: ' + _pagesToDelete.length.toString(), style: TextStyle(color: textMuted, fontSize: 12)),
+          Text(
+            'Selected pages: ${_pagesToDelete.length}',
+            style: TextStyle(color: textMuted, fontSize: 12),
+          ),
           const SizedBox(height: 16),
           if (_isProcessing)
             const CircularProgressIndicator()
