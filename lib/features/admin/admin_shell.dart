@@ -176,6 +176,11 @@ class _AdminShellState extends State<AdminShell> {
                             ),
                           ),
                           IconButton(
+                            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF94A3B8), size: 19),
+                            tooltip: 'Admin Alerts',
+                            onPressed: () => _showAdminNotifications(context),
+                          ),
+                          IconButton(
                             icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFF64748B), size: 20),
                             onPressed: () => setState(() => _isCollapsed = true),
                           ),
@@ -279,6 +284,32 @@ class _AdminShellState extends State<AdminShell> {
                     ),
                     child: Column(
                       children: [
+                        // Alerts Button (Collapsed)
+                        if (_isCollapsed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Tooltip(
+                              message: 'Admin Alerts',
+                              preferBelow: false,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => _showAdminNotifications(context),
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF131D33),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.notifications_none_rounded, color: Color(0xFF38BDF8), size: 18),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
                         // Signout Button
                         if (_isCollapsed)
                           Tooltip(
@@ -395,6 +426,11 @@ class _AdminShellState extends State<AdminShell> {
         title: const Text('CampusSetu Admin', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
+            tooltip: 'Admin Alerts',
+            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF94A3B8), size: 21),
+            onPressed: () => _showAdminNotifications(context),
+          ),
+          IconButton(
             tooltip: 'Sign Out',
             icon: const Icon(Icons.power_settings_new_rounded, color: Color(0xFFEF4444), size: 20),
             onPressed: () => _handleSignOut(context),
@@ -435,6 +471,160 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showAdminNotifications(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Color(0xFF1E293B)),
+      ),
+      builder: (ctx) {
+        final alerts = [
+          {
+            'icon': Icons.stars_rounded,
+            'color': const Color(0xFFF59E0B),
+            'title': 'Campus Ambassador Applications',
+            'desc': 'Review incoming student ambassador applications and approve',
+            'tab': 7,
+            'time': 'Recent',
+          },
+          {
+            'icon': Icons.report_problem_outlined,
+            'color': const Color(0xFFEF4444),
+            'title': 'Content & Moderation Reports',
+            'desc': 'Pending reported posts and user profiles requiring review',
+            'tab': 6,
+            'time': 'Active',
+          },
+          {
+            'icon': Icons.assignment_turned_in_outlined,
+            'color': const Color(0xFF10B981),
+            'title': 'Task Submissions',
+            'desc': 'Student task proofs and verification requests queued',
+            'tab': 2,
+            'time': 'Today',
+          },
+          {
+            'icon': Icons.monitor_heart_outlined,
+            'color': const Color(0xFF38BDF8),
+            'title': 'System Pulse & Services',
+            'desc': 'API latency, Cloudflare edge and database sync status',
+            'tab': 9,
+            'time': 'Live',
+          },
+        ];
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollCtrl) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.notifications_active_rounded, color: Color(0xFF38BDF8), size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Admin Alerts & Notifications',
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${alerts.length} Categories',
+                          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Color(0xFF1E293B), height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: alerts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, idx) {
+                      final item = alerts[idx];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          final targetTab = item['tab'] as int;
+                          if (mounted && _tab != targetTab) {
+                            setState(() => _tab = targetTab);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16213A),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFF233252)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: (item['color'] as Color).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(item['icon'] as IconData, color: item['color'] as Color, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item['title'] as String,
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      item['desc'] as String,
+                                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 13),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

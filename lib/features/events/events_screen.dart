@@ -6,7 +6,10 @@ import '../../core/models/event_model.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import 'widgets/organizer_login_dialog.dart';
+
 
 class EventsScreen extends StatefulWidget {
   final String? initialEventId;
@@ -28,6 +31,7 @@ class _EventsScreenState extends State<EventsScreen> {
   List<EventModel> _events = [];
   bool _isLoading = true;
   bool _initialTargetHandled = false;
+  EventModel? _focusedEvent;
   final Set<String> _registeringEventIds = {};
 
   // Breakpoint: below this width => original mobile layout (unchanged).
@@ -86,14 +90,16 @@ class _EventsScreenState extends State<EventsScreen> {
 
     final found = matched;
     if (found != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (widget.openOrganizerLogin) {
-          OrganizerLoginDialog.show(context, initialEventCode: found.eventCode ?? found.id);
-        } else {
-          _handleRegistration(found);
-        }
+      setState(() {
+        _focusedEvent = found;
       });
+      if (widget.openOrganizerLogin) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            OrganizerLoginDialog.show(context, initialEventCode: found.eventCode ?? found.id);
+          }
+        });
+      }
       return;
     }
 
@@ -103,17 +109,25 @@ class _EventsScreenState extends State<EventsScreen> {
       final raw = res['event'];
       if (raw != null && raw is Map) {
         final publicEvent = EventModel.fromJson(Map<String, dynamic>.from(raw));
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+        if (mounted) {
+          setState(() {
+            _focusedEvent = publicEvent;
+            if (!_events.any((e) => e.id == publicEvent.id)) {
+              _events.insert(0, publicEvent);
+            }
+          });
           if (widget.openOrganizerLogin) {
-            OrganizerLoginDialog.show(context, initialEventCode: publicEvent.eventCode ?? publicEvent.id);
-          } else {
-            _handleRegistration(publicEvent);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                OrganizerLoginDialog.show(context, initialEventCode: publicEvent.eventCode ?? publicEvent.id);
+              }
+            });
           }
-        });
+        }
       }
     } catch (_) {}
   }
+
 
   Future<void> _launchUrl(String url) async {
     if (url.isEmpty) return;
@@ -528,32 +542,6 @@ class _EventsScreenState extends State<EventsScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (event.eventCode != null && event.eventCode!.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.indigo.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.indigo.shade200),
-                        ),
-                        child: Text(
-                          event.eventCode!,
-                          style: TextStyle(
-                            color: Colors.indigo.shade800,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.share_outlined, size: 18),
-                      tooltip: 'Copy event share link',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _copyEventLink(event),
-                    ),
                     if (event.organizerAccessEnabled == true) ...[
                       const SizedBox(width: 4),
                       IconButton(
@@ -621,27 +609,42 @@ class _EventsScreenState extends State<EventsScreen> {
                   ]),
                 ],
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _registeringEventIds.contains(event.id) ? null : () => _handleRegistration(event),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: event.registrationMode == 'internal' ? Colors.teal.shade700 : Colors.indigo.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _registeringEventIds.contains(event.id) ? null : () => _handleRegistration(event),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: event.registrationMode == 'internal' ? Colors.teal.shade700 : Colors.indigo.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: _registeringEventIds.contains(event.id)
+                            ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Text(
+                                event.registrationMode != 'internal'
+                                    ? 'Register Now'
+                                    : event.isRegistered
+                                        ? 'Registered · Cancel'
+                                        : 'Register on CampusSetu',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                      ),
                     ),
-                    child: _registeringEventIds.contains(event.id)
-                        ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(
-                            event.registrationMode != 'internal'
-                                ? 'Register Now'
-                                : event.isRegistered
-                                    ? 'Registered · Cancel'
-                                    : 'Register on CampusSetu',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                  ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => _copyEventLink(event),
+                      icon: const Icon(Icons.share_outlined, size: 16),
+                      label: const Text('Share', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.indigo.shade400,
+                        side: BorderSide(color: Colors.indigo.shade300.withValues(alpha: 0.6)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Align(
@@ -655,6 +658,46 @@ class _EventsScreenState extends State<EventsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleEventView(EventModel event) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => setState(() => _focusedEvent = null),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'View All Campus Events (${_events.length})',
+                        style: const TextStyle(
+                          color: Color(0xFF6366F1),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildEventCard(event, isWeb: false),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -695,32 +738,53 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Campus Events', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          _focusedEvent != null ? 'Event Details' : 'Campus Events',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.indigo.shade600,
         foregroundColor: Colors.white,
+        leading: _focusedEvent != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'All Events',
+                onPressed: () => setState(() => _focusedEvent = null),
+              )
+            : null,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Notifications',
+            onPressed: () => context.push(AppRoutes.notifications),
+          ),
           IconButton(
             icon: const Icon(Icons.shield_outlined),
             tooltip: 'Organizer Desk Login',
-            onPressed: () => OrganizerLoginDialog.show(context),
+            onPressed: () => OrganizerLoginDialog.show(
+              context,
+              initialEventCode: _focusedEvent?.eventCode ?? _focusedEvent?.id,
+            ),
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchEvents,
-              child: _events.isEmpty
-                  ? _buildEmptyState()
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWeb = constraints.maxWidth >= _webBreakpoint;
-                        return isWeb
-                            ? _buildWebGrid(constraints.maxWidth)
-                            : _buildMobileList();
-                      },
-                    ),
-            ),
+          : _focusedEvent != null
+              ? _buildSingleEventView(_focusedEvent!)
+              : RefreshIndicator(
+                  onRefresh: _fetchEvents,
+                  child: _events.isEmpty
+                      ? _buildEmptyState()
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWeb = constraints.maxWidth >= _webBreakpoint;
+                            return isWeb
+                                ? _buildWebGrid(constraints.maxWidth)
+                                : _buildMobileList();
+                          },
+                        ),
+                ),
     );
   }
 }
+

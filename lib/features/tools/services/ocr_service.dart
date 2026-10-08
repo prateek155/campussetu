@@ -8,6 +8,10 @@ import 'pdf_tools_service.dart';
 
 export 'ocr_service_mobile.dart' if (dart.library.html) 'ocr_service_web.dart';
 
+void _addOcrUtf8ArchiveFile(Archive archive, String name, String contents) {
+  archive.addFile(ArchiveFile.bytes(name, utf8.encode(contents)));
+}
+
 enum OcrLineAlignment {
   left,
   center,
@@ -38,16 +42,16 @@ class OcrLine {
   });
 
   Map<String, dynamic> toJson() => {
-    'text': text,
-    'x': x,
-    'y': y,
-    'width': width,
-    'height': height,
-    'alignment': alignment.name,
-    'isHeading': isHeading,
-    'fontSize': fontSize,
-    'indentTwips': indentTwips,
-  };
+        'text': text,
+        'x': x,
+        'y': y,
+        'width': width,
+        'height': height,
+        'alignment': alignment.name,
+        'isHeading': isHeading,
+        'fontSize': fontSize,
+        'indentTwips': indentTwips,
+      };
 }
 
 class OcrDocumentResult {
@@ -131,21 +135,21 @@ class OcrService {
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>''';
-    archive.addFile(ArchiveFile('[Content_Types].xml', ctXml.length, utf8.encode(ctXml)));
+    _addOcrUtf8ArchiveFile(archive, '[Content_Types].xml', ctXml);
 
     // 2. _rels/.rels
     const rootRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('_rels/.rels', rootRels.length, utf8.encode(rootRels)));
+    _addOcrUtf8ArchiveFile(archive, '_rels/.rels', rootRels);
 
     // 3. word/_rels/document.xml.rels
     const docRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>''';
-    archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRels.length, utf8.encode(docRels)));
+    _addOcrUtf8ArchiveFile(archive, 'word/_rels/document.xml.rels', docRels);
 
     // 4. word/styles.xml
     const stylesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -162,11 +166,12 @@ class OcrService {
     <w:name w:val="Normal"/>
   </w:style>
 </w:styles>''';
-    archive.addFile(ArchiveFile('word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
+    _addOcrUtf8ArchiveFile(archive, 'word/styles.xml', stylesXml);
 
     // 5. word/document.xml
     final pBuffer = StringBuffer();
-    final linesToExport = _buildLinesFromText(text, ocrResult: preserveLayout ? ocrResult : null);
+    final linesToExport =
+        _buildLinesFromText(text, ocrResult: preserveLayout ? ocrResult : null);
 
     double lastY = -1;
     for (final line in linesToExport) {
@@ -194,7 +199,8 @@ class OcrService {
       if (line.alignment == OcrLineAlignment.left && line.indentTwips > 0) {
         pBuffer.writeln('        <w:ind w:left="${line.indentTwips}"/>');
       }
-      pBuffer.writeln('        <w:spacing w:before="$spaceBefore" w:after="60" w:line="276" w:lineRule="auto"/>');
+      pBuffer.writeln(
+          '        <w:spacing w:before="$spaceBefore" w:after="60" w:line="276" w:lineRule="auto"/>');
       pBuffer.writeln('      </w:pPr>');
       pBuffer.writeln('      <w:r>');
       if (line.isHeading || line.fontSize >= 13.5) {
@@ -209,7 +215,8 @@ class OcrService {
       pBuffer.writeln('    </w:p>');
     }
 
-    final documentXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    final documentXml =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
 $pBuffer
@@ -219,7 +226,7 @@ $pBuffer
     </w:sectPr>
   </w:body>
 </w:document>''';
-    archive.addFile(ArchiveFile('word/document.xml', documentXml.length, utf8.encode(documentXml)));
+    _addOcrUtf8ArchiveFile(archive, 'word/document.xml', documentXml);
 
     final zipEncoder = ZipEncoder();
     final encoded = zipEncoder.encode(archive);
@@ -248,9 +255,12 @@ $pBuffer
     final pageHeight = pageSize.height;
 
     final regularFont = PdfStandardFont(PdfFontFamily.helvetica, 11);
-    final boldFont = PdfStandardFont(PdfFontFamily.helvetica, 11, style: PdfFontStyle.bold);
-    final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 16, style: PdfFontStyle.bold);
-    final subtitleFont = PdfStandardFont(PdfFontFamily.helvetica, 13, style: PdfFontStyle.bold);
+    final boldFont =
+        PdfStandardFont(PdfFontFamily.helvetica, 11, style: PdfFontStyle.bold);
+    final titleFont =
+        PdfStandardFont(PdfFontFamily.helvetica, 16, style: PdfFontStyle.bold);
+    final subtitleFont =
+        PdfStandardFont(PdfFontFamily.helvetica, 13, style: PdfFontStyle.bold);
     final brush = PdfSolidBrush(PdfColor(20, 24, 33));
 
     double currentY = 10;
@@ -300,7 +310,8 @@ $pBuffer
         line.text,
         font,
         brush: brush,
-        bounds: Rect.fromLTWH(x, currentY, lineSize.width + 10, lineSize.height + 4),
+        bounds: Rect.fromLTWH(
+            x, currentY, lineSize.width + 10, lineSize.height + 4),
       );
 
       currentY += lineSize.height + 4;
@@ -311,7 +322,8 @@ $pBuffer
     return output;
   }
 
-  static List<OcrLine> _buildLinesFromText(String text, {OcrDocumentResult? ocrResult}) {
+  static List<OcrLine> _buildLinesFromText(String text,
+      {OcrDocumentResult? ocrResult}) {
     final rawLines = text.split(RegExp(r'\r?\n'));
     if (ocrResult != null && ocrResult.lines.isNotEmpty) {
       // If line counts match, preserve original line positioning and layout!
@@ -353,7 +365,8 @@ $pBuffer
       }
 
       int leadingSpaces = line.length - line.trimLeft().length;
-      int indentTwips = leadingSpaces > 2 ? (leadingSpaces * 140).clamp(0, 4000) : 0;
+      int indentTwips =
+          leadingSpaces > 2 ? (leadingSpaces * 140).clamp(0, 4000) : 0;
       OcrLineAlignment alignment = OcrLineAlignment.left;
       if (leadingSpaces >= 15) {
         alignment = OcrLineAlignment.center;

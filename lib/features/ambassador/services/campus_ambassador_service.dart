@@ -85,19 +85,13 @@ class CampusAmbassadorService {
 
   /// Stream all applicants for admin review without ever hanging in infinite loading
   Stream<List<CampusAmbassadorModel>> watchAllApplications() async* {
-    // 1. Try to yield cached or quick fetch first so Riverpod gets data instantly
+    // 1. Try backend API first (works seamlessly on Admin Web & mobile)
     try {
-      final cachedSnap = await _ambassadorsRef
-          .get(const GetOptions(source: Source.cache))
-          .timeout(const Duration(milliseconds: 500));
-      if (cachedSnap.docs.isNotEmpty) {
-        yield _parseSnapshot(cachedSnap);
-      }
-    } catch (_) {
-      // Cache miss or timeout, proceed to live snapshots
-    }
+      final list = await fetchAllApplications();
+      if (list.isNotEmpty) yield list;
+    } catch (_) {}
 
-    // 2. Listen to real-time snapshots
+    // 2. Listen to real-time snapshots if client Firestore access is available
     try {
       await for (final querySnapshot in _ambassadorsRef.snapshots()) {
         final list = _parseSnapshot(querySnapshot);
@@ -105,14 +99,12 @@ class CampusAmbassadorService {
       }
     } catch (e) {
       debugPrint('[CampusAmbassadorService] Live snapshots error: $e');
-      // 3. Fallback to direct get() if snapshots fails (e.g. security rules or listener issue)
+      // 3. Fallback to direct backend API
       try {
-        final querySnapshot =
-            await _ambassadorsRef.get().timeout(const Duration(seconds: 5));
-        yield _parseSnapshot(querySnapshot);
+        final list = await fetchAllApplications();
+        yield list;
       } catch (err) {
-        debugPrint('[CampusAmbassadorService] Fallback get() error: $err');
-        // Always yield a valid list so the stream finishes loading state
+        debugPrint('[CampusAmbassadorService] Fallback fetch error: $err');
         yield <CampusAmbassadorModel>[];
       }
     }
@@ -120,12 +112,27 @@ class CampusAmbassadorService {
 
   /// One-time fetch for all applications
   Future<List<CampusAmbassadorModel>> fetchAllApplications() async {
+    // 1. Primary: REST API (Admin endpoint has full backend root permissions)
+    try {
+      final rawList = await ApiService().getAdminAmbassadorApplications();
+      if (rawList.isNotEmpty) {
+        final list = rawList
+            .map((item) => CampusAmbassadorModel.fromMap(item, item['id']?.toString() ?? ''))
+            .toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      }
+    } catch (e) {
+      debugPrint('[CampusAmbassadorService] API fetchAllApplications error: $e');
+    }
+
+    // 2. Fallback: Direct Firestore
     try {
       final querySnapshot =
           await _ambassadorsRef.get().timeout(const Duration(seconds: 6));
       return _parseSnapshot(querySnapshot);
     } catch (e) {
-      debugPrint('[CampusAmbassadorService] fetchAllApplications error: $e');
+      debugPrint('[CampusAmbassadorService] Firestore fetchAllApplications error: $e');
       return <CampusAmbassadorModel>[];
     }
   }
@@ -151,14 +158,30 @@ class CampusAmbassadorService {
     AmbassadorStatus status, {
     String? reviewNote,
   }) async {
-    final updateData = <String, dynamic>{
-      'status': status.toDbString(),
-      'updated_at': FieldValue.serverTimestamp(),
-    };
-    if (reviewNote != null) {
-      updateData['review_note'] = reviewNote;
+    // 1. Update via Backend API
+    try {
+      await ApiService().updateAdminAmbassadorStatus(
+        id,
+        status.toDbString(),
+        reviewNote: reviewNote,
+      );
+    } catch (e) {
+      debugPrint('[CampusAmbassadorService] Api updateApplicationStatus error: $e');
     }
-    await _ambassadorsRef.doc(id).set(updateData, SetOptions(merge: true));
+
+    // 2. Also sync to Firestore directly if possible
+    try {
+      final updateData = <String, dynamic>{
+        'status': status.toDbString(),
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (reviewNote != null) {
+        updateData['review_note'] = reviewNote;
+      }
+      await _ambassadorsRef.doc(id).set(updateData, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[CampusAmbassadorService] Firestore update status error: $e');
+    }
   }
 }
 

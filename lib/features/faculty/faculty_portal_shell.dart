@@ -40,6 +40,18 @@ class FacultyPortalShell extends StatelessWidget {
     if (!isWide) {
       return Scaffold(
         backgroundColor: facultyBg,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF101A30),
+          elevation: 0,
+          title: const Text('Faculty Portal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+              tooltip: 'Notifications',
+              onPressed: () => _showFacultyNotifications(context),
+            ),
+          ],
+        ),
         body: SafeArea(child: child),
         bottomNavigationBar: NavigationBar(
           height: 66,
@@ -165,6 +177,12 @@ class FacultyPortalShell extends StatelessWidget {
                   const SizedBox(width: 9),
                   const Text('Faculty workspace', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13)),
                   const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFFCBD5E1), size: 21),
+                    tooltip: 'Notifications',
+                    onPressed: () => _showFacultyNotifications(context),
+                  ),
+                  const SizedBox(width: 12),
                   CircleAvatar(backgroundColor: const Color(0xFF247C70), radius: 17, child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
                 ]),
               ),
@@ -175,7 +193,151 @@ class FacultyPortalShell extends StatelessWidget {
       ),
     );
   }
+
+  void _showFacultyNotifications(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Color(0xFF1E293B)),
+      ),
+      builder: (ctx) {
+        final notifications = [
+          {
+            'icon': Icons.bolt_rounded,
+            'color': const Color(0xFFE28B16),
+            'title': 'Live Quiz Completed',
+            'desc': '32 students submitted Database Systems Chapter 3 quiz',
+            'time': '10m ago',
+          },
+          {
+            'icon': Icons.fact_check_outlined,
+            'color': const Color(0xFF34A783),
+            'title': 'Paper Test Generated',
+            'desc': 'Mid-Term Exam (Set A & B) ready for PDF download & print',
+            'time': '1h ago',
+          },
+          {
+            'icon': Icons.analytics_outlined,
+            'color': const Color(0xFF38BDF8),
+            'title': 'Analytics Report Ready',
+            'desc': 'Class average score increased by 14% this week',
+            'time': '3h ago',
+          },
+          {
+            'icon': Icons.campaign_outlined,
+            'color': const Color(0xFFA855F7),
+            'title': 'Campus Academic Notice',
+            'desc': 'Department review meeting scheduled for Friday 3:00 PM',
+            'time': '1d ago',
+          },
+        ];
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollCtrl) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.notifications_active_rounded, color: Color(0xFFE28B16), size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Faculty Notifications',
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE28B16).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${notifications.length} New',
+                          style: const TextStyle(color: Color(0xFFE28B16), fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Color(0xFF1E293B), height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, idx) {
+                      final n = notifications[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16213A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF233252)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: (n['color'] as Color).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    n['title'] as String,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    n['desc'] as String,
+                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              n['time'] as String,
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
+
 
 class _NavigationItem extends StatelessWidget {
   final String label;

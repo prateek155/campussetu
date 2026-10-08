@@ -318,6 +318,11 @@ class _EnterprisePosShellState extends ConsumerState<EnterprisePosShell> {
             ],
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 21),
+              tooltip: 'Notifications',
+              onPressed: () => _showEnterpriseNotifications(context),
+            ),
             Container(
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -343,6 +348,7 @@ class _EnterprisePosShellState extends ConsumerState<EnterprisePosShell> {
         body: contentBody,
       );
     }
+
 
     // Desktop / Wide Layout (Matches Image 1, 2, 3)
     return Scaffold(
@@ -464,7 +470,15 @@ class _EnterprisePosShellState extends ConsumerState<EnterprisePosShell> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
+
+                // Notifications
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF94A3B8), size: 22),
+                  tooltip: 'POS & Store Notifications',
+                  onPressed: () => _showEnterpriseNotifications(context),
+                ),
+                const SizedBox(width: 12),
 
                 // Logout Button
                 OutlinedButton(
@@ -533,4 +547,148 @@ class _EnterprisePosShellState extends ConsumerState<EnterprisePosShell> {
       ),
     );
   }
+
+  void _showEnterpriseNotifications(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Color(0xFF1E293B)),
+      ),
+      builder: (ctx) {
+        final notifications = [
+          {
+            'icon': Icons.point_of_sale_rounded,
+            'color': const Color(0xFF10B981),
+            'title': 'Online Order Received',
+            'desc': 'Order #ORD-8492 placed via Campus Setu app (₹240)',
+            'time': '5m ago',
+          },
+          {
+            'icon': Icons.inventory_2_outlined,
+            'color': const Color(0xFFF59E0B),
+            'title': 'Low Stock Alert',
+            'desc': 'Cold Coffee (250ml) inventory is below threshold (4 units remaining)',
+            'time': '35m ago',
+          },
+          {
+            'icon': Icons.sync_rounded,
+            'color': const Color(0xFF38BDF8),
+            'title': 'Offline Cache Synced',
+            'desc': '18 offline counter transactions synchronized with cloud ledger',
+            'time': '2h ago',
+          },
+          {
+            'icon': Icons.account_balance_wallet_outlined,
+            'color': const Color(0xFFA855F7),
+            'title': 'Daily Settlement Ready',
+            'desc': 'UPI and QR settlement report for today ready for download',
+            'time': '5h ago',
+          },
+        ];
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollCtrl) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.notifications_active_rounded, color: Color(0xFF10B981), size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'POS & Store Alerts',
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${notifications.length} Active',
+                          style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Color(0xFF1E293B), height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, idx) {
+                      final n = notifications[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16213A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF233252)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: (n['color'] as Color).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    n['title'] as String,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    n['desc'] as String,
+                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              n['time'] as String,
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
+

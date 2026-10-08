@@ -9,28 +9,51 @@ import 'package:campussetu/features/tools/services/pdf_tools_service.dart';
 void main() {
   test('PDF with an explicit null outline converts to DOCX and PPTX', () async {
     final input = _minimalPdfWithNullOutlines();
+    final wordProgress = <double>[];
 
-    final word = await PdfToolsService.pdfToWordDocx(input);
+    final word = await PdfToolsService.pdfToWordDocx(
+      input,
+      onProgress: (progress, _) => wordProgress.add(progress),
+    );
     expect(word.pageCount, 1);
     final docxArchive = ZipDecoder().decodeBytes(word.docxBytes);
-    expect(docxArchive.findFile('word/document.xml'), isNotNull);
+    final documentXml = utf8.decode(
+      docxArchive.findFile('word/document.xml')!.content,
+    );
+    expect(documentXml, contains('Copyright © text'));
+    expect(documentXml, endsWith('</w:document>'));
     expect(docxArchive.findFile('[Content_Types].xml'), isNotNull);
+    expect(wordProgress.last, 1);
 
-    final pptx = await PdfToolsService.pdfToPptx(input);
+    final pptxProgress = <double>[];
+    final pptx = await PdfToolsService.pdfToPptx(
+      input,
+      onProgress: (progress, _) => pptxProgress.add(progress),
+    );
     final pptxArchive = ZipDecoder().decodeBytes(pptx);
     expect(pptxArchive.findFile('ppt/presentation.xml'), isNotNull);
-    expect(pptxArchive.findFile('ppt/slides/slide1.xml'), isNotNull);
+    final slideXml = utf8.decode(
+      pptxArchive.findFile('ppt/slides/slide1.xml')!.content,
+    );
+    expect(slideXml, contains('Copyright © text'));
+    expect(slideXml, contains('txBox="1"'));
+    expect(slideXml, isNot(contains('<p:pic>')));
+    expect(slideXml.trim(), endsWith('</p:sld>'));
     expect(pptxArchive.findFile('[Content_Types].xml'), isNotNull);
+    expect(pptxProgress.last, 1);
   });
 }
 
 Uint8List _minimalPdfWithNullOutlines() {
-  const objects = <String>[
+  const pageText = 'BT /F1 18 Tf 72 720 Td (Copyright \u00A9 text) Tj ET';
+  final objects = <String>[
     '<< /Type /Catalog /Pages 2 0 R /Outlines null >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] '
-        '/Resources << >> /Contents 4 0 R >>',
-    '<< /Length 0 >>\nstream\n\nendstream',
+        '/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    '<< /Length ${pageText.length} >>\nstream\n$pageText\nendstream',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica '
+        '/Encoding /WinAnsiEncoding >>',
   ];
 
   final pdf = StringBuffer('%PDF-1.4\n');

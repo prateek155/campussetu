@@ -166,6 +166,26 @@ class ApiService {
     await _dio.put('/admin/ambassador/program', data: {'is_open': isOpen});
   }
 
+  Future<List<Map<String, dynamic>>> getAdminAmbassadorApplications() async {
+    final res = await _dio.get('/admin/ambassador/applications');
+    final data = (res.data as Map)['applications'];
+    if (data is List) {
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<void> updateAdminAmbassadorStatus(
+    String id,
+    String status, {
+    String? reviewNote,
+  }) async {
+    await _dio.put('/admin/ambassador/applications/$id/status', data: {
+      'status': status,
+      if (reviewNote != null) 'review_note': reviewNote,
+    });
+  }
+
   // Quiz API
   Future<List<dynamic>> getLiveQuizzes() async {
     final res = await _dio.get('/quiz/live');

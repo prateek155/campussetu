@@ -151,13 +151,15 @@ class _ToolActionButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 18),
-        label: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        label: Text(text,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.cyanDeep,
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey.shade300,
           disabledForegroundColor: Colors.grey.shade600,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 1,
         ),
       ),
@@ -251,7 +253,8 @@ class _ToolModalShell extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.lock_outline_rounded, size: 13, color: AppColors.success),
+                const Icon(Icons.lock_outline_rounded,
+                    size: 13, color: AppColors.success),
                 const SizedBox(width: 4),
                 Text(
                   '100% Private & Client-Side: File never leaves your device',
@@ -279,6 +282,8 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
   int _totalPages = 0;
   int _fileSize = 0;
   bool _isProcessing = false;
+  double _conversionProgress = 0;
+  String _conversionStage = 'Preparing PDF';
   PdfExtractionResult? _result;
 
   Future<void> _pickPdf() async {
@@ -308,9 +313,22 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
 
   Future<void> _convertToWord() async {
     if (_pdfBytes == null) return;
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _conversionProgress = 0;
+      _conversionStage = 'Preparing PDF';
+    });
     try {
-      final res = await PdfToolsService.pdfToWordDocx(_pdfBytes!);
+      final res = await PdfToolsService.pdfToWordDocx(
+        _pdfBytes!,
+        onProgress: (progress, stage) {
+          if (!mounted) return;
+          setState(() {
+            _conversionProgress = progress;
+            _conversionStage = stage;
+          });
+        },
+      );
       if (mounted) setState(() => _result = res);
     } catch (e) {
       if (mounted) {
@@ -326,7 +344,8 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
 
   Future<void> _downloadDocx() async {
     if (_result == null) return;
-    final name = (_fileName ?? 'converted').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final name = (_fileName ?? 'converted')
+        .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
     await saveAndDownloadFile(_result!.docxBytes, '$name.docx');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -352,7 +371,8 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.cloud_upload_outlined, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.cloud_upload_outlined,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
               Text(
                 _fileName ?? 'Select or Drop PDF file',
@@ -363,7 +383,7 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
               Text(
                 _pdfBytes != null
                     ? '$_totalPages page(s) • ${_formatSize(_fileSize)}'
-                    : 'Convert PDF document into editable Microsoft Word (.docx)',
+                    : 'Extract selectable text into editable Word paragraphs',
                 style: AppTypography.interCaption(color: AppColors.inkSoft),
                 textAlign: TextAlign.center,
               ),
@@ -372,10 +392,17 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
         ),
         const SizedBox(height: 16),
         if (_isProcessing)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(20),
-            child: CircularProgressIndicator(),
-          ))
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                LinearProgressIndicator(value: _conversionProgress),
+                const SizedBox(height: 10),
+                Text(
+                    '$_conversionStage · ${(_conversionProgress * 100).round()}%'),
+              ],
+            ),
+          )
         else if (_pdfBytes != null && _result == null) ...[
           _ToolActionButton(
             text: 'Convert to Word (.docx)',
@@ -392,7 +419,8 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.blue, size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.blue, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -400,11 +428,13 @@ class _PdfToWordContentState extends State<_PdfToWordContent> {
                     children: [
                       Text(
                         'Conversion Complete!',
-                        style: AppTypography.interLabel(color: Colors.blue.shade900),
+                        style: AppTypography.interLabel(
+                            color: Colors.blue.shade900),
                       ),
                       Text(
                         'Your Word document (.docx) with ${_result!.pageCount} page(s) is ready',
-                        style: AppTypography.interCaption(color: AppColors.inkSoft),
+                        style: AppTypography.interCaption(
+                            color: AppColors.inkSoft),
                       ),
                     ],
                   ),
@@ -437,6 +467,8 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
   int _totalPages = 0;
   int _fileSize = 0;
   bool _isProcessing = false;
+  double _conversionProgress = 0;
+  String _conversionStage = 'Preparing PDF';
   Uint8List? _pptxBytes;
 
   Future<void> _pickPdf() async {
@@ -466,10 +498,25 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
 
   Future<void> _convertToPptx() async {
     if (_pdfBytes == null) return;
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _conversionProgress = 0;
+      _conversionStage = 'Preparing PDF';
+    });
     try {
-      final base = (_fileName ?? 'presentation').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-      final res = await PdfToolsService.pdfToPptx(_pdfBytes!, title: base);
+      final base = (_fileName ?? 'presentation')
+          .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+      final res = await PdfToolsService.pdfToPptx(
+        _pdfBytes!,
+        title: base,
+        onProgress: (progress, stage) {
+          if (!mounted) return;
+          setState(() {
+            _conversionProgress = progress;
+            _conversionStage = stage;
+          });
+        },
+      );
       if (mounted) setState(() => _pptxBytes = res);
     } catch (e) {
       if (mounted) {
@@ -485,11 +532,13 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
 
   Future<void> _downloadPptx() async {
     if (_pptxBytes == null) return;
-    final name = (_fileName ?? 'converted').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final name = (_fileName ?? 'converted')
+        .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
     await saveAndDownloadFile(_pptxBytes!, '${name}_presentation.pptx');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('PowerPoint presentation (.pptx) downloaded successfully!'),
+        content:
+            Text('PowerPoint presentation (.pptx) downloaded successfully!'),
         backgroundColor: AppColors.success,
       ));
     }
@@ -511,7 +560,8 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.co_present_rounded, size: 40, color: Color(0xFFFB923C)),
+              const Icon(Icons.co_present_rounded,
+                  size: 40, color: Color(0xFFFB923C)),
               const SizedBox(height: 8),
               Text(
                 _fileName ?? 'Select or Drop PDF file',
@@ -522,7 +572,7 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
               Text(
                 _pdfBytes != null
                     ? '$_totalPages slide(s) • ${_formatSize(_fileSize)}'
-                    : 'Convert PDF pages into editable PowerPoint slides (.pptx)',
+                    : 'Extract selectable text into editable PowerPoint slide boxes',
                 style: AppTypography.interCaption(color: AppColors.inkSoft),
                 textAlign: TextAlign.center,
               ),
@@ -531,16 +581,17 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
         ),
         const SizedBox(height: 16),
         if (_isProcessing)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(20),
+          Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 12),
-                Text('Rendering slides & creating presentation...'),
+                LinearProgressIndicator(value: _conversionProgress),
+                const SizedBox(height: 10),
+                Text(
+                    '$_conversionStage · ${(_conversionProgress * 100).round()}%'),
               ],
             ),
-          ))
+          )
         else if (_pdfBytes != null && _pptxBytes == null) ...[
           _ToolActionButton(
             text: 'Convert to PowerPoint (.pptx)',
@@ -553,11 +604,13 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
             decoration: BoxDecoration(
               color: const Color(0xFFFB923C).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
+              border: Border.all(
+                  color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFFFB923C), size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Color(0xFFFB923C), size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -569,7 +622,8 @@ class _PdfToPptxContentState extends State<_PdfToPptxContent> {
                       ),
                       Text(
                         'PowerPoint (.pptx) with $_totalPages slide(s) is ready',
-                        style: AppTypography.interCaption(color: AppColors.inkSoft),
+                        style: AppTypography.interCaption(
+                            color: AppColors.inkSoft),
                       ),
                     ],
                   ),
@@ -600,7 +654,8 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
   Uint8List? _pdfBytes;
   String? _fileName;
   int _totalPages = 0;
-  final TextEditingController _watermarkCtrl = TextEditingController(text: 'CONFIDENTIAL');
+  final TextEditingController _watermarkCtrl =
+      TextEditingController(text: 'CONFIDENTIAL');
   WatermarkStyle _selectedStyle = WatermarkStyle.centerDiagonal;
   Color _selectedColor = const Color(0xFF6B7280);
   double _opacity = 0.22;
@@ -673,7 +728,8 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.picture_as_pdf_outlined, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.picture_as_pdf_outlined,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
               Text(
                 _fileName ?? 'Select or Drop PDF file',
@@ -722,7 +778,11 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
               avatar: const Icon(Icons.trending_up_rounded, size: 16),
               selected: _selectedStyle == WatermarkStyle.centerDiagonal,
               onSelected: (val) {
-                if (val) setState(() { _selectedStyle = WatermarkStyle.centerDiagonal; _watermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _selectedStyle = WatermarkStyle.centerDiagonal;
+                    _watermarkedBytes = null;
+                  });
               },
             ),
             ChoiceChip(
@@ -730,7 +790,11 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
               avatar: const Icon(Icons.grid_4x4_rounded, size: 16),
               selected: _selectedStyle == WatermarkStyle.tiledDiagonal,
               onSelected: (val) {
-                if (val) setState(() { _selectedStyle = WatermarkStyle.tiledDiagonal; _watermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _selectedStyle = WatermarkStyle.tiledDiagonal;
+                    _watermarkedBytes = null;
+                  });
               },
             ),
             ChoiceChip(
@@ -738,7 +802,11 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
               avatar: const Icon(Icons.horizontal_rule_rounded, size: 16),
               selected: _selectedStyle == WatermarkStyle.centerHorizontal,
               onSelected: (val) {
-                if (val) setState(() { _selectedStyle = WatermarkStyle.centerHorizontal; _watermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _selectedStyle = WatermarkStyle.centerHorizontal;
+                    _watermarkedBytes = null;
+                  });
               },
             ),
           ],
@@ -748,36 +816,53 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
         // 4. Color & Opacity
         Row(
           children: [
-            Text('Color: ', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+            Text('Color: ',
+                style: AppTypography.interCaption(color: AppColors.inkSoft)),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _selectedColor = const Color(0xFF6B7280); _watermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _selectedColor = const Color(0xFF6B7280);
+                _watermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFF6B7280),
-                child: _selectedColor == const Color(0xFF6B7280) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _selectedColor == const Color(0xFF6B7280)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _selectedColor = const Color(0xFFEF4444); _watermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _selectedColor = const Color(0xFFEF4444);
+                _watermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFFEF4444),
-                child: _selectedColor == const Color(0xFFEF4444) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _selectedColor == const Color(0xFFEF4444)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _selectedColor = const Color(0xFF3B82F6); _watermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _selectedColor = const Color(0xFF3B82F6);
+                _watermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFF3B82F6),
-                child: _selectedColor == const Color(0xFF3B82F6) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _selectedColor == const Color(0xFF3B82F6)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const Spacer(),
-            Text('Intensity: ', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+            Text('Intensity: ',
+                style: AppTypography.interCaption(color: AppColors.inkSoft)),
             DropdownButton<double>(
               value: _opacity,
               isDense: true,
@@ -788,7 +873,11 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
                 DropdownMenuItem(value: 0.38, child: Text('Bold (38%)')),
               ],
               onChanged: (val) {
-                if (val != null) setState(() { _opacity = val; _watermarkedBytes = null; });
+                if (val != null)
+                  setState(() {
+                    _opacity = val;
+                    _watermarkedBytes = null;
+                  });
               },
             ),
           ],
@@ -796,7 +885,8 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
         const SizedBox(height: 16),
 
         if (_isProcessing)
-          const Center(child: Padding(
+          const Center(
+              child: Padding(
             padding: EdgeInsets.all(16),
             child: CircularProgressIndicator(),
           ))
@@ -804,7 +894,9 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
           _ToolActionButton(
             text: canApply
                 ? 'Apply Watermark to PDF'
-                : (_pdfBytes == null ? 'Select PDF to Continue' : 'Enter Watermark Text'),
+                : (_pdfBytes == null
+                    ? 'Select PDF to Continue'
+                    : 'Enter Watermark Text'),
             icon: Icons.branding_watermark_rounded,
             onPressed: canApply ? _applyWatermark : null,
           )
@@ -818,7 +910,8 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.green, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -826,11 +919,13 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
                     children: [
                       Text(
                         'Watermark Applied Successfully!',
-                        style: AppTypography.interLabel(color: Colors.green.shade900),
+                        style: AppTypography.interLabel(
+                            color: Colors.green.shade900),
                       ),
                       Text(
                         'Styled on all $_totalPages page(s)',
-                        style: AppTypography.interCaption(color: AppColors.inkSoft),
+                        style: AppTypography.interCaption(
+                            color: AppColors.inkSoft),
                       ),
                     ],
                   ),
@@ -843,8 +938,10 @@ class _PdfWatermarkContentState extends State<_PdfWatermarkContent> {
             text: 'Download Watermarked PDF',
             icon: Icons.download_rounded,
             onPressed: () async {
-              final name = (_fileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-              await saveAndDownloadFile(_watermarkedBytes!, '${name}_watermarked.pdf');
+              final name = (_fileName ?? 'document')
+                  .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+              await saveAndDownloadFile(
+                  _watermarkedBytes!, '${name}_watermarked.pdf');
             },
           ),
         ],
@@ -899,16 +996,20 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
       Uint8List pdfBytes;
       if (_isDirectTextMode || _wordBytes == null) {
         if (_textCtrl.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter text first')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please enter text first')));
           return;
         }
-        pdfBytes = await PdfToolsService.wordToPdf(_textCtrl.text.trim(), title: _titleCtrl.text.trim());
+        pdfBytes = await PdfToolsService.wordToPdf(_textCtrl.text.trim(),
+            title: _titleCtrl.text.trim());
       } else {
-        pdfBytes = await PdfToolsService.docxToPdf(_wordBytes!, title: _fileName?.split('.').first ?? 'Document');
+        pdfBytes = await PdfToolsService.docxToPdf(_wordBytes!,
+            title: _fileName?.split('.').first ?? 'Document');
       }
 
       setState(() => _generatedPdfBytes = pdfBytes);
-      final filename = '${(_fileName ?? _titleCtrl.text).replaceAll(RegExp(r'\.(docx|doc|txt)$', caseSensitive: false), '')}.pdf';
+      final filename =
+          '${(_fileName ?? _titleCtrl.text).replaceAll(RegExp(r'\.(docx|doc|txt)$', caseSensitive: false), '')}.pdf';
       await saveAndDownloadFile(pdfBytes, filename);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -918,7 +1019,8 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -944,8 +1046,13 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
                 icon: const Icon(Icons.description_rounded, size: 18),
                 label: const Text('Upload Word File'),
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: !_isDirectTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
-                  side: BorderSide(color: !_isDirectTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                  backgroundColor: !_isDirectTextMode
+                      ? AppColors.cyanDeep.withValues(alpha: 0.1)
+                      : null,
+                  side: BorderSide(
+                      color: !_isDirectTextMode
+                          ? AppColors.cyanDeep
+                          : Colors.grey.shade300),
                 ),
                 onPressed: () => setState(() => _isDirectTextMode = false),
               ),
@@ -956,8 +1063,13 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
                 icon: const Icon(Icons.edit_note_rounded, size: 18),
                 label: const Text('Type Text Directly'),
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: _isDirectTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
-                  side: BorderSide(color: _isDirectTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                  backgroundColor: _isDirectTextMode
+                      ? AppColors.cyanDeep.withValues(alpha: 0.1)
+                      : null,
+                  side: BorderSide(
+                      color: _isDirectTextMode
+                          ? AppColors.cyanDeep
+                          : Colors.grey.shade300),
                 ),
                 onPressed: () => setState(() => _isDirectTextMode = true),
               ),
@@ -972,7 +1084,8 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
             onTap: _pickWordFile,
             child: Column(
               children: [
-                const Icon(Icons.file_present_rounded, size: 40, color: AppColors.cyanDeep),
+                const Icon(Icons.file_present_rounded,
+                    size: 40, color: AppColors.cyanDeep),
                 const SizedBox(height: 8),
                 Text(
                   _fileName ?? 'Select Microsoft Word (.docx, .doc)',
@@ -1004,7 +1117,8 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
             controller: _textCtrl,
             maxLines: 7,
             decoration: const InputDecoration(
-              hintText: 'Type, paste, or write text here to convert into PDF...',
+              hintText:
+                  'Type, paste, or write text here to convert into PDF...',
               border: OutlineInputBorder(),
             ),
           ),
@@ -1012,15 +1126,20 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
 
         const SizedBox(height: 16),
         if (_isGenerating)
-          const Center(child: Padding(
+          const Center(
+              child: Padding(
             padding: EdgeInsets.all(16),
             child: CircularProgressIndicator(),
           ))
         else
           _ToolActionButton(
-            text: _isDirectTextMode ? 'Convert Text to PDF' : 'Convert Word to PDF',
+            text: _isDirectTextMode
+                ? 'Convert Text to PDF'
+                : 'Convert Word to PDF',
             icon: Icons.picture_as_pdf_rounded,
-            onPressed: (!_isDirectTextMode && _wordBytes == null) ? null : _generatePdf,
+            onPressed: (!_isDirectTextMode && _wordBytes == null)
+                ? null
+                : _generatePdf,
           ),
 
         if (_generatedPdfBytes != null) ...[
@@ -1036,7 +1155,11 @@ class _WordToPdfContentState extends State<_WordToPdfContent> {
                 Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('PDF converted and saved to your device!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: Text('PDF converted and saved to your device!',
+                      style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
                 ),
               ],
             ),
@@ -1059,7 +1182,8 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
   String? _fileName;
   Uint8List? _compressedBytes;
   bool _isCompressing = false;
-  int _qualityLevel = 2; // 1 = High Quality, 2 = Balanced, 3 = Maximum Compression
+  int _qualityLevel =
+      2; // 1 = High Quality, 2 = Balanced, 3 = Maximum Compression
 
   Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
@@ -1086,11 +1210,14 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
     if (_originalBytes == null) return;
     setState(() => _isCompressing = true);
     try {
-      final compressed = await PdfToolsService.compressPdf(_originalBytes!, qualityLevel: _qualityLevel);
+      final compressed = await PdfToolsService.compressPdf(_originalBytes!,
+          qualityLevel: _qualityLevel);
       setState(() => _compressedBytes = compressed);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Compression failed: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Compression failed: $e'),
+            backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _isCompressing = false);
@@ -1113,7 +1240,8 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.compress_rounded, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.compress_rounded,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
               Text(
                 _fileName ?? 'Select PDF to Compress',
@@ -1122,20 +1250,27 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
               ),
               if (_originalBytes != null) ...[
                 const SizedBox(height: 4),
-                Text('Original Size: ${_formatSize(_originalBytes!.lengthInBytes)}', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                Text(
+                    'Original Size: ${_formatSize(_originalBytes!.lengthInBytes)}',
+                    style:
+                        AppTypography.interCaption(color: AppColors.inkSoft)),
               ],
             ],
           ),
         ),
         if (_originalBytes != null) ...[
           const SizedBox(height: 14),
-          Text('Compression Level:', style: AppTypography.interLabel(color: AppColors.ink)),
+          Text('Compression Level:',
+              style: AppTypography.interLabel(color: AppColors.ink)),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('Balanced', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('Balanced',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _qualityLevel == 2,
                   onSelected: (sel) => setState(() => _qualityLevel = 2),
                   selectedColor: AppColors.cyanDeep.withValues(alpha: 0.2),
@@ -1144,7 +1279,10 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
               const SizedBox(width: 8),
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('Maximum', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('Maximum',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _qualityLevel == 3,
                   onSelected: (sel) => setState(() => _qualityLevel = 3),
                   selectedColor: Colors.purple.withValues(alpha: 0.2),
@@ -1153,7 +1291,10 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
               const SizedBox(width: 8),
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('High Quality', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('High Quality',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _qualityLevel == 1,
                   onSelected: (sel) => setState(() => _qualityLevel = 1),
                   selectedColor: Colors.blue.withValues(alpha: 0.2),
@@ -1163,7 +1304,8 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
           ),
           const SizedBox(height: 16),
           if (_isCompressing)
-            const Center(child: Padding(
+            const Center(
+                child: Padding(
               padding: EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -1185,17 +1327,21 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
               builder: (context) {
                 final orig = _originalBytes!.lengthInBytes;
                 final comp = _compressedBytes!.lengthInBytes;
-                final double savedPct = orig > 0 ? ((orig - comp) / orig * 100).clamp(0.0, 99.9) : 0.0;
+                final double savedPct = orig > 0
+                    ? ((orig - comp) / orig * 100).clamp(0.0, 99.9)
+                    : 0.0;
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppColors.success, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -1203,11 +1349,15 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
                           children: [
                             Text(
                               'Compressed: ${_formatSize(comp)} (${savedPct.toStringAsFixed(1)}% saved!)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.success),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.success),
                             ),
                             Text(
                               'Original: ${_formatSize(orig)} • All content intact',
-                              style: AppTypography.interCaption(color: AppColors.inkSoft),
+                              style: AppTypography.interCaption(
+                                  color: AppColors.inkSoft),
                             ),
                           ],
                         ),
@@ -1222,8 +1372,10 @@ class _CompressPdfContentState extends State<_CompressPdfContent> {
               text: 'Download Compressed PDF',
               icon: Icons.download_rounded,
               onPressed: () async {
-                final name = (_fileName ?? 'compressed').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                await saveAndDownloadFile(_compressedBytes!, '${name}_compressed.pdf');
+                final name = (_fileName ?? 'compressed')
+                    .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                await saveAndDownloadFile(
+                    _compressedBytes!, '${name}_compressed.pdf');
               },
             ),
           ],
@@ -1282,7 +1434,8 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -1299,16 +1452,20 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
           onTap: _pickImages,
           child: Column(
             children: [
-              const Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.add_photo_alternate_outlined,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
-              Text('Pick One or More Images', style: AppTypography.interBody(weight: FontWeight.w600)),
-              Text('Supports JPG, PNG, WEBP, BMP', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+              Text('Pick One or More Images',
+                  style: AppTypography.interBody(weight: FontWeight.w600)),
+              Text('Supports JPG, PNG, WEBP, BMP',
+                  style: AppTypography.interCaption(color: AppColors.inkSoft)),
             ],
           ),
         ),
         if (_images.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('${_images.length} images selected:', style: AppTypography.interLabel()),
+          Text('${_images.length} images selected:',
+              style: AppTypography.interLabel()),
           const SizedBox(height: 8),
           SizedBox(
             height: 90,
@@ -1320,7 +1477,8 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(_images[i], width: 90, height: 90, fit: BoxFit.cover),
+                    child: Image.memory(_images[i],
+                        width: 90, height: 90, fit: BoxFit.cover),
                   ),
                   Positioned(
                     top: 2,
@@ -1328,9 +1486,11 @@ class _ImageToPdfContentState extends State<_ImageToPdfContent> {
                     child: GestureDetector(
                       onTap: () => setState(() => _images.removeAt(i)),
                       child: Container(
-                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                            color: Colors.black54, shape: BoxShape.circle),
                         padding: const EdgeInsets.all(2),
-                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white),
                       ),
                     ),
                   ),
@@ -1452,8 +1612,10 @@ class _DeletePagesContentState extends State<_DeletePagesContent> {
     }
     setState(() => _isProcessing = true);
     try {
-      final updated = await PdfToolsService.deletePdfPages(_pdfBytes!, _selectedPagesToDelete.toList());
-      final name = (_fileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+      final updated = await PdfToolsService.deletePdfPages(
+          _pdfBytes!, _selectedPagesToDelete.toList());
+      final name = (_fileName ?? 'document')
+          .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
       await saveAndDownloadFile(updated, '${name}_updated.pdf');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -1463,7 +1625,8 @@ class _DeletePagesContentState extends State<_DeletePagesContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -1480,17 +1643,22 @@ class _DeletePagesContentState extends State<_DeletePagesContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.delete_outline_rounded, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.delete_outline_rounded,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
-              Text(_fileName ?? 'Select PDF File', style: AppTypography.interBody(weight: FontWeight.w600)),
+              Text(_fileName ?? 'Select PDF File',
+                  style: AppTypography.interBody(weight: FontWeight.w600)),
               if (_totalPages > 0)
-                Text('Total Pages: $_totalPages', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                Text('Total Pages: $_totalPages',
+                    style:
+                        AppTypography.interCaption(color: AppColors.inkSoft)),
             ],
           ),
         ),
         if (_totalPages > 0) ...[
           const SizedBox(height: 16),
-          Text('Tap pages to delete (turns red):', style: AppTypography.interLabel()),
+          Text('Tap pages to delete (turns red):',
+              style: AppTypography.interLabel()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1524,9 +1692,11 @@ class _DeletePagesContentState extends State<_DeletePagesContent> {
             const Center(child: CircularProgressIndicator())
           else
             _ToolActionButton(
-              text: 'Delete ${_selectedPagesToDelete.length} Page(s) & Download',
+              text:
+                  'Delete ${_selectedPagesToDelete.length} Page(s) & Download',
               icon: Icons.download_rounded,
-              onPressed: _selectedPagesToDelete.isNotEmpty ? _deleteAndDownload : null,
+              onPressed:
+                  _selectedPagesToDelete.isNotEmpty ? _deleteAndDownload : null,
             ),
         ],
       ],
@@ -1573,8 +1743,10 @@ class _OrganizePdfContentState extends State<_OrganizePdfContent> {
     if (_pdfBytes == null || _pageOrder.isEmpty) return;
     setState(() => _isProcessing = true);
     try {
-      final reorganized = await PdfToolsService.reorderPdfPages(_pdfBytes!, _pageOrder);
-      final name = (_fileName ?? 'reorganized').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+      final reorganized =
+          await PdfToolsService.reorderPdfPages(_pdfBytes!, _pageOrder);
+      final name = (_fileName ?? 'reorganized')
+          .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
       await saveAndDownloadFile(reorganized, '${name}_reorganized.pdf');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -1584,7 +1756,8 @@ class _OrganizePdfContentState extends State<_OrganizePdfContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -1601,17 +1774,22 @@ class _OrganizePdfContentState extends State<_OrganizePdfContent> {
           onTap: _pickPdf,
           child: Column(
             children: [
-              const Icon(Icons.swap_vert_circle_outlined, size: 40, color: AppColors.cyanDeep),
+              const Icon(Icons.swap_vert_circle_outlined,
+                  size: 40, color: AppColors.cyanDeep),
               const SizedBox(height: 8),
-              Text(_fileName ?? 'Select PDF to Reorder', style: AppTypography.interBody(weight: FontWeight.w600)),
+              Text(_fileName ?? 'Select PDF to Reorder',
+                  style: AppTypography.interBody(weight: FontWeight.w600)),
               if (_pageOrder.isNotEmpty)
-                Text('Drag to change page sequence', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                Text('Drag to change page sequence',
+                    style:
+                        AppTypography.interCaption(color: AppColors.inkSoft)),
             ],
           ),
         ),
         if (_pageOrder.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('Reorder Pages (Drag & Drop):', style: AppTypography.interLabel()),
+          Text('Reorder Pages (Drag & Drop):',
+              style: AppTypography.interLabel()),
           const SizedBox(height: 8),
           ReorderableListView.builder(
             shrinkWrap: true,
@@ -1638,9 +1816,12 @@ class _OrganizePdfContentState extends State<_OrganizePdfContent> {
                 children: [
                   const Icon(Icons.drag_handle, color: Colors.grey),
                   const SizedBox(width: 12),
-                  Text('Page ${_pageOrder[i]}', style: AppTypography.interBody(weight: FontWeight.w600)),
+                  Text('Page ${_pageOrder[i]}',
+                      style: AppTypography.interBody(weight: FontWeight.w600)),
                   const Spacer(),
-                  Text('Position #${i + 1}', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                  Text('Position #${i + 1}',
+                      style:
+                          AppTypography.interCaption(color: AppColors.inkSoft)),
                 ],
               ),
             ),

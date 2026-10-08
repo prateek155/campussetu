@@ -25,9 +25,13 @@ router.get('/application/me', require('../middleware/auth').requireAuth, async (
 });
 
 router.post('/application', require('../middleware/auth').requireAuth, async (req, res) => {
-  const fields = ['name', 'age', 'phone', 'degree', 'current_year', 'college_name', 'previous_experience'];
+  const requiredFields = ['name', 'age', 'phone', 'degree', 'current_year', 'college_name'];
+  const fields = [...requiredFields, 'previous_experience'];
   const values = Object.fromEntries(fields.map((field) => [field, String(req.body?.[field] ?? '').trim()]));
-  if (fields.some((field) => !values[field]) || values.name.length > 120 || values.phone.length > 30 ||
+  if (!values.previous_experience) {
+    values.previous_experience = 'None';
+  }
+  if (requiredFields.some((field) => !values[field]) || values.name.length > 120 || values.phone.length > 30 ||
       values.previous_experience.length > 2000) {
     return res.status(400).json({ error: 'Please complete all required application fields.' });
   }

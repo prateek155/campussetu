@@ -16,12 +16,29 @@ class ToolDefinition {
   final Color iconColor;
   final ToolCategory category;
   String get group => switch (id) {
-        'merge_pdf' || 'split_pdf' || 'extract_pdf_pages' || 'delete_pages' || 'organize_pdf' => 'Organize & split',
-        'word_to_pdf' || 'html_to_pdf' || 'ppt_to_pdf' || 'pptx_to_pdf' || 'csv_to_excel_pdf' || 'txt_to_word_pdf' || 'image_to_pdf' || 'scan_to_pdf' => 'Create PDF',
+        'merge_pdf' ||
+        'split_pdf' ||
+        'extract_pdf_pages' ||
+        'delete_pages' ||
+        'organize_pdf' =>
+          'Organize & split',
+        'word_to_pdf' ||
+        'html_to_pdf' ||
+        'ppt_to_pdf' ||
+        'pptx_to_pdf' ||
+        'csv_to_excel_pdf' ||
+        'txt_to_word_pdf' ||
+        'image_to_pdf' ||
+        'scan_to_pdf' =>
+          'Create PDF',
         'pdf_to_word' || 'pdf_to_pptx' => 'Convert from PDF',
         'compress_pdf' || 'add_pdf_watermark' => 'Optimize & edit',
         'pdf_to_jpg' => 'Export PDF pages as images',
-        'image_convert' || 'compress_image' || 'image_watermark' || 'background_remover' => 'Edit images',
+        'image_convert' ||
+        'compress_image' ||
+        'image_watermark' ||
+        'background_remover' =>
+          'Edit images',
         'image_ocr_to_pdf_word' => 'Extract text',
         'qr_generator' || 'barcode_generator' => 'Create codes',
         _ => 'Other tools',
@@ -52,7 +69,8 @@ class ToolsData {
     ToolDefinition(
       id: 'add_pdf_watermark',
       name: 'Add Watermark',
-      description: 'Add a visible, translucent text watermark to every page locally',
+      description:
+          'Add a visible, translucent text watermark to every page locally',
       icon: Icons.branding_watermark_rounded,
       iconBgColor: Color(0xFF7F1D1D),
       iconColor: Color(0xFFF87171),
@@ -142,7 +160,8 @@ class ToolsData {
     ToolDefinition(
       id: 'pdf_to_pptx',
       name: 'PDF to PPT / PPTX',
-      description: 'Convert PDF pages into editable PowerPoint presentation',
+      description:
+          'Extract selectable text into editable slide boxes; scanned pages and graphics may need rebuilding',
       icon: Icons.co_present_rounded,
       iconBgColor: Color(0xFF7C2D12),
       iconColor: Color(0xFFFB923C),
@@ -151,7 +170,8 @@ class ToolsData {
     ToolDefinition(
       id: 'merge_pdf',
       name: 'Merge PDFs',
-      description: 'Combine selected PDF files into one document on this device',
+      description:
+          'Combine selected PDF files into one document on this device',
       icon: Icons.merge_rounded,
       iconBgColor: Color(0xFF312E81),
       iconColor: Color(0xFF818CF8),
@@ -178,7 +198,8 @@ class ToolsData {
     ToolDefinition(
       id: 'html_to_pdf',
       name: 'HTML to PDF',
-      description: 'Create a text-based PDF from HTML markup locally; no AI or upload',
+      description:
+          'Create a text-based PDF from HTML markup locally; no AI or upload',
       icon: Icons.code_rounded,
       iconBgColor: Color(0xFF7C2D12),
       iconColor: Color(0xFFFB923C),
@@ -217,7 +238,8 @@ class ToolsData {
     ToolDefinition(
       id: 'compress_image',
       name: 'Compress Image',
-      description: 'Shrink image file size with live quality & dimension tuning',
+      description:
+          'Shrink image file size with live quality & dimension tuning',
       icon: Icons.photo_size_select_small_rounded,
       iconBgColor: Color(0xFF7C2D12),
       iconColor: Color(0xFFFB923C),
@@ -226,7 +248,8 @@ class ToolsData {
     ToolDefinition(
       id: 'background_remover',
       name: 'Background Remover',
-      description: 'Remove a plain or near-uniform background locally; best with clear subject edges',
+      description:
+          'Remove a plain or near-uniform background locally; best with clear subject edges',
       icon: Icons.auto_awesome_rounded,
       iconBgColor: Color(0xFF134E4A),
       iconColor: Color(0xFF2DD4BF),
@@ -235,7 +258,8 @@ class ToolsData {
     ToolDefinition(
       id: 'image_watermark',
       name: 'Watermark Remover',
-      description: 'Smartly erase stamps, logos, and watermark text from photos',
+      description:
+          'Smartly erase stamps, logos, and watermark text from photos',
       icon: Icons.auto_fix_high_rounded,
       iconBgColor: Color(0xFF831843),
       iconColor: Color(0xFFF472B6),
@@ -286,7 +310,8 @@ class ToolsCategoryScreen extends ConsumerStatefulWidget {
   const ToolsCategoryScreen({super.key, required this.category});
 
   @override
-  ConsumerState<ToolsCategoryScreen> createState() => _ToolsCategoryScreenState();
+  ConsumerState<ToolsCategoryScreen> createState() =>
+      _ToolsCategoryScreenState();
 }
 
 class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
@@ -306,9 +331,11 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
 
     final bgColor = isDark ? const Color(0xFF0F111A) : const Color(0xFFF6F8FA);
     final cardBg = isDark ? const Color(0xFF1A1D2B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF282D42) : Colors.black.withValues(alpha: 0.08);
+    final cardBorder =
+        isDark ? const Color(0xFF282D42) : Colors.black.withValues(alpha: 0.08);
     final textColor = isDark ? Colors.white : const Color(0xFF1A1D24);
-    final textMuted = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final textMuted =
+        isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
 
     final isPdf = widget.category == ToolCategory.pdf;
     final title = isPdf ? 'PDF Tools' : 'Image Tools';
@@ -317,7 +344,8 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
     final filtered = allTools.where((t) {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
-      return t.name.toLowerCase().contains(q) || t.description.toLowerCase().contains(q);
+      return t.name.toLowerCase().contains(q) ||
+          t.description.toLowerCase().contains(q);
     }).toList();
 
     final groups = <String, List<ToolDefinition>>{};
@@ -337,7 +365,8 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
         ),
         title: Text(
           title,
-          style: AppTypography.soraHeading2().copyWith(color: textColor, fontWeight: FontWeight.bold),
+          style: AppTypography.soraHeading2()
+              .copyWith(color: textColor, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -349,24 +378,32 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
               children: [
                 // ── Early Access / Free Banner ──────────────────
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF181E30) : const Color(0xFFEFF6FF),
+                    color: isDark
+                        ? const Color(0xFF181E30)
+                        : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF253358) : const Color(0xFFBFDBFE),
+                      color: isDark
+                          ? const Color(0xFF253358)
+                          : const Color(0xFFBFDBFE),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 18),
+                      const Icon(Icons.auto_awesome,
+                          color: Color(0xFF38BDF8), size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'All tools are open with a 100% Free & Unlimited plan.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E3A8A),
+                            color: isDark
+                                ? const Color(0xFFE2E8F0)
+                                : const Color(0xFF1E3A8A),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -381,10 +418,14 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF16253D) : const Color(0xFFE0EDFC),
+                    color: isDark
+                        ? const Color(0xFF16253D)
+                        : const Color(0xFFE0EDFC),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF263C63) : const Color(0xFFBCD8F8),
+                      color: isDark
+                          ? const Color(0xFF263C63)
+                          : const Color(0xFFBCD8F8),
                     ),
                   ),
                   child: Row(
@@ -393,11 +434,14 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                          color:
+                              isDark ? const Color(0xFF0F172A) : Colors.white,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          isPdf ? Icons.picture_as_pdf_outlined : Icons.photo_library_outlined,
+                          isPdf
+                              ? Icons.picture_as_pdf_outlined
+                              : Icons.photo_library_outlined,
                           color: const Color(0xFF38BDF8),
                           size: 22,
                         ),
@@ -408,11 +452,15 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isPdf ? 'Working on a PDF file?' : 'Working on an Image file?',
+                              isPdf
+                                  ? 'Working on a PDF file?'
+                                  : 'Working on an Image file?',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -421,7 +469,9 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.35,
-                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155),
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF334155),
                               ),
                             ),
                           ],
@@ -442,7 +492,8 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                     border: Border.all(color: cardBorder),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                        color:
+                            Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -453,7 +504,8 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                     onChanged: (v) => setState(() => _searchQuery = v),
                     style: TextStyle(color: textColor, fontSize: 14),
                     decoration: InputDecoration(
-                      icon: Icon(Icons.search_rounded, color: textMuted, size: 20),
+                      icon: Icon(Icons.search_rounded,
+                          color: textMuted, size: 20),
                       hintText: 'Search tools',
                       hintStyle: TextStyle(color: textMuted, fontSize: 14),
                       border: InputBorder.none,
@@ -478,25 +530,40 @@ class _ToolsCategoryScreenState extends ConsumerState<ToolsCategoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          Icon(isPdf ? Icons.folder_copy_outlined : Icons.photo_library_outlined, color: const Color(0xFF38BDF8)),
+                          Icon(
+                              isPdf
+                                  ? Icons.folder_copy_outlined
+                                  : Icons.photo_library_outlined,
+                              color: const Color(0xFF38BDF8)),
                           const SizedBox(width: 9),
-                          Expanded(child: Text(entry.key, style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w800))),
-                          Text(entry.value.length.toString(), style: TextStyle(color: textMuted, fontSize: 12)),
+                          Expanded(
+                              child: Text(entry.key,
+                                  style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800))),
+                          Text(entry.value.length.toString(),
+                              style: TextStyle(color: textMuted, fontSize: 12)),
                         ]),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: entry.value.map((tool) => ActionChip(
-                            avatar: Icon(tool.icon, size: 16, color: tool.iconColor),
-                            label: Text(tool.name),
-                            onPressed: () => context.push('/tools/workspace?toolId=${tool.id}'),
-                          )).toList(),
+                          children: entry.value
+                              .map((tool) => ActionChip(
+                                    avatar: Icon(tool.icon,
+                                        size: 16, color: tool.iconColor),
+                                    label: Text(tool.name),
+                                    onPressed: () => context.push(
+                                        '/tools/workspace?toolId=${tool.id}'),
+                                  ))
+                              .toList(),
                         ),
                       ],
                     ),
                   ),
-                ],                const SizedBox(height: 30),
+                ],
+                const SizedBox(height: 30),
               ],
             ),
           ),

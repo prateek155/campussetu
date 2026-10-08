@@ -14,7 +14,8 @@ class ToolsHubScreen extends StatefulWidget {
   State<ToolsHubScreen> createState() => _ToolsHubScreenState();
 }
 
-class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProviderStateMixin {
+class _ToolsHubScreenState extends State<ToolsHubScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -57,7 +58,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Tools Hub', style: AppTypography.soraHeading2()),
-            Text('100% Client-Side Converters & Utilities', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+            Text('100% Client-Side Converters & Utilities',
+                style: AppTypography.interCaption(color: AppColors.inkSoft)),
           ],
         ),
         bottom: PreferredSize(
@@ -85,7 +87,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
               indicatorSize: TabBarIndicatorSize.tab,
               labelColor: Colors.white,
               unselectedLabelColor: AppColors.inkSoft,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              labelStyle:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               dividerColor: Colors.transparent,
               tabs: const [
                 Tab(
@@ -111,20 +114,24 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+                      border: Border.all(
+                          color: AppColors.success.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.shield_outlined, color: AppColors.success, size: 20),
+                        const Icon(Icons.shield_outlined,
+                            color: AppColors.success, size: 20),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Zero Database Storage: Files are processed 100% locally in your browser/device and are never uploaded or saved to any server.',
-                            style: AppTypography.interCaption(color: AppColors.ink),
+                            style: AppTypography.interCaption(
+                                color: AppColors.ink),
                           ),
                         ),
                       ],
@@ -144,61 +151,77 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                         tools: [
                           _ToolItem(
                             title: 'PDF to Word',
-                            description: 'Extract text & format into an editable Word document (.docx).',
+                            description:
+                                'Extract text & format into an editable Word document (.docx).',
                             icon: Icons.description_rounded,
                             iconColor: const Color(0xFF2B579A),
                             badge: 'MOST POPULAR',
-                            onTap: () => PdfToolDialogs.showPdfToWordDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showPdfToWordDialog(context),
                           ),
                           _ToolItem(
                             title: 'PDF to PPT / PPTX',
-                            description: 'Convert PDF slides into editable PowerPoint presentations.',
+                            description:
+                                'Extract selectable PDF text into editable slide boxes.',
                             icon: Icons.co_present_rounded,
                             iconColor: const Color(0xFFFB923C),
-                            onTap: () => PdfToolDialogs.showPdfToPptxDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showPdfToPptxDialog(context),
                           ),
                           _ToolItem(
                             title: 'Add Watermark',
-                            description: 'Add a translucent text watermark to each PDF page on this device.',
+                            description:
+                                'Add a translucent text watermark to each PDF page on this device.',
                             icon: Icons.branding_watermark_rounded,
                             iconColor: Colors.blueAccent,
-                            onTap: () => PdfToolDialogs.showPdfWatermarkDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showPdfWatermarkDialog(context),
                           ),
                           _ToolItem(
                             title: 'Word to PDF',
-                            description: 'Convert Word document contents or editable text into a clean PDF.',
+                            description:
+                                'Convert Word document contents or editable text into a clean PDF.',
                             icon: Icons.picture_as_pdf_rounded,
                             iconColor: Colors.deepOrange,
-                            onTap: () => PdfToolDialogs.showWordToPdfDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showWordToPdfDialog(context),
                           ),
                           _ToolItem(
                             title: 'Compress PDF',
-                            description: 'Shrink PDF file size for easier sharing and uploading.',
+                            description:
+                                'Shrink PDF file size for easier sharing and uploading.',
                             icon: Icons.compress_rounded,
                             iconColor: Colors.purple,
                             badge: 'FAST',
-                            onTap: () => PdfToolDialogs.showCompressPdfDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showCompressPdfDialog(context),
                           ),
                           _ToolItem(
                             title: 'Image to PDF',
-                            description: 'Combine single or multiple images (JPG, PNG) into a single PDF.',
+                            description:
+                                'Combine single or multiple images (JPG, PNG) into a single PDF.',
                             icon: Icons.photo_library_rounded,
                             iconColor: Colors.teal,
-                            onTap: () => PdfToolDialogs.showImageToPdfDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showImageToPdfDialog(context),
                           ),
                           _ToolItem(
                             title: 'Delete Specific Pages',
-                            description: 'Pick and permanently remove unwanted pages, then download updated PDF.',
+                            description:
+                                'Pick and permanently remove unwanted pages, then download updated PDF.',
                             icon: Icons.delete_sweep_rounded,
                             iconColor: Colors.red,
-                            onTap: () => PdfToolDialogs.showDeletePagesDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showDeletePagesDialog(context),
                           ),
                           _ToolItem(
                             title: 'Organize / Reorder PDF',
-                            description: 'Drag & drop pages into any sequence and download reorganized PDF.',
+                            description:
+                                'Drag & drop pages into any sequence and download reorganized PDF.',
                             icon: Icons.swap_vert_rounded,
                             iconColor: Colors.indigo,
-                            onTap: () => PdfToolDialogs.showOrganizePdfDialog(context),
+                            onTap: () =>
+                                PdfToolDialogs.showOrganizePdfDialog(context),
                           ),
                         ],
                       ),
@@ -210,48 +233,65 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                         tools: [
                           _ToolItem(
                             title: 'Image Converter',
-                            description: 'Convert between PNG, JPG, JPEG, WEBP, BMP, and GIF formats.',
+                            description:
+                                'Convert between PNG, JPG, JPEG, WEBP, BMP, and GIF formats.',
                             icon: Icons.transform_rounded,
                             iconColor: Colors.blueAccent,
                             badge: 'UNIVERSAL',
-                            onTap: () => ImageToolDialogs.showImageConverterDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showImageConverterDialog(
+                                    context),
                           ),
                           _ToolItem(
                             title: 'Compress Image',
-                            description: 'Reduce image file size with live quality slider & dimension control.',
+                            description:
+                                'Reduce image file size with live quality slider & dimension control.',
                             icon: Icons.photo_size_select_small_rounded,
                             iconColor: Colors.orange,
-                            onTap: () => ImageToolDialogs.showCompressImageDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showCompressImageDialog(
+                                    context),
                           ),
                           _ToolItem(
                             title: 'Background Remover',
-                            description: 'Remove a plain or near-solid image background offline on your device.',
+                            description:
+                                'Remove a plain or near-solid image background offline on your device.',
                             icon: Icons.auto_awesome_rounded,
                             iconColor: Colors.teal,
                             badge: 'OFFLINE',
-                            onTap: () => ImageToolDialogs.showBackgroundRemoverDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showBackgroundRemoverDialog(
+                                    context),
                           ),
                           _ToolItem(
                             title: 'Watermark Remover',
-                            description: 'Seamlessly blend and remove watermarks or logos from pictures.',
+                            description:
+                                'Seamlessly blend and remove watermarks or logos from pictures.',
                             icon: Icons.auto_fix_high_rounded,
                             iconColor: Colors.pinkAccent,
-                            onTap: () => ImageToolDialogs.showWatermarkRemoverDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showWatermarkRemoverDialog(
+                                    context),
                           ),
                           _ToolItem(
                             title: 'QR Code Generator',
-                            description: 'Create QR codes from text, URLs, or embed photos for instant scanning.',
+                            description:
+                                'Create QR codes from text, URLs, or embed photos for instant scanning.',
                             icon: Icons.qr_code_2_rounded,
                             iconColor: const Color(0xFF6C63FF),
                             badge: '2-IN-1',
-                            onTap: () => ImageToolDialogs.showQrGeneratorDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showQrGeneratorDialog(context),
                           ),
                           _ToolItem(
                             title: 'Barcode Generator',
-                            description: 'Generate standard Code 128 barcodes from text, IDs, or roll numbers.',
+                            description:
+                                'Generate standard Code 128 barcodes from text, IDs, or roll numbers.',
                             icon: Icons.view_column_rounded,
                             iconColor: Colors.deepPurple,
-                            onTap: () => ImageToolDialogs.showBarcodeGeneratorDialog(context),
+                            onTap: () =>
+                                ImageToolDialogs.showBarcodeGeneratorDialog(
+                                    context),
                           ),
                         ],
                       ),
@@ -310,7 +350,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                   ),
                   if (item.badge != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: item.iconColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -344,7 +385,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> with SingleTickerProvid
                     style: AppTypography.interLabel(color: AppColors.cyanDeep),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.cyanDeep),
+                  const Icon(Icons.arrow_forward_rounded,
+                      size: 14, color: AppColors.cyanDeep),
                 ],
               ),
             ],

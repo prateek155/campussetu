@@ -34,19 +34,23 @@ class ProcessedFileItem {
   });
 }
 
-final recentProcessedFilesProvider = StateProvider<List<ProcessedFileItem>>((ref) => []);
+final recentProcessedFilesProvider =
+    StateProvider<List<ProcessedFileItem>>((ref) => []);
 
 class ToolWorkspaceScreen extends ConsumerStatefulWidget {
   final String toolId;
   const ToolWorkspaceScreen({super.key, required this.toolId});
 
   @override
-  ConsumerState<ToolWorkspaceScreen> createState() => _ToolWorkspaceScreenState();
+  ConsumerState<ToolWorkspaceScreen> createState() =>
+      _ToolWorkspaceScreenState();
 }
 
 class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   // General state
   bool _isProcessing = false;
+  double _conversionProgress = 0;
+  String _conversionStage = 'Preparing conversion';
   String? _selectedFileName;
   int _selectedFileSize = 0;
   Uint8List? _selectedFileBytes;
@@ -65,17 +69,20 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // QR state
   int _qrMode = 0; // 0 = text, 1 = image
-  final TextEditingController _qrTextCtrl = TextEditingController(text: 'https://campussetu.in');
+  final TextEditingController _qrTextCtrl =
+      TextEditingController(text: 'https://campussetu.in');
   String? _qrImagePayload;
 
   // Barcode state
-  final TextEditingController _barcodeCtrl = TextEditingController(text: 'CAMPUS2026');
+  final TextEditingController _barcodeCtrl =
+      TextEditingController(text: 'CAMPUS2026');
 
   // PDF to Word state
   PdfExtractionResult? _pdfToWordResult;
 
   // PDF watermark state
-  final TextEditingController _pdfWatermarkCtrl = TextEditingController(text: 'CONFIDENTIAL');
+  final TextEditingController _pdfWatermarkCtrl =
+      TextEditingController(text: 'CONFIDENTIAL');
   int _pdfTotalPages = 0;
   WatermarkStyle _pdfWatermarkStyle = WatermarkStyle.centerDiagonal;
   Color _pdfWatermarkColor = const Color(0xFF6B7280);
@@ -87,7 +94,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   Uint8List? _compressedPdfResultBytes;
 
   // Word to PDF state
-  final TextEditingController _wordTitleCtrl = TextEditingController(text: 'CampusSetu Document');
+  final TextEditingController _wordTitleCtrl =
+      TextEditingController(text: 'CampusSetu Document');
   final TextEditingController _wordTextCtrl = TextEditingController();
   bool _isWordTextMode = false;
   Uint8List? _wordConvertedPdfBytes;
@@ -152,12 +160,17 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       isPdf: isPdf,
     );
 
-    ref.read(recentProcessedFilesProvider.notifier).update((list) => [newItem, ...list]);
+    ref
+        .read(recentProcessedFilesProvider.notifier)
+        .update((list) => [newItem, ...list]);
   }
 
-  Future<void> _pickSingleFile({List<String>? extensions, bool isImage = false}) async {
+  Future<void> _pickSingleFile(
+      {List<String>? extensions, bool isImage = false}) async {
     final result = await FilePicker.platform.pickFiles(
-      type: isImage ? FileType.image : (extensions != null ? FileType.custom : FileType.any),
+      type: isImage
+          ? FileType.image
+          : (extensions != null ? FileType.custom : FileType.any),
       allowedExtensions: extensions,
       withData: true,
     );
@@ -190,7 +203,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         _ocrTextCtrl.clear();
       }
 
-      if (widget.toolId.contains('pdf') || widget.toolId == 'delete_pages' || widget.toolId == 'organize_pdf') {
+      if (widget.toolId.contains('pdf') ||
+          widget.toolId == 'delete_pages' ||
+          widget.toolId == 'organize_pdf') {
         _pdfTotalPages = PdfToolsService.getPageCount(bytes);
         _pageOrder = List.generate(_pdfTotalPages, (i) => i + 1);
       }
@@ -211,9 +226,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
     final bgColor = isDark ? const Color(0xFF0F111A) : const Color(0xFFF6F8FA);
     final cardBg = isDark ? const Color(0xFF1A1D2B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF282D42) : Colors.black.withValues(alpha: 0.08);
+    final cardBorder =
+        isDark ? const Color(0xFF282D42) : Colors.black.withValues(alpha: 0.08);
     final textColor = isDark ? Colors.white : const Color(0xFF1A1D24);
-    final textMuted = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final textMuted =
+        isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
 
     final recentFiles = ref.watch(recentProcessedFilesProvider);
 
@@ -229,7 +246,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         ),
         title: Text(
           tool?.name ?? 'Tool Workspace',
-          style: AppTypography.soraHeading2().copyWith(color: textColor, fontWeight: FontWeight.bold),
+          style: AppTypography.soraHeading2()
+              .copyWith(color: textColor, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -241,14 +259,16 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               children: [
                 // ── Central Workspace Card (Matching Screenshot 2) ─
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: cardBorder),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
+                        color: Colors.black
+                            .withValues(alpha: isDark ? 0.35 : 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
@@ -261,12 +281,17 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                         width: 72,
                         height: 72,
                         decoration: BoxDecoration(
-                          color: isDark ? (tool?.iconBgColor ?? const Color(0xFF1E3A8A)) : (tool?.iconBgColor ?? const Color(0xFF1E3A8A)).withValues(alpha: 0.15),
+                          color: isDark
+                              ? (tool?.iconBgColor ?? const Color(0xFF1E3A8A))
+                              : (tool?.iconBgColor ?? const Color(0xFF1E3A8A))
+                                  .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(22),
                         ),
                         child: Icon(
                           tool?.icon ?? Icons.auto_fix_high_rounded,
-                          color: isDark ? (tool?.iconColor ?? const Color(0xFF60A5FA)) : (tool?.iconBgColor ?? const Color(0xFF1E3A8A)),
+                          color: isDark
+                              ? (tool?.iconColor ?? const Color(0xFF60A5FA))
+                              : (tool?.iconBgColor ?? const Color(0xFF1E3A8A)),
                           size: 34,
                         ),
                       ),
@@ -295,25 +320,33 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
                       // Info Badge (Matching Screenshot 2)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF131D30) : const Color(0xFFEFF6FF),
+                          color: isDark
+                              ? const Color(0xFF131D30)
+                              : const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF1E3354) : const Color(0xFFBFDBFE),
+                            color: isDark
+                                ? const Color(0xFF1E3354)
+                                : const Color(0xFFBFDBFE),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.info_outline_rounded, color: Color(0xFF38BDF8), size: 16),
+                            const Icon(Icons.info_outline_rounded,
+                                color: Color(0xFF38BDF8), size: 16),
                             const SizedBox(width: 8),
                             Text(
                               'Free & 100% Client-Side: Zero server upload',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E3A8A),
+                                color: isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : const Color(0xFF1E3A8A),
                               ),
                             ),
                           ],
@@ -357,7 +390,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     child: Center(
                       child: Text(
                         'No processed files yet in this session.\nFiles you download will appear here.',
-                        style: TextStyle(fontSize: 13, color: textMuted, height: 1.4),
+                        style: TextStyle(
+                            fontSize: 13, color: textMuted, height: 1.4),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -366,7 +400,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   ...recentFiles.map((item) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: cardBg,
                         borderRadius: BorderRadius.circular(16),
@@ -377,7 +412,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF7F1D1D).withValues(alpha: 0.25),
+                              color: const Color(0xFF7F1D1D)
+                                  .withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
@@ -404,15 +440,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '${item.timeAgo} • ${item.sizeStr}',
-                                  style: TextStyle(fontSize: 11, color: textMuted),
+                                  style:
+                                      TextStyle(fontSize: 11, color: textMuted),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.download_rounded, color: Color(0xFF38BDF8), size: 20),
+                            icon: const Icon(Icons.download_rounded,
+                                color: Color(0xFF38BDF8), size: 20),
                             tooltip: 'Download again',
-                            onPressed: () => saveAndDownloadFile(item.bytes, item.fileName),
+                            onPressed: () =>
+                                saveAndDownloadFile(item.bytes, item.fileName),
                           ),
                         ],
                       ),
@@ -429,7 +468,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   }
 
   // ── Builds the exact tool interactive interface ───────────────
-  Widget _buildToolWorkspaceBody(bool isDark, Color textColor, Color textMuted) {
+  Widget _buildToolWorkspaceBody(
+      bool isDark, Color textColor, Color textMuted) {
     switch (widget.toolId) {
       case 'image_convert':
         return _buildImageConverter(isDark, textColor, textMuted);
@@ -511,12 +551,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           },
         ),
         const SizedBox(height: 10),
-        Text('Files are read into memory and never uploaded.', style: TextStyle(color: textMuted, fontSize: 12)),
+        Text('Files are read into memory and never uploaded.',
+            style: TextStyle(color: textMuted, fontSize: 12)),
         for (var i = 0; i < _pdfNamesToMerge.length; i++)
           ListTile(
             dense: true,
-            leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF38BDF8)),
-            title: Text(_pdfNamesToMerge[i], style: TextStyle(color: textColor)),
+            leading: const Icon(Icons.picture_as_pdf_rounded,
+                color: Color(0xFF38BDF8)),
+            title:
+                Text(_pdfNamesToMerge[i], style: TextStyle(color: textColor)),
             trailing: IconButton(
               icon: const Icon(Icons.close_rounded),
               onPressed: () => setState(() {
@@ -537,11 +580,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 : () async {
                     setState(() => _isProcessing = true);
                     try {
-                      final merged = await PdfToolsService.mergePdfFiles(_pdfsToMerge);
+                      final merged =
+                          await PdfToolsService.mergePdfFiles(_pdfsToMerge);
                       await saveAndDownloadFile(merged, 'merged_document.pdf');
                       _recordRecentFile('merged_document.pdf', merged, true);
                     } catch (error) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not merge these PDFs: $error')));
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content:
+                                Text('Could not merge these PDFs: $error')));
                     } finally {
                       if (mounted) setState(() => _isProcessing = false);
                     }
@@ -562,7 +609,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         if (_selectedFileBytes != null && _pdfTotalPages > 0) ...[
           const SizedBox(height: 12),
           Text(
-            isSplit ? 'Select the pages for this output part:' : 'Select the pages to keep:',
+            isSplit
+                ? 'Select the pages for this output part:'
+                : 'Select the pages to keep:',
             style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
@@ -602,12 +651,17 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   : () async {
                       setState(() => _isProcessing = true);
                       try {
-                        final extracted = await PdfToolsService.extractPdfPages(_selectedFileBytes!, _pagesToDelete.toList());
-                        final outputName = isSplit ? 'split_pages.pdf' : 'extracted_pages.pdf';
+                        final extracted = await PdfToolsService.extractPdfPages(
+                            _selectedFileBytes!, _pagesToDelete.toList());
+                        final outputName =
+                            isSplit ? 'split_pages.pdf' : 'extracted_pages.pdf';
                         await saveAndDownloadFile(extracted, outputName);
                         _recordRecentFile(outputName, extracted, true);
                       } catch (error) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not export selected pages: $error')));
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(
+                                  'Could not export selected pages: $error')));
                       } finally {
                         if (mounted) setState(() => _isProcessing = false);
                       }
@@ -625,7 +679,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           controller: _htmlSourceCtrl,
           minLines: 8,
           maxLines: 14,
-          style: TextStyle(color: textColor, fontFamily: 'monospace', fontSize: 13),
+          style: TextStyle(
+              color: textColor, fontFamily: 'monospace', fontSize: 13),
           decoration: InputDecoration(
             labelText: 'Paste HTML',
             hintText: '<h1>My document</h1><p>Content…</p>',
@@ -650,11 +705,14 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 : () async {
                     setState(() => _isProcessing = true);
                     try {
-                      final output = await PdfToolsService.htmlToPdf(_htmlSourceCtrl.text);
+                      final output =
+                          await PdfToolsService.htmlToPdf(_htmlSourceCtrl.text);
                       await saveAndDownloadFile(output, 'html_document.pdf');
                       _recordRecentFile('html_document.pdf', output, true);
                     } catch (error) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not convert HTML: $error')));
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Could not convert HTML: $error')));
                     } finally {
                       if (mounted) setState(() => _isProcessing = false);
                     }
@@ -674,7 +732,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         if (_selectedFileBytes != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(color: textMuted, fontSize: 12)),
+            child: Text(
+                '$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}',
+                style: TextStyle(color: textMuted, fontSize: 12)),
           ),
         const SizedBox(height: 16),
         if (_isProcessing)
@@ -688,16 +748,21 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 : () async {
                     setState(() => _isProcessing = true);
                     try {
-                      final images = await PdfToolsService.extractOrRenderPdfImages(_selectedFileBytes!);
+                      final images =
+                          await PdfToolsService.extractOrRenderPdfImages(
+                              _selectedFileBytes!);
                       if (images.isEmpty) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
                             content: Text('This PDF has no exportable images.'),
                           ));
                         }
                         return;
                       }
-                      for (var pageIndex = 0; pageIndex < images.length; pageIndex++) {
+                      for (var pageIndex = 0;
+                          pageIndex < images.length;
+                          pageIndex++) {
                         final rawBytes = images[pageIndex];
                         final converted = await ImageToolsService.convertImage(
                           rawBytes,
@@ -711,19 +776,25 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                       }
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('${images.length} page image(s) downloaded!'),
+                          content: Text(
+                              '${images.length} page image(s) downloaded!'),
                           backgroundColor: AppColors.success,
                         ));
                       }
                     } catch (error) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not render this PDF: $error')));
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content:
+                                Text('Could not render this PDF: $error')));
                     } finally {
                       if (mounted) setState(() => _isProcessing = false);
                     }
                   },
           ),
         const SizedBox(height: 8),
-        Text('Page images are generated in memory and saved only when you download them.', style: TextStyle(color: textMuted, fontSize: 12)),
+        Text(
+            'Page images are generated in memory and saved only when you download them.',
+            style: TextStyle(color: textMuted, fontSize: 12)),
       ],
     );
   }
@@ -734,32 +805,40 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
       children: [
         _buildPrimarySelectButton(
           label: _selectedFileName == null ? '+ Select Image' : 'Change Image',
-          onTap: () => _pickSingleFile(extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'svg']),
+          onTap: () => _pickSingleFile(
+              extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'svg']),
         ),
         const SizedBox(height: 6),
-        Text('Supports PNG, JPG, WEBP, BMP, GIF, and SVG', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Supports PNG, JPG, WEBP, BMP, GIF, and SVG',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: (_selectedFileName?.toLowerCase().endsWith('.svg') == true)
+                child: (_selectedFileName?.toLowerCase().endsWith('.svg') ==
+                        true)
                     ? Container(
                         width: 70,
                         height: 70,
                         color: const Color(0xFF1E3A8A).withValues(alpha: 0.15),
-                        child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF60A5FA), size: 30),
+                        child: const Icon(Icons.auto_awesome_rounded,
+                            color: Color(0xFF60A5FA), size: 30),
                       )
-                    : Image.memory(_selectedFileBytes!, width: 70, height: 70, fit: BoxFit.cover),
+                    : Image.memory(_selectedFileBytes!,
+                        width: 70, height: 70, fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedFileName ?? 'image', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                    Text('Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                    Text(_selectedFileName ?? 'image',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Size: ${_formatSize(_selectedFileSize)}',
+                        style: TextStyle(fontSize: 12, color: textMuted)),
                   ],
                 ),
               ),
@@ -768,7 +847,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           const SizedBox(height: 18),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Convert To Format:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+            child: Text('Convert To Format:',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: textColor)),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -808,7 +891,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     ));
                   }
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -820,31 +906,40 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   }
 
   // 1A. IMAGE TO PDF & WORD (OCR EXTRACTOR)
-  Widget _buildImageOcrToPdfWord(bool isDark, Color textColor, Color textMuted) {
+  Widget _buildImageOcrToPdfWord(
+      bool isDark, Color textColor, Color textMuted) {
     final baseName = (_selectedFileName ?? 'document').split('.').first;
     return Column(
       children: [
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select Image for OCR' : 'Change Image',
-          onTap: () => _pickSingleFile(extensions: ['jpg', 'jpeg', 'png', 'webp']),
+          label: _selectedFileName == null
+              ? '+ Select Image for OCR'
+              : 'Change Image',
+          onTap: () =>
+              _pickSingleFile(extensions: ['jpg', 'jpeg', 'png', 'webp']),
         ),
         const SizedBox(height: 6),
-        Text('Extracts text from photos, scans, receipts or notes', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Extracts text from photos, scans, receipts or notes',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.memory(_selectedFileBytes!, width: 64, height: 64, fit: BoxFit.cover),
+                child: Image.memory(_selectedFileBytes!,
+                    width: 64, height: 64, fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedFileName ?? 'image', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                    Text('Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                    Text(_selectedFileName ?? 'image',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Size: ${_formatSize(_selectedFileSize)}',
+                        style: TextStyle(fontSize: 12, color: textMuted)),
                   ],
                 ),
               ),
@@ -856,7 +951,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 10),
-                Text('Extracting text with OCR...', style: TextStyle(fontSize: 12, color: textMuted)),
+                Text('Extracting text with OCR...',
+                    style: TextStyle(fontSize: 12, color: textMuted)),
               ],
             )
           else if (!_ocrDone)
@@ -876,7 +972,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     _ocrDone = true;
                   });
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -892,12 +991,16 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFF38BDF8), size: 18),
+                  const Icon(Icons.auto_awesome_rounded,
+                      color: Color(0xFF38BDF8), size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Layout Detected: ${_ocrResult?.lines.length ?? 0} lines. Centers, margins & side text preserved.',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF38BDF8)),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF38BDF8)),
                     ),
                   ),
                 ],
@@ -909,7 +1012,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               children: [
                 Text(
                   'Preserve exact visual alignment in Word & PDF',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: textColor),
                 ),
                 Switch(
                   value: _preserveLayout,
@@ -924,14 +1030,22 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Extracted Text (Editable):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                  Text('Extracted Text (Editable):',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: textColor)),
                   TextButton.icon(
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: _ocrTextCtrl.text));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Text copied to clipboard!')));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Text copied to clipboard!')));
                     },
-                    icon: const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF38BDF8)),
-                    label: const Text('Copy', style: TextStyle(fontSize: 12, color: Color(0xFF38BDF8))),
+                    icon: const Icon(Icons.copy_rounded,
+                        size: 14, color: Color(0xFF38BDF8)),
+                    label: const Text('Copy',
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFF38BDF8))),
                   ),
                 ],
               ),
@@ -942,7 +1056,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+                border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF282D42)
+                        : Colors.grey.shade300),
               ),
               child: TextField(
                 controller: _ocrTextCtrl,
@@ -962,30 +1079,38 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   child: _buildActionExecuteButton(
                     label: 'Export PDF',
                     icon: Icons.picture_as_pdf_rounded,
-                    onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
-                      setState(() => _isProcessing = true);
-                      try {
-                        final pdf = OcrService.exportToPdf(
-                          _ocrTextCtrl.text,
-                          ocrResult: _ocrResult,
-                          preserveLayout: _preserveLayout,
-                          title: baseName,
-                        );
-                        final outName = '${baseName}_ocr.pdf';
-                        await saveAndDownloadFile(pdf, outName);
-                        _recordRecentFile(outName, pdf, true);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('OCR PDF downloaded!'),
-                            backgroundColor: AppColors.success,
-                          ));
-                        }
-                      } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                      } finally {
-                        if (mounted) setState(() => _isProcessing = false);
-                      }
-                    },
+                    onTap: _ocrTextCtrl.text.trim().isEmpty
+                        ? null
+                        : () async {
+                            setState(() => _isProcessing = true);
+                            try {
+                              final pdf = OcrService.exportToPdf(
+                                _ocrTextCtrl.text,
+                                ocrResult: _ocrResult,
+                                preserveLayout: _preserveLayout,
+                                title: baseName,
+                              );
+                              final outName = '${baseName}_ocr.pdf';
+                              await saveAndDownloadFile(pdf, outName);
+                              _recordRecentFile(outName, pdf, true);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(
+                                  content: Text('OCR PDF downloaded!'),
+                                  backgroundColor: AppColors.success,
+                                ));
+                              }
+                            } catch (e) {
+                              if (mounted)
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: AppColors.error));
+                            } finally {
+                              if (mounted)
+                                setState(() => _isProcessing = false);
+                            }
+                          },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -993,29 +1118,38 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   child: _buildActionExecuteButton(
                     label: 'Export Word (.docx)',
                     icon: Icons.description_rounded,
-                    onTap: _ocrTextCtrl.text.trim().isEmpty ? null : () async {
-                      setState(() => _isProcessing = true);
-                      try {
-                        final docx = OcrService.exportToDocx(
-                          _ocrTextCtrl.text,
-                          ocrResult: _ocrResult,
-                          preserveLayout: _preserveLayout,
-                        );
-                        final outName = '${baseName}_ocr.docx';
-                        await saveAndDownloadFile(docx, outName);
-                        _recordRecentFile(outName, docx, false);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('OCR Word document downloaded!'),
-                            backgroundColor: AppColors.success,
-                          ));
-                        }
-                      } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                      } finally {
-                        if (mounted) setState(() => _isProcessing = false);
-                      }
-                    },
+                    onTap: _ocrTextCtrl.text.trim().isEmpty
+                        ? null
+                        : () async {
+                            setState(() => _isProcessing = true);
+                            try {
+                              final docx = OcrService.exportToDocx(
+                                _ocrTextCtrl.text,
+                                ocrResult: _ocrResult,
+                                preserveLayout: _preserveLayout,
+                              );
+                              final outName = '${baseName}_ocr.docx';
+                              await saveAndDownloadFile(docx, outName);
+                              _recordRecentFile(outName, docx, false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(
+                                  content:
+                                      Text('OCR Word document downloaded!'),
+                                  backgroundColor: AppColors.success,
+                                ));
+                              }
+                            } catch (e) {
+                              if (mounted)
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: AppColors.error));
+                            } finally {
+                              if (mounted)
+                                setState(() => _isProcessing = false);
+                            }
+                          },
                   ),
                 ),
               ],
@@ -1028,15 +1162,19 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // PPT / PPTX TO PDF
   Widget _buildPptToPdf(bool isDark, Color textColor, Color textMuted) {
-    final baseName = (_selectedFileName ?? 'presentation').replaceAll(RegExp(r'\.(pptx|ppt)$', caseSensitive: false), '');
+    final baseName = (_selectedFileName ?? 'presentation')
+        .replaceAll(RegExp(r'\.(pptx|ppt)$', caseSensitive: false), '');
     return Column(
       children: [
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select PowerPoint File' : 'Change Presentation',
+          label: _selectedFileName == null
+              ? '+ Select PowerPoint File'
+              : 'Change Presentation',
           onTap: () => _pickSingleFile(extensions: ['pptx', 'ppt']),
         ),
         const SizedBox(height: 6),
-        Text('Supports .pptx and .ppt presentations', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Supports .pptx and .ppt presentations',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
@@ -1048,15 +1186,19 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   color: const Color(0xFFB45309).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.slideshow_rounded, color: Color(0xFFFBBF24), size: 30),
+                child: const Icon(Icons.slideshow_rounded,
+                    color: Color(0xFFFBBF24), size: 30),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedFileName ?? 'presentation.pptx', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                    Text('Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                    Text(_selectedFileName ?? 'presentation.pptx',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Size: ${_formatSize(_selectedFileSize)}',
+                        style: TextStyle(fontSize: 12, color: textMuted)),
                   ],
                 ),
               ),
@@ -1072,10 +1214,14 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final pdf = await PdfToolsService.pptxToPdf(_selectedFileBytes!);
+                  final pdf =
+                      await PdfToolsService.pptxToPdf(_selectedFileBytes!);
                   setState(() => _convertedPptPdfBytes = pdf);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -1087,16 +1233,21 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF10B981).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                  Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF10B981), size: 20),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Presentation converted to landscape PDF slides!',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -1104,7 +1255,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             ),
             const SizedBox(height: 16),
             _buildActionExecuteButton(
-              label: 'Download PDF (${_formatSize(_convertedPptPdfBytes!.lengthInBytes)})',
+              label:
+                  'Download PDF (${_formatSize(_convertedPptPdfBytes!.lengthInBytes)})',
               icon: Icons.download_rounded,
               onTap: () async {
                 final outName = '${baseName}_slides.pdf';
@@ -1126,18 +1278,23 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // CSV TO EXCEL & PDF
   Widget _buildCsvToExcelPdf(bool isDark, Color textColor, Color textMuted) {
-    final baseName = (_selectedFileName ?? 'data').replaceAll(RegExp(r'\.csv$', caseSensitive: false), '');
+    final baseName = (_selectedFileName ?? 'data')
+        .replaceAll(RegExp(r'\.csv$', caseSensitive: false), '');
     final totalRows = _csvParsedRows.length;
-    final totalCols = _csvParsedRows.isNotEmpty ? _csvParsedRows.first.length : 0;
+    final totalCols =
+        _csvParsedRows.isNotEmpty ? _csvParsedRows.first.length : 0;
 
     return Column(
       children: [
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select CSV File' : 'Change CSV File',
+          label: _selectedFileName == null
+              ? '+ Select CSV File'
+              : 'Change CSV File',
           onTap: () => _pickSingleFile(extensions: ['csv', 'txt']),
         ),
         const SizedBox(height: 6),
-        Text('Upload comma, semicolon, or tab-delimited CSV', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('Upload comma, semicolon, or tab-delimited CSV',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
@@ -1149,15 +1306,20 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   color: const Color(0xFF065F46).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.table_chart_rounded, color: Color(0xFF34D399), size: 26),
+                child: const Icon(Icons.table_chart_rounded,
+                    color: Color(0xFF34D399), size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedFileName ?? 'data.csv', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                    Text('Rows: $totalRows • Columns: $totalCols • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                    Text(_selectedFileName ?? 'data.csv',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor)),
+                    Text(
+                        'Rows: $totalRows • Columns: $totalCols • ${_formatSize(_selectedFileSize)}',
+                        style: TextStyle(fontSize: 12, color: textMuted)),
                   ],
                 ),
               ),
@@ -1171,7 +1333,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+                border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF282D42)
+                        : Colors.grey.shade300),
               ),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -1185,8 +1350,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                       totalCols,
                       (colIdx) => DataColumn(
                         label: Text(
-                          colIdx < _csvParsedRows.first.length ? _csvParsedRows.first[colIdx] : 'Col ${colIdx + 1}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textColor),
+                          colIdx < _csvParsedRows.first.length
+                              ? _csvParsedRows.first[colIdx]
+                              : 'Col ${colIdx + 1}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: textColor),
                         ),
                       ),
                     ),
@@ -1195,7 +1365,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                         cells: List.generate(
                           totalCols,
                           (c) => DataCell(
-                            Text(c < row.length ? row[c] : '', style: TextStyle(fontSize: 11, color: textMuted)),
+                            Text(c < row.length ? row[c] : '',
+                                style:
+                                    TextStyle(fontSize: 11, color: textMuted)),
                           ),
                         ),
                       );
@@ -1218,18 +1390,23 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     onTap: () async {
                       setState(() => _isProcessing = true);
                       try {
-                        final xlsxBytes = PdfToolsService.csvToExcelXlsx(_csvRawText);
+                        final xlsxBytes =
+                            PdfToolsService.csvToExcelXlsx(_csvRawText);
                         final outName = '$baseName.xlsx';
                         await saveAndDownloadFile(xlsxBytes, outName);
                         _recordRecentFile(outName, xlsxBytes, false);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
                             content: Text('Excel spreadsheet downloaded!'),
                             backgroundColor: AppColors.success,
                           ));
                         }
                       } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AppColors.error));
                       } finally {
                         if (mounted) setState(() => _isProcessing = false);
                       }
@@ -1244,18 +1421,23 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     onTap: () async {
                       setState(() => _isProcessing = true);
                       try {
-                        final pdfBytes = PdfToolsService.csvToPdf(_csvRawText, title: baseName);
+                        final pdfBytes = PdfToolsService.csvToPdf(_csvRawText,
+                            title: baseName);
                         final outName = '${baseName}_table.pdf';
                         await saveAndDownloadFile(pdfBytes, outName);
                         _recordRecentFile(outName, pdfBytes, true);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
                             content: Text('PDF table document downloaded!'),
                             backgroundColor: AppColors.success,
                           ));
                         }
                       } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AppColors.error));
                       } finally {
                         if (mounted) setState(() => _isProcessing = false);
                       }
@@ -1271,22 +1453,27 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // TXT TO WORD & PDF
   Widget _buildTxtToWordPdf(bool isDark, Color textColor, Color textMuted) {
-    final baseName = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.txt$', caseSensitive: false), '');
+    final baseName = (_selectedFileName ?? 'document')
+        .replaceAll(RegExp(r'\.txt$', caseSensitive: false), '');
     return Column(
       children: [
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select .txt File' : 'Change .txt File',
+          label: _selectedFileName == null
+              ? '+ Select .txt File'
+              : 'Change .txt File',
           onTap: () => _pickSingleFile(extensions: ['txt', 'text']),
         ),
         const SizedBox(height: 6),
-        Text('or type / paste your text below', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or type / paste your text below',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         const SizedBox(height: 18),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF141724) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
+            border: Border.all(
+                color: isDark ? const Color(0xFF282D42) : Colors.grey.shade300),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1297,7 +1484,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 onChanged: (_) => setState(() {}),
                 style: TextStyle(color: textColor, fontSize: 13, height: 1.4),
                 decoration: InputDecoration(
-                  hintText: 'Paste or enter text here to convert into Word or PDF...',
+                  hintText:
+                      'Paste or enter text here to convert into Word or PDF...',
                   hintStyle: TextStyle(color: textMuted, fontSize: 13),
                   border: InputBorder.none,
                 ),
@@ -1313,7 +1501,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   if (_txtInputCtrl.text.isNotEmpty)
                     InkWell(
                       onTap: () => setState(() => _txtInputCtrl.clear()),
-                      child: Text('Clear', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                      child: Text('Clear',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.red.shade400)),
                     ),
                 ],
               ),
@@ -1330,25 +1520,33 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 child: _buildActionExecuteButton(
                   label: 'Word (.docx)',
                   icon: Icons.description_rounded,
-                  onTap: _txtInputCtrl.text.trim().isEmpty ? null : () async {
-                    setState(() => _isProcessing = true);
-                    try {
-                      final docx = PdfToolsService.txtToDocx(_txtInputCtrl.text);
-                      final outName = '$baseName.docx';
-                      await saveAndDownloadFile(docx, outName);
-                      _recordRecentFile(outName, docx, false);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Word document downloaded!'),
-                          backgroundColor: AppColors.success,
-                        ));
-                      }
-                    } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                    } finally {
-                      if (mounted) setState(() => _isProcessing = false);
-                    }
-                  },
+                  onTap: _txtInputCtrl.text.trim().isEmpty
+                      ? null
+                      : () async {
+                          setState(() => _isProcessing = true);
+                          try {
+                            final docx =
+                                PdfToolsService.txtToDocx(_txtInputCtrl.text);
+                            final outName = '$baseName.docx';
+                            await saveAndDownloadFile(docx, outName);
+                            _recordRecentFile(outName, docx, false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(const SnackBar(
+                                content: Text('Word document downloaded!'),
+                                backgroundColor: AppColors.success,
+                              ));
+                            }
+                          } catch (e) {
+                            if (mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: AppColors.error));
+                          } finally {
+                            if (mounted) setState(() => _isProcessing = false);
+                          }
+                        },
                 ),
               ),
               const SizedBox(width: 12),
@@ -1356,25 +1554,34 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 child: _buildActionExecuteButton(
                   label: 'PDF Document',
                   icon: Icons.picture_as_pdf_rounded,
-                  onTap: _txtInputCtrl.text.trim().isEmpty ? null : () async {
-                    setState(() => _isProcessing = true);
-                    try {
-                      final pdf = PdfToolsService.txtToPdf(_txtInputCtrl.text, title: baseName);
-                      final outName = '$baseName.pdf';
-                      await saveAndDownloadFile(pdf, outName);
-                      _recordRecentFile(outName, pdf, true);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('PDF document downloaded!'),
-                          backgroundColor: AppColors.success,
-                        ));
-                      }
-                    } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                    } finally {
-                      if (mounted) setState(() => _isProcessing = false);
-                    }
-                  },
+                  onTap: _txtInputCtrl.text.trim().isEmpty
+                      ? null
+                      : () async {
+                          setState(() => _isProcessing = true);
+                          try {
+                            final pdf = PdfToolsService.txtToPdf(
+                                _txtInputCtrl.text,
+                                title: baseName);
+                            final outName = '$baseName.pdf';
+                            await saveAndDownloadFile(pdf, outName);
+                            _recordRecentFile(outName, pdf, true);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(const SnackBar(
+                                content: Text('PDF document downloaded!'),
+                                backgroundColor: AppColors.success,
+                              ));
+                            }
+                          } catch (e) {
+                            if (mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: AppColors.error));
+                          } finally {
+                            if (mounted) setState(() => _isProcessing = false);
+                          }
+                        },
                 ),
               ),
             ],
@@ -1385,15 +1592,20 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // PDF TO POWERPOINT (.pptx)
   Widget _buildPdfToPptx(bool isDark, Color textColor, Color textMuted) {
-    final baseName = (_selectedFileName ?? 'presentation').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final baseName = (_selectedFileName ?? 'presentation')
+        .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
     return Column(
       children: [
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF File',
+          label: _selectedFileName == null
+              ? '+ Select PDF File'
+              : 'Change PDF File',
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('Convert PDF pages into editable PowerPoint slides', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text(
+            'Extract selectable PDF text into editable slide boxes. Scanned pages and graphics may need manual rebuilding.',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
@@ -1405,15 +1617,20 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   color: const Color(0xFF7C2D12).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.co_present_rounded, color: Color(0xFFFB923C), size: 26),
+                child: const Icon(Icons.co_present_rounded,
+                    color: Color(0xFFFB923C), size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                    Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+                    Text(_selectedFileName ?? 'document.pdf',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor)),
+                    Text(
+                        '$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}',
+                        style: TextStyle(fontSize: 12, color: textMuted)),
                   ],
                 ),
               ),
@@ -1421,11 +1638,14 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           ),
           const SizedBox(height: 20),
           if (_isProcessing)
-            const Column(
+            Column(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 12),
-                Text('Rendering slides & creating PowerPoint (.pptx)...'),
+                LinearProgressIndicator(value: _conversionProgress),
+                const SizedBox(height: 12),
+                Text(
+                  '$_conversionStage · ${(_conversionProgress * 100).round()}%',
+                  textAlign: TextAlign.center,
+                ),
               ],
             )
           else if (_convertedPptxBytes == null)
@@ -1433,12 +1653,29 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               label: 'Convert to PowerPoint (.pptx)',
               icon: Icons.slideshow_rounded,
               onTap: () async {
-                setState(() => _isProcessing = true);
+                setState(() {
+                  _isProcessing = true;
+                  _conversionProgress = 0;
+                  _conversionStage = 'Preparing PDF';
+                });
                 try {
-                  final pptx = await PdfToolsService.pdfToPptx(_selectedFileBytes!, title: baseName);
-                  setState(() => _convertedPptxBytes = pptx);
+                  final pptx = await PdfToolsService.pdfToPptx(
+                    _selectedFileBytes!,
+                    title: baseName,
+                    onProgress: (progress, stage) {
+                      if (!mounted) return;
+                      setState(() {
+                        _conversionProgress = progress;
+                        _conversionStage = stage;
+                      });
+                    },
+                  );
+                  if (mounted) setState(() => _convertedPptxBytes = pptx);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -1450,16 +1687,21 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF10B981).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                  const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF10B981), size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'PowerPoint (.pptx) created with $_pdfTotalPages slides!',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -1496,14 +1738,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(isImage: true),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or drag and drop files here',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Compression Quality: ${_imageQuality.toInt()}%', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-              Text(_imageQuality < 50 ? 'High Compression' : 'High Quality', style: TextStyle(fontSize: 12, color: textMuted)),
+              Text('Compression Quality: ${_imageQuality.toInt()}%',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+              Text(_imageQuality < 50 ? 'High Compression' : 'High Quality',
+                  style: TextStyle(fontSize: 12, color: textMuted)),
             ],
           ),
           Slider(
@@ -1535,12 +1781,16 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   _recordRecentFile(outName, res.bytes, false);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Compressed from ${_formatSize(res.originalSize)} to ${_formatSize(res.newSize)} (Saved ${res.savingsPercent.toStringAsFixed(0)}%)!'),
+                      content: Text(
+                          'Compressed from ${_formatSize(res.originalSize)} to ${_formatSize(res.newSize)} (Saved ${res.savingsPercent.toStringAsFixed(0)}%)!'),
                       backgroundColor: AppColors.success,
                     ));
                   }
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -1581,9 +1831,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('Background tolerance', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                child: Text('Background tolerance',
+                    style: TextStyle(
+                        color: textColor, fontWeight: FontWeight.w600)),
               ),
-              Text(_backgroundTolerance.round().toString(), style: TextStyle(color: textMuted)),
+              Text(_backgroundTolerance.round().toString(),
+                  style: TextStyle(color: textMuted)),
             ],
           ),
           Slider(
@@ -1602,7 +1855,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             const Center(child: CircularProgressIndicator())
           else
             _buildActionExecuteButton(
-              label: _backgroundRemovedBytes == null ? 'Remove Background' : 'Retry with Current Tolerance',
+              label: _backgroundRemovedBytes == null
+                  ? 'Remove Background'
+                  : 'Retry with Current Tolerance',
               icon: Icons.auto_awesome_rounded,
               onTap: () async {
                 setState(() => _isProcessing = true);
@@ -1615,7 +1870,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 } catch (error) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Background removal failed: $error')),
+                      SnackBar(
+                          content: Text('Background removal failed: $error')),
                     );
                   }
                 } finally {
@@ -1650,21 +1906,30 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(isImage: true),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or drag and drop files here',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Watermark Position:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+            child: Text('Watermark Position:',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: textColor)),
           ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
-              _presetChip('Bottom Right', 'bottomRight', _imageWatermarkPreset, (v) => setState(() => _imageWatermarkPreset = v)),
-              _presetChip('Bottom Left', 'bottomLeft', _imageWatermarkPreset, (v) => setState(() => _imageWatermarkPreset = v)),
-              _presetChip('Top Right', 'topRight', _imageWatermarkPreset, (v) => setState(() => _imageWatermarkPreset = v)),
-              _presetChip('Center Stamp', 'center', _imageWatermarkPreset, (v) => setState(() => _imageWatermarkPreset = v)),
+              _presetChip('Bottom Right', 'bottomRight', _imageWatermarkPreset,
+                  (v) => setState(() => _imageWatermarkPreset = v)),
+              _presetChip('Bottom Left', 'bottomLeft', _imageWatermarkPreset,
+                  (v) => setState(() => _imageWatermarkPreset = v)),
+              _presetChip('Top Right', 'topRight', _imageWatermarkPreset,
+                  (v) => setState(() => _imageWatermarkPreset = v)),
+              _presetChip('Center Stamp', 'center', _imageWatermarkPreset,
+                  (v) => setState(() => _imageWatermarkPreset = v)),
             ],
           ),
           const SizedBox(height: 20),
@@ -1678,22 +1943,37 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 setState(() => _isProcessing = true);
                 Rect area;
                 switch (_imageWatermarkPreset) {
-                  case 'bottomRight': area = const Rect.fromLTWH(0.65, 0.82, 0.33, 0.16); break;
-                  case 'bottomLeft': area = const Rect.fromLTWH(0.02, 0.82, 0.33, 0.16); break;
-                  case 'topRight': area = const Rect.fromLTWH(0.65, 0.02, 0.33, 0.16); break;
-                  default: area = const Rect.fromLTWH(0.25, 0.35, 0.50, 0.30); break;
+                  case 'bottomRight':
+                    area = const Rect.fromLTWH(0.65, 0.82, 0.33, 0.16);
+                    break;
+                  case 'bottomLeft':
+                    area = const Rect.fromLTWH(0.02, 0.82, 0.33, 0.16);
+                    break;
+                  case 'topRight':
+                    area = const Rect.fromLTWH(0.65, 0.02, 0.33, 0.16);
+                    break;
+                  default:
+                    area = const Rect.fromLTWH(0.25, 0.35, 0.50, 0.30);
+                    break;
                 }
                 try {
-                  final cleaned = await ImageToolsService.removeWatermark(_selectedFileBytes!, relativeArea: area);
+                  final cleaned = await ImageToolsService.removeWatermark(
+                      _selectedFileBytes!,
+                      relativeArea: area);
                   final base = (_selectedFileName ?? 'image').split('.').first;
                   final outName = '${base}_clean.png';
                   await saveAndDownloadFile(cleaned, outName);
                   _recordRecentFile(outName, cleaned, false);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Watermark erased & downloaded!'), backgroundColor: AppColors.success));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Watermark erased & downloaded!'),
+                        backgroundColor: AppColors.success));
                   }
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -1731,7 +2011,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             style: TextStyle(color: textColor),
             decoration: InputDecoration(
               labelText: 'Enter text, URL, roll number...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               isDense: true,
             ),
             onChanged: (_) => setState(() {}),
@@ -1740,15 +2021,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           if (_qrTextCtrl.text.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: QrImageView(data: _qrTextCtrl.text, version: QrVersions.auto, size: 180),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: QrImageView(
+                  data: _qrTextCtrl.text, version: QrVersions.auto, size: 180),
             ),
             const SizedBox(height: 18),
             _buildActionExecuteButton(
               label: 'Download QR Code (PNG)',
               icon: Icons.download_rounded,
               onTap: () async {
-                final png = await ImageToolsService.generateQrPng(_qrTextCtrl.text);
+                final png =
+                    await ImageToolsService.generateQrPng(_qrTextCtrl.text);
                 await saveAndDownloadFile(png, 'qr_code.png');
                 _recordRecentFile('qr_code.png', png, false);
               },
@@ -1756,11 +2040,14 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           ],
         ] else ...[
           _buildPrimarySelectButton(
-            label: _selectedFileName == null ? '+ Select Image for QR' : 'Change Image',
+            label: _selectedFileName == null
+                ? '+ Select Image for QR'
+                : 'Change Image',
             onTap: () async {
               await _pickSingleFile(isImage: true);
               if (_selectedFileBytes != null) {
-                final payload = await ImageToolsService.prepareImageForQr(_selectedFileBytes!);
+                final payload = await ImageToolsService.prepareImageForQr(
+                    _selectedFileBytes!);
                 setState(() => _qrImagePayload = payload);
               }
             },
@@ -1769,15 +2056,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: QrImageView(data: _qrImagePayload!, version: QrVersions.auto, size: 180),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: QrImageView(
+                  data: _qrImagePayload!, version: QrVersions.auto, size: 180),
             ),
             const SizedBox(height: 18),
             _buildActionExecuteButton(
               label: 'Download Image QR (PNG)',
               icon: Icons.download_rounded,
               onTap: () async {
-                final png = await ImageToolsService.generateQrPng(_qrImagePayload!);
+                final png =
+                    await ImageToolsService.generateQrPng(_qrImagePayload!);
                 await saveAndDownloadFile(png, 'image_qr.png');
                 _recordRecentFile('image_qr.png', png, false);
               },
@@ -1806,14 +2096,16 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         if (_barcodeCtrl.text.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: BarcodeWidget(
               barcode: Barcode.code128(),
               data: _barcodeCtrl.text,
               width: 250,
               height: 85,
               drawText: true,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
             ),
           ),
           const SizedBox(height: 18),
@@ -1821,7 +2113,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             label: 'Download Barcode (PNG)',
             icon: Icons.download_rounded,
             onTap: () async {
-              final png = await ImageToolsService.generateBarcodePng(_barcodeCtrl.text);
+              final png =
+                  await ImageToolsService.generateBarcodePng(_barcodeCtrl.text);
               final outName = 'barcode_${_barcodeCtrl.text}.png';
               await saveAndDownloadFile(png, outName);
               _recordRecentFile(outName, png, false);
@@ -1841,18 +2134,25 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('Convert PDF document into editable Microsoft Word (.docx)', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text(
+            'Extract selectable PDF text into editable Word paragraphs. Page layout and graphics may change.',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
-          Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-          Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+          Text(_selectedFileName ?? 'document.pdf',
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          Text('$_pdfTotalPages page(s) • ${_formatSize(_selectedFileSize)}',
+              style: TextStyle(fontSize: 12, color: textMuted)),
           const SizedBox(height: 18),
           if (_isProcessing)
-            const Column(
+            Column(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 12),
-                Text('Preserving layout & creating Word document (.docx)...'),
+                LinearProgressIndicator(value: _conversionProgress),
+                const SizedBox(height: 12),
+                Text(
+                  '$_conversionStage · ${(_conversionProgress * 100).round()}%',
+                  textAlign: TextAlign.center,
+                ),
               ],
             )
           else if (_pdfToWordResult == null)
@@ -1860,12 +2160,28 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               label: 'Convert to Word (.docx)',
               icon: Icons.transform_rounded,
               onTap: () async {
-                setState(() => _isProcessing = true);
+                setState(() {
+                  _isProcessing = true;
+                  _conversionProgress = 0;
+                  _conversionStage = 'Preparing PDF';
+                });
                 try {
-                  final res = await PdfToolsService.pdfToWordDocx(_selectedFileBytes!);
-                  setState(() => _pdfToWordResult = res);
+                  final res = await PdfToolsService.pdfToWordDocx(
+                    _selectedFileBytes!,
+                    onProgress: (progress, stage) {
+                      if (!mounted) return;
+                      setState(() {
+                        _conversionProgress = progress;
+                        _conversionStage = stage;
+                      });
+                    },
+                  );
+                  if (mounted) setState(() => _pdfToWordResult = res);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -1881,7 +2197,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.blue, size: 24),
+                  const Icon(Icons.check_circle_rounded,
+                      color: Colors.blue, size: 24),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1889,7 +2206,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                       children: [
                         const Text(
                           'Conversion Complete!',
-                          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14),
                         ),
                         Text(
                           'Your Word document (.docx) with ${_pdfToWordResult!.pageCount} page(s) is ready.',
@@ -1906,13 +2226,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               label: 'Download Word (.docx)',
               icon: Icons.download_rounded,
               onTap: () async {
-                final base = (_selectedFileName ?? 'doc').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                final base = (_selectedFileName ?? 'doc')
+                    .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
                 final outName = '$base.docx';
                 await saveAndDownloadFile(_pdfToWordResult!.docxBytes, outName);
                 _recordRecentFile(outName, _pdfToWordResult!.docxBytes, false);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Word document (.docx) downloaded successfully!'),
+                    content:
+                        Text('Word document (.docx) downloaded successfully!'),
                     backgroundColor: AppColors.success,
                   ));
                 }
@@ -1926,14 +2248,17 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
 
   // 7. ADD WATERMARK TO PDF
   Widget _buildPdfWatermark(bool isDark, Color textColor, Color textMuted) {
-    final canApply = _selectedFileBytes != null && _pdfWatermarkCtrl.text.trim().isNotEmpty;
+    final canApply =
+        _selectedFileBytes != null && _pdfWatermarkCtrl.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 1. PDF File Selector (Can pick first or after typing text)
         _buildPrimarySelectButton(
-          label: _selectedFileName == null ? '+ Select PDF File' : 'Change PDF (${_selectedFileName!})',
+          label: _selectedFileName == null
+              ? '+ Select PDF File'
+              : 'Change PDF (${_selectedFileName!})',
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
@@ -1964,7 +2289,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         const SizedBox(height: 10),
 
         // 3. Placement Style Selector
-        Text('Watermark Style & Direction:', style: TextStyle(fontWeight: FontWeight.w600, color: textColor, fontSize: 13)),
+        Text('Watermark Style & Direction:',
+            style: TextStyle(
+                fontWeight: FontWeight.w600, color: textColor, fontSize: 13)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -1975,7 +2302,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               avatar: const Icon(Icons.trending_up_rounded, size: 16),
               selected: _pdfWatermarkStyle == WatermarkStyle.centerDiagonal,
               onSelected: (val) {
-                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.centerDiagonal; _pdfWatermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _pdfWatermarkStyle = WatermarkStyle.centerDiagonal;
+                    _pdfWatermarkedBytes = null;
+                  });
               },
             ),
             ChoiceChip(
@@ -1983,7 +2314,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               avatar: const Icon(Icons.grid_4x4_rounded, size: 16),
               selected: _pdfWatermarkStyle == WatermarkStyle.tiledDiagonal,
               onSelected: (val) {
-                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.tiledDiagonal; _pdfWatermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _pdfWatermarkStyle = WatermarkStyle.tiledDiagonal;
+                    _pdfWatermarkedBytes = null;
+                  });
               },
             ),
             ChoiceChip(
@@ -1991,7 +2326,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               avatar: const Icon(Icons.horizontal_rule_rounded, size: 16),
               selected: _pdfWatermarkStyle == WatermarkStyle.centerHorizontal,
               onSelected: (val) {
-                if (val) setState(() { _pdfWatermarkStyle = WatermarkStyle.centerHorizontal; _pdfWatermarkedBytes = null; });
+                if (val)
+                  setState(() {
+                    _pdfWatermarkStyle = WatermarkStyle.centerHorizontal;
+                    _pdfWatermarkedBytes = null;
+                  });
               },
             ),
           ],
@@ -2004,33 +2343,49 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             Text('Color: ', style: TextStyle(fontSize: 12, color: textMuted)),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFF6B7280); _pdfWatermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _pdfWatermarkColor = const Color(0xFF6B7280);
+                _pdfWatermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFF6B7280),
-                child: _pdfWatermarkColor == const Color(0xFF6B7280) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _pdfWatermarkColor == const Color(0xFF6B7280)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFFEF4444); _pdfWatermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _pdfWatermarkColor = const Color(0xFFEF4444);
+                _pdfWatermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFFEF4444),
-                child: _pdfWatermarkColor == const Color(0xFFEF4444) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _pdfWatermarkColor == const Color(0xFFEF4444)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => setState(() { _pdfWatermarkColor = const Color(0xFF3B82F6); _pdfWatermarkedBytes = null; }),
+              onTap: () => setState(() {
+                _pdfWatermarkColor = const Color(0xFF3B82F6);
+                _pdfWatermarkedBytes = null;
+              }),
               child: CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xFF3B82F6),
-                child: _pdfWatermarkColor == const Color(0xFF3B82F6) ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: _pdfWatermarkColor == const Color(0xFF3B82F6)
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
             ),
             const Spacer(),
-            Text('Intensity: ', style: TextStyle(fontSize: 12, color: textMuted)),
+            Text('Intensity: ',
+                style: TextStyle(fontSize: 12, color: textMuted)),
             DropdownButton<double>(
               value: _pdfWatermarkOpacity,
               isDense: true,
@@ -2041,7 +2396,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 DropdownMenuItem(value: 0.38, child: Text('Bold (38%)')),
               ],
               onChanged: (val) {
-                if (val != null) setState(() { _pdfWatermarkOpacity = val; _pdfWatermarkedBytes = null; });
+                if (val != null)
+                  setState(() {
+                    _pdfWatermarkOpacity = val;
+                    _pdfWatermarkedBytes = null;
+                  });
               },
             ),
           ],
@@ -2054,7 +2413,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           _buildActionExecuteButton(
             label: canApply
                 ? 'Apply Watermark to PDF'
-                : (_selectedFileBytes == null ? 'Select PDF to Continue' : 'Enter Watermark Text'),
+                : (_selectedFileBytes == null
+                    ? 'Select PDF to Continue'
+                    : 'Enter Watermark Text'),
             icon: Icons.branding_watermark_rounded,
             onTap: canApply
                 ? () async {
@@ -2069,7 +2430,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                       );
                       setState(() => _pdfWatermarkedBytes = watermarked);
                     } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: AppColors.error));
                     } finally {
                       if (mounted) setState(() => _isProcessing = false);
                     }
@@ -2086,7 +2450,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.green, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -2094,7 +2459,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     children: [
                       const Text(
                         'Watermark Applied Successfully!',
-                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
                       ),
                       Text(
                         'Applied across all $_pdfTotalPages page(s)',
@@ -2111,7 +2479,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             label: 'Download Watermarked PDF',
             icon: Icons.download_rounded,
             onTap: () async {
-              final base = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+              final base = (_selectedFileName ?? 'document')
+                  .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
               final outName = '${base}_watermarked.pdf';
               await saveAndDownloadFile(_pdfWatermarkedBytes!, outName);
               _recordRecentFile(outName, _pdfWatermarkedBytes!, true);
@@ -2140,8 +2509,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 icon: const Icon(Icons.description_rounded, size: 18),
                 label: const Text('Upload Word File'),
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: !_isWordTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
-                  side: BorderSide(color: !_isWordTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                  backgroundColor: !_isWordTextMode
+                      ? AppColors.cyanDeep.withValues(alpha: 0.1)
+                      : null,
+                  side: BorderSide(
+                      color: !_isWordTextMode
+                          ? AppColors.cyanDeep
+                          : Colors.grey.shade300),
                 ),
                 onPressed: () => setState(() => _isWordTextMode = false),
               ),
@@ -2152,8 +2526,13 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 icon: const Icon(Icons.edit_note_rounded, size: 18),
                 label: const Text('Type Text Directly'),
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: _isWordTextMode ? AppColors.cyanDeep.withValues(alpha: 0.1) : null,
-                  side: BorderSide(color: _isWordTextMode ? AppColors.cyanDeep : Colors.grey.shade300),
+                  backgroundColor: _isWordTextMode
+                      ? AppColors.cyanDeep.withValues(alpha: 0.1)
+                      : null,
+                  side: BorderSide(
+                      color: _isWordTextMode
+                          ? AppColors.cyanDeep
+                          : Colors.grey.shade300),
                 ),
                 onPressed: () => setState(() => _isWordTextMode = true),
               ),
@@ -2161,10 +2540,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           ],
         ),
         const SizedBox(height: 16),
-
         if (!_isWordTextMode) ...[
           _buildPrimarySelectButton(
-            label: _selectedFileName == null ? '+ Select Word File (.docx, .doc)' : 'Change Word File',
+            label: _selectedFileName == null
+                ? '+ Select Word File (.docx, .doc)'
+                : 'Change Word File',
             onTap: () => _pickSingleFile(extensions: ['docx', 'doc', 'txt']),
           ),
           const SizedBox(height: 6),
@@ -2182,7 +2562,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             style: TextStyle(color: textColor),
             decoration: InputDecoration(
               labelText: 'Document Title',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               isDense: true,
             ),
           ),
@@ -2193,17 +2574,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             maxLines: 7,
             decoration: InputDecoration(
               hintText: 'Type, paste or write document text here...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ],
-
         const SizedBox(height: 18),
         if (_isProcessing)
           const Center(child: CircularProgressIndicator())
         else if (_wordConvertedPdfBytes == null)
           _buildActionExecuteButton(
-            label: _isWordTextMode ? 'Convert Text to PDF' : 'Convert Word to PDF',
+            label:
+                _isWordTextMode ? 'Convert Text to PDF' : 'Convert Word to PDF',
             icon: Icons.picture_as_pdf_rounded,
             onTap: (!_isWordTextMode && _selectedFileBytes == null)
                 ? null
@@ -2213,13 +2595,21 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                       Uint8List pdf;
                       if (_isWordTextMode) {
                         if (_wordTextCtrl.text.trim().isEmpty) return;
-                        pdf = await PdfToolsService.wordToPdf(_wordTextCtrl.text.trim(), title: _wordTitleCtrl.text.trim());
+                        pdf = await PdfToolsService.wordToPdf(
+                            _wordTextCtrl.text.trim(),
+                            title: _wordTitleCtrl.text.trim());
                       } else {
-                        pdf = await PdfToolsService.docxToPdf(_selectedFileBytes!, title: _selectedFileName?.split('.').first ?? 'Document');
+                        pdf = await PdfToolsService.docxToPdf(
+                            _selectedFileBytes!,
+                            title: _selectedFileName?.split('.').first ??
+                                'Document');
                       }
                       setState(() => _wordConvertedPdfBytes = pdf);
                     } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: AppColors.error));
                     } finally {
                       if (mounted) setState(() => _isProcessing = false);
                     }
@@ -2235,7 +2625,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.green, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -2243,7 +2634,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                     children: [
                       const Text(
                         'PDF Converted Successfully!',
-                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
                       ),
                       Text(
                         'Size: ${_formatSize(_wordConvertedPdfBytes!.lengthInBytes)}',
@@ -2260,7 +2654,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             label: 'Download Converted PDF',
             icon: Icons.download_rounded,
             onTap: () async {
-              final base = (_selectedFileName ?? _wordTitleCtrl.text).replaceAll(RegExp(r'\.(docx|doc|txt)$', caseSensitive: false), '');
+              final base = (_selectedFileName ?? _wordTitleCtrl.text)
+                  .replaceAll(
+                      RegExp(r'\.(docx|doc|txt)$', caseSensitive: false), '');
               final outName = '$base.pdf';
               await saveAndDownloadFile(_wordConvertedPdfBytes!, outName);
               _recordRecentFile(outName, _wordConvertedPdfBytes!, true);
@@ -2289,22 +2685,32 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           },
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or drag and drop files here',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null) ...[
           const SizedBox(height: 20),
-          Text(_selectedFileName ?? 'document.pdf', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-          Text('Original Size: ${_formatSize(_selectedFileSize)}', style: TextStyle(fontSize: 12, color: textMuted)),
+          Text(_selectedFileName ?? 'document.pdf',
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          Text('Original Size: ${_formatSize(_selectedFileSize)}',
+              style: TextStyle(fontSize: 12, color: textMuted)),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Compression Level:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+            child: Text('Compression Level:',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: textColor)),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('Balanced', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('Balanced',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _pdfCompressQuality == 2,
                   onSelected: (sel) => setState(() => _pdfCompressQuality = 2),
                   selectedColor: AppColors.cyanDeep.withValues(alpha: 0.2),
@@ -2313,7 +2719,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('Maximum', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('Maximum',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _pdfCompressQuality == 3,
                   onSelected: (sel) => setState(() => _pdfCompressQuality = 3),
                   selectedColor: Colors.purple.withValues(alpha: 0.2),
@@ -2322,7 +2731,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text('High Quality', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  label: const Center(
+                      child: Text('High Quality',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600))),
                   selected: _pdfCompressQuality == 1,
                   onSelected: (sel) => setState(() => _pdfCompressQuality = 1),
                   selectedColor: Colors.blue.withValues(alpha: 0.2),
@@ -2346,10 +2758,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final compressed = await PdfToolsService.compressPdf(_selectedFileBytes!, qualityLevel: _pdfCompressQuality);
+                  final compressed = await PdfToolsService.compressPdf(
+                      _selectedFileBytes!,
+                      qualityLevel: _pdfCompressQuality);
                   setState(() => _compressedPdfResultBytes = compressed);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -2360,17 +2777,21 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               builder: (context) {
                 final orig = _selectedFileBytes!.lengthInBytes;
                 final comp = _compressedPdfResultBytes!.lengthInBytes;
-                final double savedPct = orig > 0 ? ((orig - comp) / orig * 100).clamp(0.0, 99.9) : 0.0;
+                final double savedPct = orig > 0
+                    ? ((orig - comp) / orig * 100).clamp(0.0, 99.9)
+                    : 0.0;
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 28),
+                      const Icon(Icons.check_circle_rounded,
+                          color: Color(0xFF10B981), size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -2378,7 +2799,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                           children: [
                             Text(
                               'Compressed: ${_formatSize(comp)} (${savedPct.toStringAsFixed(1)}% saved!)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF10B981)),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF10B981)),
                             ),
                             Text(
                               'Original: ${_formatSize(orig)} • All pages & content intact',
@@ -2397,7 +2821,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               label: 'Download Compressed PDF',
               icon: Icons.download_rounded,
               onTap: () async {
-                final base = (_selectedFileName ?? 'doc').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                final base = (_selectedFileName ?? 'doc')
+                    .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
                 final outName = '${base}_compressed.pdf';
                 await saveAndDownloadFile(_compressedPdfResultBytes!, outName);
                 _recordRecentFile(outName, _compressedPdfResultBytes!, true);
@@ -2422,21 +2847,25 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         _buildPrimarySelectButton(
           label: '+ Add Images',
           onTap: () async {
-            final res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true, withData: true);
+            final res = await FilePicker.platform.pickFiles(
+                type: FileType.image, allowMultiple: true, withData: true);
             if (res == null || res.files.isEmpty) return;
             for (final f in res.files) {
               Uint8List? b = f.bytes;
-              if (b == null && !kIsWeb && f.path != null) b = await File(f.path!).readAsBytes();
+              if (b == null && !kIsWeb && f.path != null)
+                b = await File(f.path!).readAsBytes();
               if (b != null) _imagesForPdf.add(b);
             }
             setState(() {});
           },
         ),
         const SizedBox(height: 6),
-        Text('select multiple images to bundle', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('select multiple images to bundle',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_imagesForPdf.isNotEmpty) ...[
           const SizedBox(height: 18),
-          Text('${_imagesForPdf.length} images selected', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          Text('${_imagesForPdf.length} images selected',
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 10),
           SizedBox(
             height: 80,
@@ -2448,16 +2877,20 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(_imagesForPdf[i], width: 80, height: 80, fit: BoxFit.cover),
+                    child: Image.memory(_imagesForPdf[i],
+                        width: 80, height: 80, fit: BoxFit.cover),
                   ),
                   Positioned(
-                    top: 2, right: 2,
+                    top: 2,
+                    right: 2,
                     child: GestureDetector(
                       onTap: () => setState(() => _imagesForPdf.removeAt(i)),
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        decoration: const BoxDecoration(
+                            color: Colors.black87, shape: BoxShape.circle),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white),
                       ),
                     ),
                   ),
@@ -2468,7 +2901,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           const SizedBox(height: 14),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Page Fit:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)),
+            child: Text('Page Fit:',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: textColor)),
           ),
           const SizedBox(height: 6),
           Align(
@@ -2480,14 +2917,17 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   label: const Text('Fit Image (Zero white space)'),
                   selected: _imagePdfPageFit == ImagePdfPageFit.fitImage,
                   onSelected: (val) {
-                    if (val) setState(() => _imagePdfPageFit = ImagePdfPageFit.fitImage);
+                    if (val)
+                      setState(
+                          () => _imagePdfPageFit = ImagePdfPageFit.fitImage);
                   },
                 ),
                 ChoiceChip(
                   label: const Text('Standard A4'),
                   selected: _imagePdfPageFit == ImagePdfPageFit.a4,
                   onSelected: (val) {
-                    if (val) setState(() => _imagePdfPageFit = ImagePdfPageFit.a4);
+                    if (val)
+                      setState(() => _imagePdfPageFit = ImagePdfPageFit.a4);
                   },
                 ),
               ],
@@ -2496,7 +2936,11 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Margin / Border Space:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)),
+            child: Text('Margin / Border Space:',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: textColor)),
           ),
           const SizedBox(height: 6),
           Align(
@@ -2508,21 +2952,24 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   label: const Text('No Margin (0mm)'),
                   selected: _imagePdfMargin == ImagePdfMargin.none,
                   onSelected: (val) {
-                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.none);
+                    if (val)
+                      setState(() => _imagePdfMargin = ImagePdfMargin.none);
                   },
                 ),
                 ChoiceChip(
                   label: const Text('Narrow (~2mm)'),
                   selected: _imagePdfMargin == ImagePdfMargin.narrow,
                   onSelected: (val) {
-                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.narrow);
+                    if (val)
+                      setState(() => _imagePdfMargin = ImagePdfMargin.narrow);
                   },
                 ),
                 ChoiceChip(
                   label: const Text('Normal (~6mm)'),
                   selected: _imagePdfMargin == ImagePdfMargin.standard,
                   onSelected: (val) {
-                    if (val) setState(() => _imagePdfMargin = ImagePdfMargin.standard);
+                    if (val)
+                      setState(() => _imagePdfMargin = ImagePdfMargin.standard);
                   },
                 ),
               ],
@@ -2546,7 +2993,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   await saveAndDownloadFile(pdf, 'images_bundle.pdf');
                   _recordRecentFile('images_bundle.pdf', pdf, true);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -2580,12 +3030,15 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           },
         ),
         const SizedBox(height: 10),
-        Text('Camera image stays on your device and is packaged into a PDF locally.', style: TextStyle(color: textMuted, fontSize: 12)),
+        Text(
+            'Camera image stays on your device and is packaged into a PDF locally.',
+            style: TextStyle(color: textMuted, fontSize: 12)),
         if (_imagesForPdf.isNotEmpty) ...[
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.memory(_imagesForPdf.first, height: 190, fit: BoxFit.contain),
+            child: Image.memory(_imagesForPdf.first,
+                height: 190, fit: BoxFit.contain),
           ),
           const SizedBox(height: 14),
           if (_isProcessing)
@@ -2605,7 +3058,10 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                   await saveAndDownloadFile(output, 'scanned_page.pdf');
                   _recordRecentFile('scanned_page.pdf', output, true);
                 } catch (error) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not create the scanned PDF: $error')));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content:
+                            Text('Could not create the scanned PDF: $error')));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -2625,10 +3081,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or drag and drop files here',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null && _pdfTotalPages > 0) ...[
           const SizedBox(height: 18),
-          Text('Tap pages to remove (turns red):', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          Text('Tap pages to remove (turns red):',
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -2641,7 +3099,9 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 selected: isDel,
                 selectedColor: Colors.red.withValues(alpha: 0.25),
                 checkmarkColor: Colors.red,
-                labelStyle: TextStyle(color: isDel ? Colors.red : textColor, fontWeight: isDel ? FontWeight.bold : FontWeight.normal),
+                labelStyle: TextStyle(
+                    color: isDel ? Colors.red : textColor,
+                    fontWeight: isDel ? FontWeight.bold : FontWeight.normal),
                 onSelected: (sel) {
                   setState(() {
                     if (sel) {
@@ -2661,20 +3121,28 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
             _buildActionExecuteButton(
               label: 'Delete ${_pagesToDelete.length} Pages & Download',
               icon: Icons.delete_sweep_rounded,
-              onTap: _pagesToDelete.isEmpty ? null : () async {
-                setState(() => _isProcessing = true);
-                try {
-                  final updated = await PdfToolsService.deletePdfPages(_selectedFileBytes!, _pagesToDelete.toList());
-                  final base = (_selectedFileName ?? 'document').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                  final outName = '${base}_updated.pdf';
-                  await saveAndDownloadFile(updated, outName);
-                  _recordRecentFile(outName, updated, true);
-                } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-                } finally {
-                  if (mounted) setState(() => _isProcessing = false);
-                }
-              },
+              onTap: _pagesToDelete.isEmpty
+                  ? null
+                  : () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        final updated = await PdfToolsService.deletePdfPages(
+                            _selectedFileBytes!, _pagesToDelete.toList());
+                        final base = (_selectedFileName ?? 'document')
+                            .replaceAll(
+                                RegExp(r'\.pdf$', caseSensitive: false), '');
+                        final outName = '${base}_updated.pdf';
+                        await saveAndDownloadFile(updated, outName);
+                        _recordRecentFile(outName, updated, true);
+                      } catch (e) {
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AppColors.error));
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
             ),
         ],
       ],
@@ -2690,10 +3158,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
           onTap: () => _pickSingleFile(extensions: ['pdf']),
         ),
         const SizedBox(height: 6),
-        Text('or drag and drop files here', style: TextStyle(fontSize: 12, color: textMuted)),
+        Text('or drag and drop files here',
+            style: TextStyle(fontSize: 12, color: textMuted)),
         if (_selectedFileBytes != null && _pageOrder.isNotEmpty) ...[
           const SizedBox(height: 18),
-          Text('Drag to change page sequence:', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          Text('Drag to change page sequence:',
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 10),
           ReorderableListView.builder(
             shrinkWrap: true,
@@ -2719,9 +3189,12 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
                 children: [
                   const Icon(Icons.drag_handle, color: Colors.grey),
                   const SizedBox(width: 12),
-                  Text('Page ${_pageOrder[i]}', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                  Text('Page ${_pageOrder[i]}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: textColor)),
                   const Spacer(),
-                  Text('Position #${i + 1}', style: TextStyle(fontSize: 12, color: textMuted)),
+                  Text('Position #${i + 1}',
+                      style: TextStyle(fontSize: 12, color: textMuted)),
                 ],
               ),
             ),
@@ -2736,13 +3209,18 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               onTap: () async {
                 setState(() => _isProcessing = true);
                 try {
-                  final reordered = await PdfToolsService.reorderPdfPages(_selectedFileBytes!, _pageOrder);
-                  final base = (_selectedFileName ?? 'reordered').replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+                  final reordered = await PdfToolsService.reorderPdfPages(
+                      _selectedFileBytes!, _pageOrder);
+                  final base = (_selectedFileName ?? 'reordered')
+                      .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
                   final outName = '${base}_reorganized.pdf';
                   await saveAndDownloadFile(reordered, outName);
                   _recordRecentFile(outName, reordered, true);
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.error));
                 } finally {
                   if (mounted) setState(() => _isProcessing = false);
                 }
@@ -2761,7 +3239,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   }
 
   // ── Primary Big Action Button (Matching Screenshot 2) ────────
-  Widget _buildPrimarySelectButton({required String label, required VoidCallback onTap}) {
+  Widget _buildPrimarySelectButton(
+      {required String label, required VoidCallback onTap}) {
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -2770,7 +3249,8 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF7DD3FC),
           foregroundColor: const Color(0xFF0F172A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
           elevation: 0,
         ),
         child: Text(
@@ -2785,26 +3265,32 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
   }
 
   // ── Action Execution Button (Convert / Download) ──────────────
-  Widget _buildActionExecuteButton({required String label, required IconData icon, required VoidCallback? onTap}) {
+  Widget _buildActionExecuteButton(
+      {required String label,
+      required IconData icon,
+      required VoidCallback? onTap}) {
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 20),
-        label: Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        label: Text(label,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0284C7),
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey.shade400,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 2,
         ),
       ),
     );
   }
 
-  Widget _presetChip(String label, String value, String current, Function(String) onSel) {
+  Widget _presetChip(
+      String label, String value, String current, Function(String) onSel) {
     return ChoiceChip(
       label: Text(label),
       selected: current == value,
