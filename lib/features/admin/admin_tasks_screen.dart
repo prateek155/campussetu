@@ -117,55 +117,89 @@ class _AdminTasksScreenState extends State<AdminTasksScreen> {
   void _showApplicantsSheet(Map<String, dynamic> task) {
     final title = (task['title'] ?? 'Task').toString();
     final apps = (task['applications'] as List<dynamic>?) ?? [];
+    final isDesktop = MediaQuery.of(context).size.width >= 650;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: _border)),
-        ),
-        child: Column(
-          children: [
+    Widget contentBuilder(BuildContext ctx) => Container(
+      constraints: BoxConstraints(
+        maxWidth: 620,
+        maxHeight: MediaQuery.of(context).size.height * (isDesktop ? 0.82 : 0.75),
+      ),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: isDesktop ? BorderRadius.circular(20) : const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: _border),
+        boxShadow: isDesktop
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  blurRadius: 32,
+                  offset: const Offset(0, 12),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisSize: isDesktop ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          if (!isDesktop)
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
               width: 44,
               height: 4,
               decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.people_alt_rounded, color: _cyan, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Task Applicants', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                        Text(title, style: const TextStyle(color: _inkSoft, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _cyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: _cyan.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                    child: Text('${apps.length} Total', style: const TextStyle(color: _cyan, fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Center(
+                    child: Icon(Icons.people_alt_rounded, color: _cyan, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Task Applicants', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(title, style: const TextStyle(color: _inkSoft, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: _cyan.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                  child: Text('${apps.length} Total', style: const TextStyle(color: _cyan, fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+                if (isDesktop) ...[
+                  const SizedBox(width: 10),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close_rounded, color: _inkSoft, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                    splashRadius: 18,
                   ),
                 ],
-              ),
+              ],
             ),
-            const Divider(color: _border),
-            Expanded(
-              child: apps.isEmpty
-                  ? const Center(
+          ),
+          const Divider(color: _border, height: 1),
+          Flexible(
+            child: apps.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48),
+                    child: Center(
                       child: Text('No applications received for this task yet.', style: TextStyle(color: _inkSoft, fontSize: 13)),
-                    )
+                    ),
+                  )
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: apps.length,
@@ -248,8 +282,25 @@ class _AdminTasksScreenState extends State<AdminTasksScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
+
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: contentBuilder(ctx),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => contentBuilder(ctx),
+      );
+    }
   }
 
   String _formatDate(String? iso) {

@@ -136,21 +136,22 @@ class _AdminShellState extends State<AdminShell> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOutCubic,
-              width: _isCollapsed ? 68 : 220,
+              width: _isCollapsed ? 58 : 220,
               decoration: const BoxDecoration(
                 color: _card,
                 border: Border(right: BorderSide(color: _border, width: 1)),
               ),
               child: Column(
                 children: [
-                  const SizedBox(height: 16),
+                  SizedBox(height: _isCollapsed ? 8 : 16),
 
                   // Header / Toggle Icon
                   if (_isCollapsed)
                     IconButton(
                       tooltip: 'Expand Sidebar',
-                      icon: const Icon(Icons.menu_rounded, color: Color(0xFF94A3B8), size: 22),
+                      icon: const Icon(Icons.menu_rounded, color: Color(0xFF94A3B8), size: 20),
                       onPressed: () => setState(() => _isCollapsed = false),
+                      splashRadius: 18,
                     )
                   else
                     Padding(
@@ -182,14 +183,14 @@ class _AdminShellState extends State<AdminShell> {
                       ),
                     ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: _isCollapsed ? 6 : 12),
                   const Divider(color: _border, height: 1),
-                  const SizedBox(height: 14),
+                  SizedBox(height: _isCollapsed ? 8 : 14),
 
                   // Sidebar Navigation Items
                   Expanded(
                     child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: EdgeInsets.symmetric(horizontal: _isCollapsed ? 6 : 10),
                       itemCount: _navDefinitions.length,
                       itemBuilder: (ctx, i) {
                         final def = _navDefinitions[i];
@@ -197,30 +198,30 @@ class _AdminShellState extends State<AdminShell> {
                         final accent = def.$4;
 
                         if (_isCollapsed) {
-                          // Icon-only collapsed view matching image
+                          // Icon-only compact collapsed view
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 5),
                             child: Tooltip(
                               message: def.$3,
                               preferBelow: false,
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                                 onTap: () => setState(() => _tab = i),
                                 child: Container(
-                                  width: 44,
-                                  height: 44,
+                                  width: 38,
+                                  height: 38,
                                   decoration: BoxDecoration(
                                     color: isSelected ? const Color(0xFF092330) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: isSelected
-                                        ? Border.all(color: const Color(0xFF0369A1).withValues(alpha: 0.6), width: 1.5)
+                                        ? Border.all(color: const Color(0xFF0369A1).withValues(alpha: 0.7), width: 1.5)
                                         : null,
                                   ),
                                   child: Center(
                                     child: Icon(
                                       isSelected ? def.$2 : def.$1,
                                       color: isSelected ? accent : const Color(0xFF64748B),
-                                      size: 20,
+                                      size: 18,
                                     ),
                                   ),
                                 ),
@@ -272,7 +273,10 @@ class _AdminShellState extends State<AdminShell> {
 
                   // Bottom Controls (Signout + Green Shield)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _isCollapsed ? 6 : 10,
+                      vertical: _isCollapsed ? 8 : 14,
+                    ),
                     child: Column(
                       children: [
                         // Signout Button
@@ -281,18 +285,18 @@ class _AdminShellState extends State<AdminShell> {
                             message: 'Sign Out',
                             preferBelow: false,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                               onTap: () => _handleSignOut(context),
                               child: Container(
-                                width: 44,
-                                height: 44,
+                                width: 38,
+                                height: 38,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF1E1114),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFF3B151C)),
                                 ),
                                 child: const Center(
-                                  child: Icon(Icons.power_settings_new_rounded, color: Color(0xFFEF4444), size: 19),
+                                  child: Icon(Icons.power_settings_new_rounded, color: Color(0xFFEF4444), size: 17),
                                 ),
                               ),
                             ),
@@ -321,7 +325,7 @@ class _AdminShellState extends State<AdminShell> {
                             ),
                           ),
 
-                        const SizedBox(height: 12),
+                        SizedBox(height: _isCollapsed ? 6 : 12),
 
                         // Bottom Green Shield Icon Container
                         if (_isCollapsed)
@@ -329,15 +333,15 @@ class _AdminShellState extends State<AdminShell> {
                             message: 'Super Admin Security Active',
                             preferBelow: false,
                             child: Container(
-                              width: 44,
-                              height: 44,
+                              width: 38,
+                              height: 38,
                               decoration: BoxDecoration(
                                 color: const Color(0xFF06231A),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
                               ),
                               child: const Center(
-                                child: Icon(Icons.security_rounded, color: Color(0xFF10B981), size: 20),
+                                child: Icon(Icons.security_rounded, color: Color(0xFF10B981), size: 18),
                               ),
                             ),
                           )

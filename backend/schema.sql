@@ -678,3 +678,16 @@ CREATE INDEX IF NOT EXISTS idx_ent_staff_advances_staff ON enterprise_staff_adva
 
 
 
+
+-- ─────────────────────────────────────────────────────────
+-- ALARM WALLPAPERS (Live, Animated Rive, Videos)
+-- ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS alarm_wallpapers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  type TEXT NOT NULL CHECK (type IN ('image', 'animated', 'video')),
+  label TEXT NOT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

@@ -113,16 +113,38 @@ class _AdminEventsScreenState extends State<AdminEventsScreen> {
   }
 
   void _viewRegistrations(String id, String eventName) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AdminEventRegistrationsSheet(
-        eventId: id,
-        eventName: eventName,
-        onRegistrationsChanged: _load,
-      ),
-    );
+    final isDesktop = MediaQuery.of(context).size.width >= 650;
+    if (isDesktop) {
+      showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: AdminEventRegistrationsSheet(
+                eventId: id,
+                eventName: eventName,
+                onRegistrationsChanged: _load,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => AdminEventRegistrationsSheet(
+          eventId: id,
+          eventName: eventName,
+          onRegistrationsChanged: _load,
+        ),
+      );
+    }
   }
 
   @override
