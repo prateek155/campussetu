@@ -24,6 +24,7 @@ import '../../features/products/product_detail_screen.dart';
 import '../../features/resume/resume_screen.dart';
 import '../../features/resume/resume_editor_screen.dart';
 import '../../features/resume/templates/professional/template_mahii_luxury.dart';
+import '../../features/resume/templates/professional/template_mathew_executive.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/profile/account_password_screen.dart';
 import '../../features/profile/settings_screen.dart';
@@ -195,6 +196,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (templateId == 'mahii_luxury') {
             return const MahiiLuxuryTemplate();
           }
+          if (templateId == 'mathew_executive') {
+            return const MathewExecutiveTemplate();
+          }
           // Legacy / generic editor for all other existing templates
           return ResumeEditorScreen(
             templateId: templateId,
@@ -208,6 +212,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/resume/mahii_luxury',
         builder: (_, __) => const MahiiLuxuryTemplate(),
+      ),
+      // Dedicated route for Mathew Executive Professional template
+      GoRoute(
+        path: '/resume/mathew_executive',
+        builder: (_, __) => const MathewExecutiveTemplate(),
       ),
       GoRoute(
           path: AppRoutes.adminAddDeal,

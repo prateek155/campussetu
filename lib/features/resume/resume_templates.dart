@@ -36,6 +36,14 @@ const resumeTemplates = <ResumeTemplateSpec>[
       layout: ResumeTemplateLayout.sidebar,
       serif: true,
       category: ResumeCategory.professional),
+  ResumeTemplateSpec(
+      id: 'mathew_executive',
+      name: 'Mathew Executive',
+      tagline: 'Architectural Cutout & Vibrant Accent — fully customizable',
+      isPremium: false,
+      accent: Color(0xFFF5B800),
+      layout: ResumeTemplateLayout.sidebar,
+      category: ResumeCategory.professional),
 
   // ── Legacy / Generic Templates ───────────────────────────────────────
   ResumeTemplateSpec(

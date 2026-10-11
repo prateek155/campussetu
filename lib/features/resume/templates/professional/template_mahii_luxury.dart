@@ -1029,9 +1029,9 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                             clean(_summaryCtrl.text),
                             style: pw.TextStyle(
                               font: regularFont,
-                              fontSize: 7.8,
-                              color: PdfColors.grey800,
-                              lineSpacing: 1.6,
+                              fontSize: 8.5,
+                              color: const PdfColor.fromInt(0xFF1E293B),
+                              lineSpacing: 1.5,
                             ),
                           ),
 
@@ -1072,7 +1072,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                 clean(exp.roleCtrl.text),
                                                 style: pw.TextStyle(
                                                   font: boldFont,
-                                                  fontSize: 8.8,
+                                                  fontSize: 9.0,
                                                   fontWeight:
                                                       pw.FontWeight.bold,
                                                   color: pdfNavy,
@@ -1083,7 +1083,8 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                 style: pw.TextStyle(
                                                   font: regularFont,
                                                   fontSize: 7.2,
-                                                  color: PdfColors.grey600,
+                                                  color: const PdfColor.fromInt(
+                                                      0xFF475569),
                                                 ),
                                               ),
                                             ],
@@ -1092,7 +1093,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                             clean(exp.subtitleCtrl.text),
                                             style: pw.TextStyle(
                                               font: italicFont,
-                                              fontSize: 7.4,
+                                              fontSize: 7.8,
                                               color: pdfGold,
                                               fontStyle: pw.FontStyle.italic,
                                             ),
@@ -1123,7 +1124,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                         shape: pw.BoxShape
                                                             .circle,
                                                         color:
-                                                            PdfColors.grey700,
+                                                            PdfColor.fromInt(0xFF334155),
                                                       ),
                                                     ),
                                                   ),
@@ -1132,10 +1133,10 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                       bText,
                                                       style: pw.TextStyle(
                                                         font: regularFont,
-                                                        fontSize: 7.3,
-                                                        color:
-                                                            PdfColors.grey800,
-                                                        lineSpacing: 1.3,
+                                                        fontSize: 8.2,
+                                                        color: const PdfColor
+                                                            .fromInt(0xFF1E293B),
+                                                        lineSpacing: 1.35,
                                                       ),
                                                     ),
                                                   ),
@@ -1194,8 +1195,8 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                   clean(c.text),
                                                   style: pw.TextStyle(
                                                     font: regularFont,
-                                                    fontSize: 7.2,
-                                                    color: PdfColors.grey800,
+                                                    fontSize: 8.0,
+                                                    color: const PdfColor.fromInt(0xFF1E293B),
                                                   ),
                                                 ),
                                               ),
@@ -1258,7 +1259,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                               ''),
                                                       style: pw.TextStyle(
                                                         font: boldFont,
-                                                        fontSize: 7.5,
+                                                        fontSize: 8.2,
                                                         fontWeight:
                                                             pw.FontWeight.bold,
                                                         color: pdfNavy,
@@ -1269,9 +1270,9 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                                           a['sub']?.text ?? ''),
                                                       style: pw.TextStyle(
                                                         font: regularFont,
-                                                        fontSize: 6.8,
+                                                        fontSize: 7.4,
                                                         color:
-                                                            PdfColors.grey600,
+                                                            const PdfColor.fromInt(0xFF475569),
                                                       ),
                                                     ),
                                                   ],
@@ -2335,7 +2336,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           _InlineField(
             controller: _taglineCtrl,
             style: TextStyle(
-                fontSize: 11, color: Colors.grey[600], letterSpacing: 1),
+                fontSize: 12, color: const Color(0xFF334155), letterSpacing: 1),
           ),
 
           const SizedBox(height: 18),
@@ -2347,7 +2348,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
             controller: _summaryCtrl,
             maxLines: 4,
             style: TextStyle(
-                fontSize: 10.5, height: 1.5, color: Colors.grey[800]),
+                fontSize: 11.5, height: 1.5, color: const Color(0xFF1E293B)),
           ),
 
           const SizedBox(height: 18),
@@ -2435,7 +2436,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                               child: _InlineField(
                                 controller: c,
                                 style: TextStyle(
-                                    fontSize: 10, color: Colors.grey[800]),
+                                    fontSize: 11, color: const Color(0xFF1E293B)),
                               ),
                             ),
                             if (_expertiseCtrls.length > 1)
@@ -2497,15 +2498,15 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                   _InlineField(
                                     controller: a['title']!,
                                     style: TextStyle(
-                                        fontSize: 10.5,
+                                        fontSize: 11.5,
                                         fontWeight: FontWeight.w700,
                                         color: _sidebar),
                                   ),
                                   _InlineField(
                                     controller: a['sub']!,
-                                    style: TextStyle(
-                                        fontSize: 9.5,
-                                        color: Colors.grey[600]),
+                                    style: const TextStyle(
+                                        fontSize: 10.5,
+                                        color: Color(0xFF475569)),
                                   ),
                                 ],
                               ),
@@ -2621,19 +2622,19 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                       child: _InlineField(
                         controller: exp.roleCtrl,
                         style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             color: _sidebar),
                       ),
                     ),
                     SizedBox(
-                      width: 90,
+                      width: 95,
                       child: _InlineField(
                         controller: exp.datesCtrl,
                         textAlign: TextAlign.end,
-                        style: TextStyle(
-                            fontSize: 9.5,
-                            color: Colors.grey[600],
+                        style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF475569),
                             fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -2650,7 +2651,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 _InlineField(
                   controller: exp.subtitleCtrl,
                   style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: _gold,
                       fontStyle: FontStyle.italic,
                       fontWeight: FontWeight.w600),
@@ -2663,15 +2664,15 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('• ',
-                          style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                          style: TextStyle(fontSize: 11, color: Colors.grey)),
                       Expanded(
                         child: _InlineField(
                           controller: bCtrl,
                           maxLines: 2,
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              height: 1.4,
-                              color: Colors.grey[800]),
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              height: 1.45,
+                              color: Color(0xFF1E293B)),
                         ),
                       ),
                       if (exp.bulletCtrls.length > 1)

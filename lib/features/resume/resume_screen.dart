@@ -88,7 +88,7 @@ class _ResumeScreenState extends ConsumerState<ResumeScreen>
     }
 
     // ── Canva-style modular templates: open directly (no API handoff needed) ──
-    const _modularTemplateIds = {'mahii_luxury'};
+    const _modularTemplateIds = {'mahii_luxury', 'mathew_executive'};
     if (_modularTemplateIds.contains(template.id)) {
       context.push('/resume/${template.id}');
       return;

@@ -41,6 +41,9 @@ class ResumeDocumentPreview extends StatelessWidget {
     if (template.id == 'mahii_luxury') {
       return _mahiiLuxuryPreview();
     }
+    if (template.id == 'mathew_executive') {
+      return _mathewExecutivePreview();
+    }
     if (template.layout == ResumeTemplateLayout.sidebar) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -616,6 +619,301 @@ class ResumeDocumentPreview extends StatelessWidget {
           ],
         ),
       );
+
+  Widget _mathewExecutivePreview() {
+    final rawName = _value(_personal, 'name', 'MATHEW PARKER').trim();
+    final parts = rawName.split(' ');
+    final firstName = parts.isNotEmpty ? parts.first.toUpperCase() : 'MATHEW';
+    final lastName = parts.length > 1
+        ? parts.sublist(1).join(' ').toUpperCase()
+        : 'PARKER';
+    final title =
+        _value(_personal, 'headline', 'GRAPHIC DESIGNER').toUpperCase();
+    const accent = Color(0xFFF5B800);
+    const sidebar = Color(0xFF1B1D22);
+
+    Widget miniBadge(String t) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            t,
+            style: const TextStyle(
+              fontSize: 6,
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+              letterSpacing: 0.5,
+            ),
+          ),
+        );
+
+    Widget miniContact(String tab, String val) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(
+                tab,
+                style: const TextStyle(
+                    fontSize: 5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(val,
+                style: const TextStyle(fontSize: 5.5, color: Colors.white70)),
+          ],
+        );
+
+    return Stack(
+      children: [
+        // Top Yellow Pill
+        Positioned(
+          top: 0,
+          left: 175,
+          child: Container(
+            width: 28,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(14),
+                bottomRight: Radius.circular(14),
+              ),
+            ),
+          ),
+        ),
+
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Column
+            SizedBox(
+              width: 150,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Photo with curve
+                  Container(
+                    height: 110,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2B2D33),
+                      borderRadius: BorderRadius.only(
+                        bottomRight: Radius.circular(36),
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.person_rounded,
+                        size: 55,
+                        color: Colors.white.withValues(alpha: 0.25),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Dark Sidebar
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                      decoration: const BoxDecoration(
+                        color: sidebar,
+                        borderRadius: BorderRadius.only(
+                          topRight: Radius.circular(42),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          miniBadge('EDUCATION'),
+                          const SizedBox(height: 5),
+                          const Text('ENTER YOUR MAJOR',
+                              style: TextStyle(
+                                  fontSize: 6.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                          const Text('Name Of Your University',
+                              style: TextStyle(
+                                  fontSize: 5.5, color: Colors.white60)),
+                          const Text('2019 - 2023',
+                              style: TextStyle(
+                                  fontSize: 5.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: accent)),
+                          const SizedBox(height: 10),
+                          miniBadge('REFERENCE'),
+                          const SizedBox(height: 5),
+                          const Text('Lorem Ipsum',
+                              style: TextStyle(
+                                  fontSize: 6.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                          const Text('Director | Company Name',
+                              style: TextStyle(
+                                  fontSize: 5.5, color: Colors.white60)),
+                          const Spacer(),
+                          miniContact('Phone', '+000 123 456 789'),
+                          const SizedBox(height: 4),
+                          miniContact('Email', 'yourname@gmail.com'),
+                          const SizedBox(height: 4),
+                          miniContact('website', 'yourwebsite.com'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right Column
+            Expanded(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 36),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            firstName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF111827),
+                              letterSpacing: 1.2,
+                              height: 1.05,
+                            ),
+                          ),
+                          Text(
+                            lastName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1F2937),
+                              letterSpacing: 1.5,
+                              height: 1.05,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    miniBadge('ABOUT ME'),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Creative and detail-oriented professional with passion for designing visually stunning, modern and effective products.',
+                      style: TextStyle(
+                        fontSize: 6.8,
+                        color: Color(0xFF1E293B),
+                        height: 1.35,
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    miniBadge('WORK EXPERIENCE'),
+                    const SizedBox(height: 5),
+                    const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          child: Text(
+                            '2022 - 2024',
+                            style: TextStyle(
+                              fontSize: 6.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'JOB POSITION HERE',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              Text(
+                                'Company Name / California USA',
+                                style: TextStyle(
+                                  fontSize: 6,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Developed scalable features and collaborated with product teams.',
+                                style: TextStyle(
+                                  fontSize: 6,
+                                  color: Color(0xFF334155),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    miniBadge('SOFTWARE SKILL'),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _miniSkillBar('Photoshop', 0.85, accent),
+                              _miniSkillBar('Illustrator', 0.80, accent),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _miniSkillBar('After Effects', 0.75, accent),
+                              _miniSkillBar('Premiere Pro', 0.70, accent),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 Map<String, dynamic> _asMap(dynamic value) =>
