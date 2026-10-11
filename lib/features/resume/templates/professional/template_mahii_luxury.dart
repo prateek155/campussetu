@@ -858,29 +858,44 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
   // A4 SHEET CONTAINER (794px width)
   // ═══════════════════════════════════════════════════════════════════════
   Widget _buildA4Sheet(String sig) {
-    return Container(
-      width: 794,
-      constraints: const BoxConstraints(minHeight: 1123),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 36,
-            offset: const Offset(0, 10),
-          ),
-        ],
+    return Theme(
+      data: ThemeData.light().copyWith(
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: false,
+          fillColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          isDense: true,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+        ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── LEFT SIDEBAR ──────────────────────────────────────────
-            _buildSidebar(sig),
-
-            // ── RIGHT CANVAS (DIRECT INLINE EDITABLE) ─────────────────
-            Expanded(child: _buildRightContent()),
+      child: Container(
+        width: 794,
+        constraints: const BoxConstraints(minHeight: 1123),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 36,
+              offset: const Offset(0, 10),
+            ),
           ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── LEFT SIDEBAR ──────────────────────────────────────────
+              _buildSidebar(sig),
+
+              // ── RIGHT CANVAS (DIRECT INLINE EDITABLE) ─────────────────
+              Expanded(child: _buildRightContent()),
+            ],
+          ),
         ),
       ),
     );
@@ -2041,12 +2056,17 @@ class _InlineField extends StatelessWidget {
       cursorColor: style.color ?? Colors.blue,
       decoration: InputDecoration(
         isDense: true,
+        filled: false,
+        fillColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
         hintText: hint,
         hintStyle: style.copyWith(
             color: (style.color ?? Colors.grey).withValues(alpha: 0.4)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(
               color: (style.color ?? Colors.blue).withValues(alpha: 0.6),
