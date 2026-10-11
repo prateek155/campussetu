@@ -350,309 +350,873 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     setState(() => _photoBytes = null);
   }
 
-  // ─── Export High-Quality PDF ──────────────────────────────────────────
+  // ─── Export High-Quality PDF (1:1 Pixel-Perfect Match with Screen) ─────
   Future<void> _exportPdf() async {
     final pdf = pw.Document();
     final pdfNavy = PdfColor.fromInt(_sidebar.toARGB32());
     final pdfGold = PdfColor.fromInt(_gold.toARGB32());
     final pdfIndicator = PdfColor.fromInt(_indicator.toARGB32());
+    final pdfTrack = PdfColor.fromInt(_pal.trackColor.toARGB32());
 
-    final sig = _nameCtrl.text.isEmpty
+    // Load true Unicode fonts with fail-safe fallbacks
+    pw.Font regularFont = pw.Font.helvetica();
+    pw.Font boldFont = pw.Font.helveticaBold();
+    pw.Font italicFont = pw.Font.helveticaOblique();
+    pw.Font serifFont = pw.Font.timesBold();
+    pw.Font cursiveFont = pw.Font.timesItalic();
+
+    try {
+      regularFont = await PdfGoogleFonts.plusJakartaSansRegular();
+      boldFont = await PdfGoogleFonts.plusJakartaSansBold();
+      italicFont = await PdfGoogleFonts.plusJakartaSansItalic();
+      serifFont = await PdfGoogleFonts.playfairDisplayBold();
+      cursiveFont = await PdfGoogleFonts.alexBrushRegular();
+    } catch (e) {
+      debugPrint('PdfGoogleFonts fallback: $e');
+    }
+
+    final rawSig = _nameCtrl.text.trim();
+    final sig = rawSig.isEmpty
         ? 'Prateek'
-        : _nameCtrl.text
-            .trim()
-            .split(' ')
-            .first
-            .toLowerCase()
-            .replaceFirst(RegExp(r'.'), _nameCtrl.text.trim()[0].toUpperCase());
+        : rawSig.split(' ').first.toLowerCase().replaceFirst(
+            RegExp(r'.'), rawSig[0].toUpperCase());
+
+    String clean(String s) => s
+        .replaceAll('–', '-')
+        .replaceAll('—', '-')
+        .replaceAll('•', '')
+        .trim();
+
+    // ── Helper: Sidebar Heading with Badge ──
+    pw.Widget pdfSidebarHeading(String title) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Container(
+              width: 13,
+              height: 13,
+              decoration: pw.BoxDecoration(
+                shape: pw.BoxShape.circle,
+                color: pdfIndicator,
+              ),
+              child: pw.Center(
+                child: pw.Container(
+                  width: 4.5,
+                  height: 4.5,
+                  decoration: pw.BoxDecoration(
+                    shape: pw.BoxShape.circle,
+                    color: pdfNavy,
+                  ),
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 5),
+            pw.Text(
+              title,
+              style: pw.TextStyle(
+                font: boldFont,
+                color: pdfIndicator,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+                letterSpacing: 1.3,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Helper: Right Content Heading with Circular Badge ──
+    pw.Widget pdfRightHeading(String title) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Container(
+              width: 16,
+              height: 16,
+              decoration: pw.BoxDecoration(
+                shape: pw.BoxShape.circle,
+                color: pdfNavy,
+              ),
+              child: pw.Center(
+                child: pw.Container(
+                  width: 5.5,
+                  height: 5.5,
+                  decoration: pw.BoxDecoration(
+                    shape: pw.BoxShape.circle,
+                    color: pdfGold,
+                  ),
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 6),
+            pw.Text(
+              title,
+              style: pw.TextStyle(
+                font: boldFont,
+                color: pdfNavy,
+                fontSize: 9.5,
+                fontWeight: pw.FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Helper: Contact Item with Label Pill ──
+    pw.Widget pdfContactItem(String label, String value) {
+      final text = clean(value);
+      if (text.isEmpty) return pw.SizedBox();
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3.5),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Container(
+              width: 12,
+              height: 12,
+              decoration: pw.BoxDecoration(
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2.5)),
+                color: pdfIndicator,
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  label,
+                  style: pw.TextStyle(
+                    fontSize: 5.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 6),
+            pw.Expanded(
+              child: pw.Text(
+                text,
+                style: pw.TextStyle(
+                  font: regularFont,
+                  color: PdfColors.white,
+                  fontSize: 7.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: pw.EdgeInsets.zero,
         build: (context) {
-          return pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          return pw.Stack(
             children: [
-              // ── Left Sidebar ───────────────────────────────────────────
-              pw.Container(
-                width: 195,
-                color: pdfNavy,
-                padding: const pw.EdgeInsets.fromLTRB(16, 26, 16, 18),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    // Photo / Avatar Frame
-                    pw.Center(
-                      child: pw.Container(
-                        width: 76,
-                        height: 76,
-                        decoration: pw.BoxDecoration(
-                          shape: pw.BoxShape.circle,
-                          border: pw.Border.all(color: pdfGold, width: 2.5),
+              // 1. Full White Background
+              pw.Container(color: PdfColors.white),
+
+              // 2. Left Sidebar Solid Block (185pt)
+              pw.Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: pw.Container(width: 185, color: pdfNavy),
+              ),
+
+              // 3. Golden Wave Decorative Ribbon Edge (Matches Screen _WaveEdgePainter)
+              pw.Positioned(
+                left: 175,
+                top: 0,
+                bottom: 0,
+                child: pw.Container(
+                  width: 22,
+                  child: pw.CustomPaint(
+                    size: const PdfPoint(22, 842),
+                    painter: (PdfGraphics canvas, PdfPoint size) {
+                      canvas.setFillColor(pdfNavy);
+                      canvas.moveTo(0, 0);
+                      canvas.curveTo(size.x * 1.2, size.y * 0.15, -size.x * 0.2,
+                          size.y * 0.35, size.x * 1.0, size.y * 0.5);
+                      canvas.curveTo(size.x * 1.2, size.y * 0.65, -size.x * 0.2,
+                          size.y * 0.85, size.x * 1.0, size.y);
+                      canvas.lineTo(0, size.y);
+                      canvas.closePath();
+                      canvas.fillPath();
+
+                      canvas.setStrokeColor(pdfGold);
+                      canvas.setLineWidth(2.2);
+                      canvas.moveTo(0, 0);
+                      canvas.curveTo(size.x * 1.2, size.y * 0.15, -size.x * 0.2,
+                          size.y * 0.35, size.x * 1.0, size.y * 0.5);
+                      canvas.curveTo(size.x * 1.2, size.y * 0.65, -size.x * 0.2,
+                          size.y * 0.85, size.x * 1.0, size.y);
+                      canvas.strokePath();
+                    },
+                  ),
+                ),
+              ),
+
+              // 4. Foreground Content Row: Sidebar Content + Right Body Content
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  // ═════════════════════════════════════════════════════════
+                  // LEFT SIDEBAR CONTENT
+                  // ═════════════════════════════════════════════════════════
+                  pw.Container(
+                    width: 185,
+                    padding: const pw.EdgeInsets.fromLTRB(14, 20, 14, 16),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        // Concentric Gold Ring Photo Frame
+                        pw.Center(
+                          child: pw.Container(
+                            width: 76,
+                            height: 76,
+                            decoration: pw.BoxDecoration(
+                              shape: pw.BoxShape.circle,
+                              border: pw.Border.all(color: pdfGold, width: 2.2),
+                              color: pdfNavy,
+                            ),
+                            padding: const pw.EdgeInsets.all(2.5),
+                            child: pw.Container(
+                              decoration: pw.BoxDecoration(
+                                shape: pw.BoxShape.circle,
+                                border: pw.Border.all(
+                                    color: pdfGold.luminance > 0.6
+                                        ? pdfGold
+                                        : pdfIndicator,
+                                    width: 1),
+                              ),
+                              child: pw.ClipOval(
+                                child: _photoBytes != null
+                                    ? pw.Image(pw.MemoryImage(_photoBytes!),
+                                        fit: pw.BoxFit.cover)
+                                    : pw.Container(
+                                        color: pdfNavy,
+                                        child: pw.Center(
+                                          child: pw.Text(
+                                            sig.isNotEmpty ? sig[0] : 'P',
+                                            style: pw.TextStyle(
+                                              font: boldFont,
+                                              color: pdfIndicator,
+                                              fontSize: 26,
+                                              fontWeight: pw.FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
                         ),
-                        child: pw.ClipOval(
-                          child: _photoBytes != null
-                              ? pw.Image(pw.MemoryImage(_photoBytes!),
-                                  fit: pw.BoxFit.cover)
-                              : pw.Center(
-                                  child: pw.Text(
-                                    sig.isNotEmpty ? sig[0] : 'P',
+
+                        pw.SizedBox(height: 14),
+
+                        // ── CONTACT ──
+                        pdfSidebarHeading('CONTACT'),
+                        pdfContactItem('P', _phoneCtrl.text),
+                        pdfContactItem('@', _emailCtrl.text),
+                        pdfContactItem('L', _locationCtrl.text),
+                        pdfContactItem('in', _linkedinCtrl.text),
+                        pdfContactItem('Bē', _websiteCtrl.text),
+
+                        pw.SizedBox(height: 12),
+
+                        // ── EDUCATION ──
+                        pdfSidebarHeading('EDUCATION'),
+                        ..._eduEntries.map((edu) => pw.Padding(
+                              padding: const pw.EdgeInsets.only(bottom: 5.5),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text(
+                                    clean(edu.degreeCtrl.text),
                                     style: pw.TextStyle(
-                                      color: pdfIndicator,
-                                      fontSize: 30,
+                                      font: boldFont,
+                                      color: PdfColors.white,
+                                      fontSize: 7.2,
                                       fontWeight: pw.FontWeight.bold,
                                     ),
                                   ),
-                                ),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 16),
-                    // Contact
-                    pw.Text('CONTACT',
-                        style: pw.TextStyle(
-                            color: pdfIndicator,
-                            fontSize: 9.5,
-                            fontWeight: pw.FontWeight.bold,
-                            letterSpacing: 1.5)),
-                    pw.SizedBox(height: 5),
-                    pw.Text(_phoneCtrl.text,
-                        style: const pw.TextStyle(
-                            color: PdfColors.white, fontSize: 8)),
-                    pw.Text(_emailCtrl.text,
-                        style: const pw.TextStyle(
-                            color: PdfColors.white, fontSize: 8)),
-                    pw.Text(_locationCtrl.text,
-                        style: const pw.TextStyle(
-                            color: PdfColors.white, fontSize: 8)),
-                    pw.Text(_linkedinCtrl.text,
-                        style: const pw.TextStyle(
-                            color: PdfColors.white, fontSize: 8)),
-                    pw.Text(_websiteCtrl.text,
-                        style: const pw.TextStyle(
-                            color: PdfColors.white, fontSize: 8)),
-                    pw.SizedBox(height: 14),
-                    // Education
-                    pw.Text('EDUCATION',
-                        style: pw.TextStyle(
-                            color: pdfIndicator,
-                            fontSize: 9.5,
-                            fontWeight: pw.FontWeight.bold,
-                            letterSpacing: 1.5)),
-                    pw.SizedBox(height: 5),
-                    ..._eduEntries.map((edu) => pw.Padding(
-                          padding: const pw.EdgeInsets.only(bottom: 6),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text(edu.degreeCtrl.text,
-                                  style: pw.TextStyle(
-                                      color: PdfColors.white,
-                                      fontSize: 8,
-                                      fontWeight: pw.FontWeight.bold)),
-                              pw.Text(edu.instCtrl.text,
-                                  style: const pw.TextStyle(
-                                      color: PdfColors.grey300, fontSize: 7)),
-                              pw.Text(edu.yearCtrl.text,
-                                  style: pw.TextStyle(
-                                      color: pdfIndicator, fontSize: 7)),
-                            ],
-                          ),
-                        )),
-                    pw.SizedBox(height: 12),
-                    // Skills with High-Contrast Indicator
-                    pw.Text('SKILLS',
-                        style: pw.TextStyle(
-                            color: pdfIndicator,
-                            fontSize: 9.5,
-                            fontWeight: pw.FontWeight.bold,
-                            letterSpacing: 1.5)),
-                    pw.SizedBox(height: 5),
-                    ..._skills.map((s) => pw.Padding(
-                          padding: const pw.EdgeInsets.only(bottom: 5),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text(s.nameCtrl.text,
-                                  style: const pw.TextStyle(
-                                      color: PdfColors.white, fontSize: 7.5)),
-                              pw.SizedBox(height: 2),
-                              pw.Container(
-                                height: 3.5,
-                                width: 160,
-                                decoration: const pw.BoxDecoration(
-                                    color: PdfColors.grey700),
-                                child: pw.Align(
-                                  alignment: pw.Alignment.centerLeft,
-                                  child: pw.Container(
-                                    height: 3.5,
-                                    width: 160 * s.level,
-                                    decoration: pw.BoxDecoration(
-                                        color: pdfIndicator),
+                                  pw.Text(
+                                    clean(edu.instCtrl.text),
+                                    style: pw.TextStyle(
+                                      font: regularFont,
+                                      color: PdfColors.grey300,
+                                      fontSize: 6.5,
+                                    ),
                                   ),
+                                  pw.Text(
+                                    clean(edu.yearCtrl.text),
+                                    style: pw.TextStyle(
+                                      font: boldFont,
+                                      color: pdfIndicator,
+                                      fontSize: 6.5,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+
+                        pw.SizedBox(height: 12),
+
+                        // ── SKILLS (WITH PERCENTAGE & ADAPTIVE BARS) ──
+                        pdfSidebarHeading('SKILLS'),
+                        ..._skills.map((s) => pw.Padding(
+                              padding: const pw.EdgeInsets.only(bottom: 4.5),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Row(
+                                    mainAxisAlignment:
+                                        pw.MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      pw.Text(
+                                        clean(s.nameCtrl.text),
+                                        style: pw.TextStyle(
+                                          font: regularFont,
+                                          color: PdfColors.white,
+                                          fontSize: 7,
+                                        ),
+                                      ),
+                                      pw.Text(
+                                        '${(s.level * 100).round()}%',
+                                        style: pw.TextStyle(
+                                          font: boldFont,
+                                          color: pdfIndicator,
+                                          fontSize: 7,
+                                          fontWeight: pw.FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  pw.SizedBox(height: 2),
+                                  pw.Container(
+                                    height: 3,
+                                    width: 157,
+                                    decoration: pw.BoxDecoration(
+                                      borderRadius: const pw.BorderRadius.all(
+                                          pw.Radius.circular(1.5)),
+                                      color: pdfTrack,
+                                    ),
+                                    child: pw.Align(
+                                      alignment: pw.Alignment.centerLeft,
+                                      child: pw.Container(
+                                        height: 3,
+                                        width: 157 * s.level,
+                                        decoration: pw.BoxDecoration(
+                                          borderRadius:
+                                              const pw.BorderRadius.all(
+                                                  pw.Radius.circular(1.5)),
+                                          color: pdfIndicator,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+
+                        pw.SizedBox(height: 12),
+
+                        // ── LANGUAGES (7-DOT INDICATORS) ──
+                        pdfSidebarHeading('LANGUAGES'),
+                        ..._langs.map((l) => pw.Padding(
+                              padding: const pw.EdgeInsets.only(bottom: 4),
+                              child: pw.Row(
+                                mainAxisAlignment:
+                                    pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text(
+                                    clean(l.nameCtrl.text),
+                                    style: pw.TextStyle(
+                                      font: regularFont,
+                                      color: PdfColors.white,
+                                      fontSize: 7,
+                                    ),
+                                  ),
+                                  pw.Row(
+                                    children: List.generate(7, (d) {
+                                      final filled = d < l.dots;
+                                      return pw.Container(
+                                        width: 6,
+                                        height: 6,
+                                        margin:
+                                            const pw.EdgeInsets.only(left: 2),
+                                        decoration: pw.BoxDecoration(
+                                          shape: pw.BoxShape.circle,
+                                          color: filled
+                                              ? pdfIndicator
+                                              : PdfColor.fromInt(0x35FFFFFF),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ),
+                            )),
+
+                        pw.Spacer(),
+
+                        // ── SIGNATURE AT BOTTOM ──
+                        pw.Center(
+                          child: pw.Column(
+                            children: [
+                              pw.Container(
+                                width: 120,
+                                height: 0.8,
+                                color: pdfIndicator,
+                              ),
+                              pw.SizedBox(height: 6),
+                              pw.Text(
+                                sig,
+                                style: pw.TextStyle(
+                                  font: cursiveFont,
+                                  color: pdfIndicator,
+                                  fontSize: 24,
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                'DESIGN  |  CREATE  |  INSPIRE',
+                                style: pw.TextStyle(
+                                  font: boldFont,
+                                  color: pdfIndicator,
+                                  fontSize: 4.8,
+                                  letterSpacing: 1.2,
+                                  fontWeight: pw.FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                        )),
-                    pw.Spacer(),
-                    // Signature
-                    pw.Center(
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Spacing clearance for wave ribbon
+                  pw.SizedBox(width: 14),
+
+                  // ═════════════════════════════════════════════════════════
+                  // RIGHT MAIN BODY CONTENT
+                  // ═════════════════════════════════════════════════════════
+                  pw.Expanded(
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.fromLTRB(14, 22, 22, 16),
                       child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
+                          // ── NAME & DESIGNATION ──
                           pw.Text(
-                            sig,
+                            _nameCtrl.text.toUpperCase().isEmpty
+                                ? 'PRATEEK'
+                                : _nameCtrl.text.toUpperCase(),
                             style: pw.TextStyle(
-                              color: pdfIndicator,
-                              fontSize: 22,
-                              fontStyle: pw.FontStyle.italic,
+                              font: serifFont,
+                              fontSize: 30,
+                              fontWeight: pw.FontWeight.bold,
+                              color: pdfNavy,
+                              letterSpacing: 2,
                             ),
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 3),
                           pw.Text(
-                            'DESIGN • CREATE • INSPIRE',
+                            _titleCtrl.text.toUpperCase(),
                             style: pw.TextStyle(
-                              color: pdfIndicator,
-                              fontSize: 5,
-                              letterSpacing: 1,
+                              font: boldFont,
+                              fontSize: 10.5,
                               fontWeight: pw.FontWeight.bold,
+                              color: pdfGold,
+                              letterSpacing: 2.5,
+                            ),
+                          ),
+                          pw.SizedBox(height: 3.5),
+
+                          // Gold Diamond Ornament Line
+                          pw.Row(
+                            children: [
+                              pw.Container(
+                                  width: 32, height: 1.5, color: pdfGold),
+                              pw.SizedBox(width: 4),
+                              pw.Container(
+                                width: 4.5,
+                                height: 4.5,
+                                decoration: pw.BoxDecoration(
+                                  shape: pw.BoxShape.circle,
+                                  color: pdfGold,
+                                ),
+                              ),
+                              pw.SizedBox(width: 4),
+                              pw.Container(
+                                  width: 32, height: 1.5, color: pdfGold),
+                            ],
+                          ),
+
+                          pw.SizedBox(height: 5),
+
+                          // Tagline with vector separators (zero box character issues!)
+                          pw.Row(
+                            children: [
+                              pw.Text('Creative',
+                                  style: pw.TextStyle(
+                                      font: regularFont,
+                                      fontSize: 7.8,
+                                      color: PdfColors.grey600)),
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 5),
+                                child: pw.Container(
+                                  width: 2.5,
+                                  height: 2.5,
+                                  decoration: const pw.BoxDecoration(
+                                    shape: pw.BoxShape.circle,
+                                    color: PdfColors.grey500,
+                                  ),
+                                ),
+                              ),
+                              pw.Text('Detail-Oriented',
+                                  style: pw.TextStyle(
+                                      font: regularFont,
+                                      fontSize: 7.8,
+                                      color: PdfColors.grey600)),
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 5),
+                                child: pw.Container(
+                                  width: 2.5,
+                                  height: 2.5,
+                                  decoration: const pw.BoxDecoration(
+                                    shape: pw.BoxShape.circle,
+                                    color: PdfColors.grey500,
+                                  ),
+                                ),
+                              ),
+                              pw.Text('Dedicated',
+                                  style: pw.TextStyle(
+                                      font: regularFont,
+                                      fontSize: 7.8,
+                                      color: PdfColors.grey600)),
+                            ],
+                          ),
+
+                          pw.SizedBox(height: 13),
+
+                          // ── PROFESSIONAL SUMMARY ──
+                          pdfRightHeading('PROFESSIONAL SUMMARY'),
+                          pw.Text(
+                            clean(_summaryCtrl.text),
+                            style: pw.TextStyle(
+                              font: regularFont,
+                              fontSize: 7.8,
+                              color: PdfColors.grey800,
+                              lineSpacing: 1.6,
+                            ),
+                          ),
+
+                          pw.SizedBox(height: 12),
+
+                          // ── EXPERIENCE ──
+                          pdfRightHeading('EXPERIENCE'),
+                          ..._expEntries.map((exp) => pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 7),
+                                child: pw.Row(
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.start,
+                                  children: [
+                                    // Gold timeline bullet dot
+                                    pw.Padding(
+                                      padding: const pw.EdgeInsets.only(
+                                          top: 3, right: 6),
+                                      child: pw.Container(
+                                        width: 5,
+                                        height: 5,
+                                        decoration: pw.BoxDecoration(
+                                          shape: pw.BoxShape.circle,
+                                          color: pdfGold,
+                                        ),
+                                      ),
+                                    ),
+                                    pw.Expanded(
+                                      child: pw.Column(
+                                        crossAxisAlignment:
+                                            pw.CrossAxisAlignment.start,
+                                        children: [
+                                          pw.Row(
+                                            mainAxisAlignment:
+                                                pw.MainAxisAlignment
+                                                    .spaceBetween,
+                                            children: [
+                                              pw.Text(
+                                                clean(exp.roleCtrl.text),
+                                                style: pw.TextStyle(
+                                                  font: boldFont,
+                                                  fontSize: 8.8,
+                                                  fontWeight:
+                                                      pw.FontWeight.bold,
+                                                  color: pdfNavy,
+                                                ),
+                                              ),
+                                              pw.Text(
+                                                clean(exp.datesCtrl.text),
+                                                style: pw.TextStyle(
+                                                  font: regularFont,
+                                                  fontSize: 7.2,
+                                                  color: PdfColors.grey600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          pw.Text(
+                                            clean(exp.subtitleCtrl.text),
+                                            style: pw.TextStyle(
+                                              font: italicFont,
+                                              fontSize: 7.4,
+                                              color: pdfGold,
+                                              fontStyle: pw.FontStyle.italic,
+                                            ),
+                                          ),
+                                          pw.SizedBox(height: 2),
+                                          // Vector Circle Bullets (zero glyph errors!)
+                                          ...exp.bulletCtrls.map((b) {
+                                            final bText = clean(b.text);
+                                            if (bText.isEmpty) {
+                                              return pw.SizedBox();
+                                            }
+                                            return pw.Padding(
+                                              padding: const pw.EdgeInsets.only(
+                                                  bottom: 2),
+                                              child: pw.Row(
+                                                crossAxisAlignment:
+                                                    pw.CrossAxisAlignment.start,
+                                                children: [
+                                                  pw.Padding(
+                                                    padding:
+                                                        const pw.EdgeInsets.only(
+                                                            top: 3.2, right: 5),
+                                                    child: pw.Container(
+                                                      width: 2.5,
+                                                      height: 2.5,
+                                                      decoration:
+                                                          const pw.BoxDecoration(
+                                                        shape: pw.BoxShape
+                                                            .circle,
+                                                        color:
+                                                            PdfColors.grey700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  pw.Expanded(
+                                                    child: pw.Text(
+                                                      bText,
+                                                      style: pw.TextStyle(
+                                                        font: regularFont,
+                                                        fontSize: 7.3,
+                                                        color:
+                                                            PdfColors.grey800,
+                                                        lineSpacing: 1.3,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+
+                          pw.SizedBox(height: 10),
+
+                          // ── EXPERTISE & ACHIEVEMENTS SPLIT GRID ──
+                          pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              // Expertise Column
+                              pw.Expanded(
+                                child: pw.Column(
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pdfRightHeading('EXPERTISE'),
+                                    ..._expertiseCtrls.map((c) => pw.Padding(
+                                          padding: const pw.EdgeInsets.only(
+                                              bottom: 2.8),
+                                          child: pw.Row(
+                                            children: [
+                                              pw.Container(
+                                                width: 8,
+                                                height: 8,
+                                                decoration: pw.BoxDecoration(
+                                                  shape: pw.BoxShape.circle,
+                                                  color: pdfGold,
+                                                ),
+                                                child: pw.Center(
+                                                  child: pw.Container(
+                                                    width: 3,
+                                                    height: 3,
+                                                    decoration:
+                                                        const pw.BoxDecoration(
+                                                      shape:
+                                                          pw.BoxShape.circle,
+                                                      color: PdfColors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              pw.SizedBox(width: 5),
+                                              pw.Expanded(
+                                                child: pw.Text(
+                                                  clean(c.text),
+                                                  style: pw.TextStyle(
+                                                    font: regularFont,
+                                                    fontSize: 7.2,
+                                                    color: PdfColors.grey800,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )),
+                                  ],
+                                ),
+                              ),
+
+                              pw.SizedBox(width: 14),
+
+                              // Achievements Column
+                              pw.Expanded(
+                                child: pw.Column(
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pdfRightHeading('ACHIEVEMENTS'),
+                                    ..._achievements.map((a) => pw.Padding(
+                                          padding: const pw.EdgeInsets.only(
+                                              bottom: 4),
+                                          child: pw.Row(
+                                            crossAxisAlignment:
+                                                pw.CrossAxisAlignment.start,
+                                            children: [
+                                              pw.Container(
+                                                width: 8,
+                                                height: 8,
+                                                margin:
+                                                    const pw.EdgeInsets.only(
+                                                        top: 1.5),
+                                                decoration: pw.BoxDecoration(
+                                                  shape: pw.BoxShape.circle,
+                                                  color: pdfGold,
+                                                ),
+                                                child: pw.Center(
+                                                  child: pw.Container(
+                                                    width: 3,
+                                                    height: 3,
+                                                    decoration:
+                                                        const pw.BoxDecoration(
+                                                      shape:
+                                                          pw.BoxShape.circle,
+                                                      color: PdfColors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              pw.SizedBox(width: 5),
+                                              pw.Expanded(
+                                                child: pw.Column(
+                                                  crossAxisAlignment:
+                                                      pw.CrossAxisAlignment
+                                                          .start,
+                                                  children: [
+                                                    pw.Text(
+                                                      clean(
+                                                          a['title']?.text ??
+                                                              ''),
+                                                      style: pw.TextStyle(
+                                                        font: boldFont,
+                                                        fontSize: 7.5,
+                                                        fontWeight:
+                                                            pw.FontWeight.bold,
+                                                        color: pdfNavy,
+                                                      ),
+                                                    ),
+                                                    pw.Text(
+                                                      clean(
+                                                          a['sub']?.text ?? ''),
+                                                      style: pw.TextStyle(
+                                                        font: regularFont,
+                                                        fontSize: 6.8,
+                                                        color:
+                                                            PdfColors.grey600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          pw.Spacer(),
+
+                          // ── FOOTER PROFILE STRIP ──
+                          pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: const pw.BoxDecoration(
+                              color: PdfColor.fromInt(0xFFF8F9FB),
+                              borderRadius:
+                                  pw.BorderRadius.all(pw.Radius.circular(4)),
+                            ),
+                            child: pw.Row(
+                              mainAxisAlignment:
+                                  pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text("Father: ${clean(_fatherCtrl.text)}",
+                                    style: pw.TextStyle(
+                                        font: regularFont,
+                                        fontSize: 6.5,
+                                        color: PdfColors.grey700)),
+                                pw.Text("DOB: ${clean(_dobCtrl.text)}",
+                                    style: pw.TextStyle(
+                                        font: regularFont,
+                                        fontSize: 6.5,
+                                        color: PdfColors.grey700)),
+                                pw.Text("Gender: ${clean(_genderCtrl.text)}",
+                                    style: pw.TextStyle(
+                                        font: regularFont,
+                                        fontSize: 6.5,
+                                        color: PdfColors.grey700)),
+                                pw.Text("Marital: ${clean(_maritalCtrl.text)}",
+                                    style: pw.TextStyle(
+                                        font: regularFont,
+                                        fontSize: 6.5,
+                                        color: PdfColors.grey700)),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              // ── Right Main Body ────────────────────────────────────────
-              pw.Expanded(
-                child: pw.Container(
-                  color: PdfColors.white,
-                  padding: const pw.EdgeInsets.fromLTRB(26, 26, 20, 20),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        _nameCtrl.text.toUpperCase().isEmpty
-                            ? 'PRATEEK'
-                            : _nameCtrl.text.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontSize: 32,
-                          fontWeight: pw.FontWeight.bold,
-                          color: pdfNavy,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        _titleCtrl.text.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontSize: 11,
-                          fontWeight: pw.FontWeight.bold,
-                          color: pdfGold,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Container(width: 40, height: 1.5, color: pdfGold),
-                      pw.SizedBox(height: 6),
-                      pw.Text(
-                        _taglineCtrl.text,
-                        style: const pw.TextStyle(
-                            fontSize: 9, color: PdfColors.grey600),
-                      ),
-                      pw.SizedBox(height: 16),
-                      // Summary
-                      pw.Text('PROFESSIONAL SUMMARY',
-                          style: pw.TextStyle(
-                              fontSize: 10,
-                              fontWeight: pw.FontWeight.bold,
-                              color: pdfNavy,
-                              letterSpacing: 1)),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        _summaryCtrl.text,
-                        style: const pw.TextStyle(
-                            fontSize: 8.5,
-                            color: PdfColors.grey800,
-                            lineSpacing: 2),
-                      ),
-                      pw.SizedBox(height: 16),
-                      // Experience
-                      pw.Text('EXPERIENCE',
-                          style: pw.TextStyle(
-                              fontSize: 10,
-                              fontWeight: pw.FontWeight.bold,
-                              color: pdfNavy,
-                              letterSpacing: 1)),
-                      pw.SizedBox(height: 6),
-                      ..._expEntries.map((exp) => pw.Padding(
-                            padding: const pw.EdgeInsets.only(bottom: 8),
-                            child: pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.start,
-                              children: [
-                                pw.Row(
-                                  mainAxisAlignment:
-                                      pw.MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    pw.Text(exp.roleCtrl.text,
-                                        style: pw.TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: pw.FontWeight.bold,
-                                            color: pdfNavy)),
-                                    pw.Text(exp.datesCtrl.text,
-                                        style: const pw.TextStyle(
-                                            fontSize: 8,
-                                            color: PdfColors.grey600)),
-                                  ],
-                                ),
-                                pw.Text(exp.subtitleCtrl.text,
-                                    style: pw.TextStyle(
-                                        fontSize: 8,
-                                        color: pdfGold,
-                                        fontStyle: pw.FontStyle.italic)),
-                                ...exp.bulletCtrls.map((b) => pw.Text(
-                                      '• ${b.text}',
-                                      style: const pw.TextStyle(
-                                          fontSize: 8,
-                                          color: PdfColors.grey700),
-                                    )),
-                              ],
-                            ),
-                          )),
-                      pw.Spacer(),
-                      // Footer Strip
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: const pw.BoxDecoration(
-                          color: PdfColor.fromInt(0xFFF8F9FB),
-                          borderRadius:
-                              pw.BorderRadius.all(pw.Radius.circular(4)),
-                        ),
-                        child: pw.Row(
-                          mainAxisAlignment:
-                              pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text("Father: ${_fatherCtrl.text}",
-                                style: const pw.TextStyle(
-                                    fontSize: 7, color: PdfColors.grey700)),
-                            pw.Text("DOB: ${_dobCtrl.text}",
-                                style: const pw.TextStyle(
-                                    fontSize: 7, color: PdfColors.grey700)),
-                            pw.Text("Gender: ${_genderCtrl.text}",
-                                style: const pw.TextStyle(
-                                    fontSize: 7, color: PdfColors.grey700)),
-                            pw.Text("Marital: ${_maritalCtrl.text}",
-                                style: const pw.TextStyle(
-                                    fontSize: 7, color: PdfColors.grey700)),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
-                ),
+                ],
               ),
             ],
           );
@@ -662,7 +1226,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: '${_nameCtrl.text.replaceAll(' ', '_')}_Resume.pdf',
+      name: '${clean(_nameCtrl.text).replaceAll(' ', '_')}_Resume.pdf',
     );
   }
 
@@ -2034,7 +2598,6 @@ class _InlineField extends StatelessWidget {
   final int maxLines;
   final TextAlign textAlign;
   final ValueChanged<String>? onChanged;
-  final String hint;
 
   const _InlineField({
     required this.controller,
@@ -2042,7 +2605,6 @@ class _InlineField extends StatelessWidget {
     this.maxLines = 1,
     this.textAlign = TextAlign.start,
     this.onChanged,
-    this.hint = '',
   });
 
   @override
@@ -2060,9 +2622,6 @@ class _InlineField extends StatelessWidget {
         fillColor: Colors.transparent,
         hoverColor: Colors.transparent,
         focusColor: Colors.transparent,
-        hintText: hint,
-        hintStyle: style.copyWith(
-            color: (style.color ?? Colors.grey).withValues(alpha: 0.4)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
