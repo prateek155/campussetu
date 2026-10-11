@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,54 +8,138 @@ import 'package:printing/printing.dart';
 
 // ────────────────────────────────────────────────────────────────────────────
 // MAHII LUXURY RESUME — Professional Category
-// Navy-Blue & Gold Executive template with fully interactive editing
+// Canva-style Direct In-Place On-Canvas Editing with 5 Adaptive Color Palettes
 // ────────────────────────────────────────────────────────────────────────────
 
-// ─── Color Palette Options (4 sidebar colors user can choose) ───────────────
 class _MahiiPalette {
   final String name;
   final Color sidebarColor;
   final Color goldAccent;
-  _MahiiPalette(this.name, this.sidebarColor, this.goldAccent);
-}
+  final Color indicatorColor; // High-contrast color for skill bars & dots
+  final Color trackColor;
+  final Color dotInactiveColor;
 
-final List<_MahiiPalette> kMahiiPalettes = [
-  _MahiiPalette('Navy Blue', const Color(0xFF0F1C30), const Color(0xFFC5A059)),
-  _MahiiPalette('Forest Green', const Color(0xFF0A2217), const Color(0xFFC5A059)),
-  _MahiiPalette('Charcoal', const Color(0xFF1C1C2E), const Color(0xFFC5A059)),
-  _MahiiPalette('Burgundy', const Color(0xFF2A0A14), const Color(0xFFD4B07A)),
-  _MahiiPalette('Royal Purple', const Color(0xFF1A0A2E), const Color(0xFFC5A059)),
-];
-
-// ─── Editable SkillItem & LanguageItem ──────────────────────────────────────
-class _SkillItem {
-  String name;
-  double level; // 0.0 – 1.0
-  _SkillItem(this.name, this.level);
-}
-
-class _LangItem {
-  String name;
-  int dots; // 1–7 filled out of 7
-  _LangItem(this.name, this.dots);
-}
-
-// ─── Editable experience entry ───────────────────────────────────────────────
-class _ExpEntry {
-  String role;
-  String subtitle;
-  String dates;
-  List<String> bullets;
-  _ExpEntry({
-    required this.role,
-    required this.subtitle,
-    required this.dates,
-    required this.bullets,
+  const _MahiiPalette({
+    required this.name,
+    required this.sidebarColor,
+    required this.goldAccent,
+    required this.indicatorColor,
+    required this.trackColor,
+    required this.dotInactiveColor,
   });
 }
 
+final List<_MahiiPalette> kMahiiPalettes = [
+  // 1. Blue (Deep Executive Navy)
+  const _MahiiPalette(
+    name: 'Blue',
+    sidebarColor: Color(0xFF0F1C30),
+    goldAccent: Color(0xFFC5A059),
+    indicatorColor: Color(0xFFFFB800), // Vibrant Amber Gold
+    trackColor: Color(0x33FFFFFF),
+    dotInactiveColor: Color(0x2BFFFFFF),
+  ),
+  // 2. Red (Royal Crimson)
+  const _MahiiPalette(
+    name: 'Red',
+    sidebarColor: Color(0xFF7A1526),
+    goldAccent: Color(0xFFFCD34D),
+    indicatorColor: Color(0xFFFACC15), // Luminous Warm Gold
+    trackColor: Color(0x33FFFFFF),
+    dotInactiveColor: Color(0x2BFFFFFF),
+  ),
+  // 3. Sky Blue (Crisp Modern Sky)
+  const _MahiiPalette(
+    name: 'Sky Blue',
+    sidebarColor: Color(0xFF0284C7),
+    goldAccent: Color(0xFFFFFFFF),
+    indicatorColor: Color(0xFFFFFFFF), // Pure Crisp White pops on Sky Blue!
+    trackColor: Color(0x40000000),
+    dotInactiveColor: Color(0x40FFFFFF),
+  ),
+  // 4. Grey (Slate Graphite)
+  const _MahiiPalette(
+    name: 'Grey',
+    sidebarColor: Color(0xFF334155),
+    goldAccent: Color(0xFFE2B866),
+    indicatorColor: Color(0xFF38BDF8), // Electric Cyan pops on Grey!
+    trackColor: Color(0x33FFFFFF),
+    dotInactiveColor: Color(0x2BFFFFFF),
+  ),
+  // 5. Golden (Dark Antique Bronze / Deep Amber)
+  const _MahiiPalette(
+    name: 'Golden',
+    sidebarColor: Color(0xFF4A3510),
+    goldAccent: Color(0xFFFEF08A),
+    indicatorColor: Color(0xFFFFFFFF), // Crisp White so it never blends in!
+    trackColor: Color(0x4A000000),
+    dotInactiveColor: Color(0x38FFFFFF),
+  ),
+];
+
+// ─── Editable Models ────────────────────────────────────────────────────────
+class _SkillItem {
+  TextEditingController nameCtrl;
+  double level; // 0.0 – 1.0
+  _SkillItem(String name, this.level)
+      : nameCtrl = TextEditingController(text: name);
+
+  void dispose() => nameCtrl.dispose();
+}
+
+class _LangItem {
+  TextEditingController nameCtrl;
+  int dots; // 1–7 filled out of 7
+  _LangItem(String name, this.dots)
+      : nameCtrl = TextEditingController(text: name);
+
+  void dispose() => nameCtrl.dispose();
+}
+
+class _EduItem {
+  TextEditingController degreeCtrl;
+  TextEditingController instCtrl;
+  TextEditingController yearCtrl;
+  _EduItem({required String degree, required String inst, required String year})
+      : degreeCtrl = TextEditingController(text: degree),
+        instCtrl = TextEditingController(text: inst),
+        yearCtrl = TextEditingController(text: year);
+
+  void dispose() {
+    degreeCtrl.dispose();
+    instCtrl.dispose();
+    yearCtrl.dispose();
+  }
+}
+
+class _ExpItem {
+  TextEditingController roleCtrl;
+  TextEditingController subtitleCtrl;
+  TextEditingController datesCtrl;
+  List<TextEditingController> bulletCtrls;
+
+  _ExpItem({
+    required String role,
+    required String subtitle,
+    required String dates,
+    required List<String> bullets,
+  })  : roleCtrl = TextEditingController(text: role),
+        subtitleCtrl = TextEditingController(text: subtitle),
+        datesCtrl = TextEditingController(text: dates),
+        bulletCtrls = bullets.map((b) => TextEditingController(text: b)).toList();
+
+  void dispose() {
+    roleCtrl.dispose();
+    subtitleCtrl.dispose();
+    datesCtrl.dispose();
+    for (final b in bulletCtrls) {
+      b.dispose();
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// MahiiLuxuryTemplate  — Root widget
+// MahiiLuxuryTemplate  — Root Widget
 // ═══════════════════════════════════════════════════════════════════════════
 class MahiiLuxuryTemplate extends StatefulWidget {
   const MahiiLuxuryTemplate({super.key});
@@ -70,14 +154,17 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
   _MahiiPalette get _pal => kMahiiPalettes[_paletteIndex];
   Color get _sidebar => _pal.sidebarColor;
   Color get _gold => _pal.goldAccent;
+  Color get _indicator => _pal.indicatorColor;
 
-  // ─── Photo ─────────────────────────────────────────────────────────────
-  File? _photoFile;
+  // ─── Photo (cross-platform Uint8List bytes) ─────────────────────────────
+  Uint8List? _photoBytes;
+  bool _isPickingPhoto = false;
 
-  // ─── Name & Title (drives signature auto-update) ──────────────────────
+  // ─── Header fields ─────────────────────────────────────────────────────
   final _nameCtrl = TextEditingController(text: 'PRATEEK');
   final _titleCtrl = TextEditingController(text: 'GRAPHIC DESIGNER');
-  final _taglineCtrl = TextEditingController(text: 'Creative  •  Detail-Oriented  •  Dedicated');
+  final _taglineCtrl =
+      TextEditingController(text: 'Creative  •  Detail-Oriented  •  Dedicated');
   final _summaryCtrl = TextEditingController(
       text:
           'Creative and detail-oriented professional with a passion for designing '
@@ -92,98 +179,95 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
   final _websiteCtrl = TextEditingController(text: 'behance.net/prateek');
 
   // ─── Education ─────────────────────────────────────────────────────────
-  final List<Map<String, TextEditingController>> _eduEntries = [
-    {
-      'degree': TextEditingController(text: 'Bachelor of Science Computer Science'),
-      'inst': TextEditingController(text: 'AISECT University, Bhopal'),
-      'year': TextEditingController(text: '2019 – 2023'),
-    },
-    {
-      'degree': TextEditingController(text: 'HSC (Science)'),
-      'inst': TextEditingController(text: 'Govt. Excellence School'),
-      'year': TextEditingController(text: '2017 – 2019'),
-    },
-    {
-      'degree': TextEditingController(text: 'Matric (Science)'),
-      'inst': TextEditingController(text: 'Govt. High School, Bhopal'),
-      'year': TextEditingController(text: '2015 – 2017'),
-    },
+  final List<_EduItem> _eduEntries = [
+    _EduItem(
+      degree: 'Bachelor of Science Computer Science',
+      inst: 'AISECT University, Bhopal',
+      year: '2019 – 2023',
+    ),
+    _EduItem(
+      degree: 'HSC (Pre-Engineering)',
+      inst: 'Govt. Model School',
+      year: '2017 – 2019',
+    ),
+    _EduItem(
+      degree: 'Matric (Science)',
+      inst: 'Govt. High School, Bhopal',
+      year: '2015 – 2017',
+    ),
   ];
 
   // ─── Skills ────────────────────────────────────────────────────────────
   final List<_SkillItem> _skills = [
-    _SkillItem('Flutter / Dart', 0.90),
-    _SkillItem('Node.js', 0.80),
-    _SkillItem('Firebase', 0.85),
-    _SkillItem('Figma / UI Design', 0.78),
-    _SkillItem('SQL / MongoDB', 0.72),
-    _SkillItem('Python', 0.65),
-    _SkillItem('Adobe XD', 0.70),
-    _SkillItem('Branding', 0.60),
+    _SkillItem('Adobe Photoshop', 0.90),
+    _SkillItem('Adobe Illustrator', 0.85),
+    _SkillItem('Canva / Figma', 0.80),
+    _SkillItem('Branding & Logo', 0.75),
+    _SkillItem('Flutter / Dart', 0.88),
+    _SkillItem('UI / UX Prototyping', 0.82),
+    _SkillItem('Typography & Print', 0.70),
   ];
 
   // ─── Languages ─────────────────────────────────────────────────────────
   final List<_LangItem> _langs = [
-    _LangItem('Hindi', 7),
+    _LangItem('Urdu / Hindi', 7),
     _LangItem('English', 6),
   ];
 
   // ─── Experience ────────────────────────────────────────────────────────
-  final List<_ExpEntry> _expEntries = [
-    _ExpEntry(
-      role: 'Software Developer (Internship)',
-      subtitle: 'TechSolutions Pvt. Ltd.',
+  final List<_ExpItem> _expEntries = [
+    _ExpItem(
+      role: 'Senior Graphic Designer',
+      subtitle: 'Creative Studio Pvt. Ltd.',
       dates: '2023 – Present',
       bullets: [
-        'Built cross-platform apps in Flutter with Firebase backend.',
-        'Integrated REST APIs and managed CI/CD pipelines on GitHub.',
+        'Designed high-converting branding assets, logos, and digital marketing banners.',
+        'Collaborated with cross-functional teams to deliver pixel-perfect user experiences.',
       ],
     ),
-    _ExpEntry(
-      role: 'Frontend Developer (Freelance)',
+    _ExpItem(
+      role: 'UI/UX & Visual Designer (Freelance)',
       subtitle: 'Self-Employed',
       dates: '2022 – 2023',
       bullets: [
-        'Designed and delivered 15+ responsive web & mobile UI projects.',
-        'Worked with clients on branding, logo design, and UX strategy.',
+        'Delivered 20+ responsive web & mobile app visual prototypes for global clients.',
+        'Structured complete brand identity systems including typography and color systems.',
       ],
     ),
-    _ExpEntry(
-      role: 'Teaching Assistant',
-      subtitle: 'AISECT University, Bhopal',
+    _ExpItem(
+      role: 'Computer Graphics Instructor',
+      subtitle: 'Private Academy, Bhopal',
       dates: '2021 – 2022',
       bullets: [
-        'Assisted professors in labs for DSA and Web Development courses.',
-        'Mentored 30+ junior students in project submissions.',
+        'Taught digital design, image manipulation, and vector illustration to 60+ students.',
+        'Managed student capstone design portfolios and design showcases.',
       ],
     ),
   ];
 
   // ─── Expertise Checklist ───────────────────────────────────────────────
   final List<TextEditingController> _expertiseCtrls = [
-    TextEditingController(text: 'Flutter App Development'),
-    TextEditingController(text: 'UI / UX Design'),
-    TextEditingController(text: 'REST API Integration'),
-    TextEditingController(text: 'Database Management'),
-    TextEditingController(text: 'Firebase & Cloud Services'),
-    TextEditingController(text: 'Branding & Visual Identity'),
-    TextEditingController(text: 'Project Management'),
-    TextEditingController(text: 'Agile / Scrum Methodology'),
+    TextEditingController(text: 'Brand Identity & Guidelines'),
+    TextEditingController(text: 'Vector & Raster Illustration'),
+    TextEditingController(text: 'Social Media Campaign Assets'),
+    TextEditingController(text: 'UI Wireframing & Prototyping'),
+    TextEditingController(text: 'Print Packaging & Merch Design'),
+    TextEditingController(text: 'Typography & Layout Systems'),
   ];
 
   // ─── Achievements ──────────────────────────────────────────────────────
   final List<Map<String, TextEditingController>> _achievements = [
     {
-      'title': TextEditingController(text: 'Best App Developer Award'),
-      'sub': TextEditingController(text: 'University Tech Fest – 2023'),
+      'title': TextEditingController(text: 'Best Designer Award'),
+      'sub': TextEditingController(text: 'State Design Summit – 2023'),
     },
     {
-      'title': TextEditingController(text: 'Google Developer Certification'),
-      'sub': TextEditingController(text: 'Associate Android Developer – 2023'),
+      'title': TextEditingController(text: 'Certified UI/UX Professional'),
+      'sub': TextEditingController(text: 'Design Accreditation Guild – 2022'),
     },
     {
-      'title': TextEditingController(text: 'Hackathon Winner – 1st Place'),
-      'sub': TextEditingController(text: 'Smart India Hackathon – 2022'),
+      'title': TextEditingController(text: 'Creative Hackathon 1st Prize'),
+      'sub': TextEditingController(text: 'Smart City Visual Challenge – 2021'),
     },
   ];
 
@@ -193,51 +277,94 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
   final _genderCtrl = TextEditingController(text: 'Male');
   final _maritalCtrl = TextEditingController(text: 'Single');
 
-  // ─── Editing state ─────────────────────────────────────────────────────
-  bool _showControls = true;
+  // ─── Studio Controls ───────────────────────────────────────────────────
+  bool _showTools = true;
+  int _mobileTab = 0; // 0: Canvas, 1: Tools
 
   @override
   void dispose() {
     for (final ctrl in [
-      _nameCtrl, _titleCtrl, _taglineCtrl, _summaryCtrl,
-      _phoneCtrl, _emailCtrl, _locationCtrl, _linkedinCtrl, _websiteCtrl,
-      _fatherCtrl, _dobCtrl, _genderCtrl, _maritalCtrl,
+      _nameCtrl,
+      _titleCtrl,
+      _taglineCtrl,
+      _summaryCtrl,
+      _phoneCtrl,
+      _emailCtrl,
+      _locationCtrl,
+      _linkedinCtrl,
+      _websiteCtrl,
+      _fatherCtrl,
+      _dobCtrl,
+      _genderCtrl,
+      _maritalCtrl,
       ..._expertiseCtrls,
     ]) {
       ctrl.dispose();
     }
-    for (final entry in _eduEntries) {
-      for (final c in entry.values) c.dispose();
+    for (final edu in _eduEntries) {
+      edu.dispose();
+    }
+    for (final s in _skills) {
+      s.dispose();
+    }
+    for (final l in _langs) {
+      l.dispose();
+    }
+    for (final exp in _expEntries) {
+      exp.dispose();
     }
     for (final a in _achievements) {
-      for (final c in a.values) c.dispose();
+      for (final c in a.values) {
+        c.dispose();
+      }
     }
     super.dispose();
   }
 
+  // ─── Safe Cross-Platform Photo Picker (bytes-based) ────────────────────
   Future<void> _pickPhoto() async {
+    if (_isPickingPhoto) return;
+    setState(() => _isPickingPhoto = true);
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery);
-      if (picked != null && mounted) {
-        setState(() => _photoFile = File(picked.path));
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 92,
+      );
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        if (mounted) {
+          setState(() => _photoBytes = bytes);
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Photo upload error: $e');
+    } finally {
+      if (mounted) setState(() => _isPickingPhoto = false);
+    }
   }
 
-  int _mobileTab = 0; // 0: View Resume, 1: Customize
+  void _removePhoto() {
+    setState(() => _photoBytes = null);
+  }
 
+  // ─── Export High-Quality PDF ──────────────────────────────────────────
   Future<void> _exportPdf() async {
     final pdf = pw.Document();
     final pdfNavy = PdfColor.fromInt(_sidebar.toARGB32());
     final pdfGold = PdfColor.fromInt(_gold.toARGB32());
+    final pdfIndicator = PdfColor.fromInt(_indicator.toARGB32());
+
     final sig = _nameCtrl.text.isEmpty
         ? 'Prateek'
         : _nameCtrl.text
+            .trim()
             .split(' ')
             .first
             .toLowerCase()
-            .replaceFirst(RegExp(r'.'), _nameCtrl.text[0].toUpperCase());
+            .replaceFirst(RegExp(r'.'), _nameCtrl.text.trim()[0].toUpperCase());
 
     pdf.addPage(
       pw.Page(
@@ -247,7 +374,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           return pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // Left Navy Sidebar
+              // ── Left Sidebar ───────────────────────────────────────────
               pw.Container(
                 width: 195,
                 color: pdfNavy,
@@ -255,36 +382,41 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    // Photo Placeholder
+                    // Photo / Avatar Frame
                     pw.Center(
                       child: pw.Container(
-                        width: 70,
-                        height: 70,
+                        width: 76,
+                        height: 76,
                         decoration: pw.BoxDecoration(
                           shape: pw.BoxShape.circle,
-                          border: pw.Border.all(color: pdfGold, width: 2),
+                          border: pw.Border.all(color: pdfGold, width: 2.5),
                         ),
-                        child: pw.Center(
-                          child: pw.Text(
-                            sig.isNotEmpty ? sig[0] : 'P',
-                            style: pw.TextStyle(
-                              color: pdfGold,
-                              fontSize: 28,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
+                        child: pw.ClipOval(
+                          child: _photoBytes != null
+                              ? pw.Image(pw.MemoryImage(_photoBytes!),
+                                  fit: pw.BoxFit.cover)
+                              : pw.Center(
+                                  child: pw.Text(
+                                    sig.isNotEmpty ? sig[0] : 'P',
+                                    style: pw.TextStyle(
+                                      color: pdfIndicator,
+                                      fontSize: 30,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                     ),
-                    pw.SizedBox(height: 18),
+                    pw.SizedBox(height: 16),
                     // Contact
                     pw.Text('CONTACT',
                         style: pw.TextStyle(
-                            color: pdfGold,
-                            fontSize: 10,
+                            color: pdfIndicator,
+                            fontSize: 9.5,
                             fontWeight: pw.FontWeight.bold,
                             letterSpacing: 1.5)),
-                    pw.SizedBox(height: 6),
+                    pw.SizedBox(height: 5),
                     pw.Text(_phoneCtrl.text,
                         style: const pw.TextStyle(
                             color: PdfColors.white, fontSize: 8)),
@@ -300,64 +432,64 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                     pw.Text(_websiteCtrl.text,
                         style: const pw.TextStyle(
                             color: PdfColors.white, fontSize: 8)),
-                    pw.SizedBox(height: 16),
+                    pw.SizedBox(height: 14),
                     // Education
                     pw.Text('EDUCATION',
                         style: pw.TextStyle(
-                            color: pdfGold,
-                            fontSize: 10,
+                            color: pdfIndicator,
+                            fontSize: 9.5,
                             fontWeight: pw.FontWeight.bold,
                             letterSpacing: 1.5)),
-                    pw.SizedBox(height: 6),
+                    pw.SizedBox(height: 5),
                     ..._eduEntries.map((edu) => pw.Padding(
                           padding: const pw.EdgeInsets.only(bottom: 6),
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text(edu['degree']!.text,
+                              pw.Text(edu.degreeCtrl.text,
                                   style: pw.TextStyle(
                                       color: PdfColors.white,
                                       fontSize: 8,
                                       fontWeight: pw.FontWeight.bold)),
-                              pw.Text(edu['inst']!.text,
+                              pw.Text(edu.instCtrl.text,
                                   style: const pw.TextStyle(
                                       color: PdfColors.grey300, fontSize: 7)),
-                              pw.Text(edu['year']!.text,
+                              pw.Text(edu.yearCtrl.text,
                                   style: pw.TextStyle(
-                                      color: pdfGold, fontSize: 7)),
+                                      color: pdfIndicator, fontSize: 7)),
                             ],
                           ),
                         )),
-                    pw.SizedBox(height: 14),
-                    // Skills
+                    pw.SizedBox(height: 12),
+                    // Skills with High-Contrast Indicator
                     pw.Text('SKILLS',
                         style: pw.TextStyle(
-                            color: pdfGold,
-                            fontSize: 10,
+                            color: pdfIndicator,
+                            fontSize: 9.5,
                             fontWeight: pw.FontWeight.bold,
                             letterSpacing: 1.5)),
-                    pw.SizedBox(height: 6),
+                    pw.SizedBox(height: 5),
                     ..._skills.map((s) => pw.Padding(
                           padding: const pw.EdgeInsets.only(bottom: 5),
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text(s.name,
+                              pw.Text(s.nameCtrl.text,
                                   style: const pw.TextStyle(
                                       color: PdfColors.white, fontSize: 7.5)),
                               pw.SizedBox(height: 2),
                               pw.Container(
-                                height: 3,
+                                height: 3.5,
                                 width: 160,
                                 decoration: const pw.BoxDecoration(
                                     color: PdfColors.grey700),
                                 child: pw.Align(
                                   alignment: pw.Alignment.centerLeft,
                                   child: pw.Container(
-                                    height: 3,
+                                    height: 3.5,
                                     width: 160 * s.level,
-                                    decoration:
-                                        pw.BoxDecoration(color: pdfGold),
+                                    decoration: pw.BoxDecoration(
+                                        color: pdfIndicator),
                                   ),
                                 ),
                               ),
@@ -372,7 +504,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                           pw.Text(
                             sig,
                             style: pw.TextStyle(
-                              color: pdfGold,
+                              color: pdfIndicator,
                               fontSize: 22,
                               fontStyle: pw.FontStyle.italic,
                             ),
@@ -381,7 +513,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                           pw.Text(
                             'DESIGN • CREATE • INSPIRE',
                             style: pw.TextStyle(
-                              color: pdfGold,
+                              color: pdfIndicator,
                               fontSize: 5,
                               letterSpacing: 1,
                               fontWeight: pw.FontWeight.bold,
@@ -393,7 +525,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                   ],
                 ),
               ),
-              // Right Content
+              // ── Right Main Body ────────────────────────────────────────
               pw.Expanded(
                 child: pw.Container(
                   color: PdfColors.white,
@@ -464,24 +596,24 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                   mainAxisAlignment:
                                       pw.MainAxisAlignment.spaceBetween,
                                   children: [
-                                    pw.Text(exp.role,
+                                    pw.Text(exp.roleCtrl.text,
                                         style: pw.TextStyle(
                                             fontSize: 9.5,
                                             fontWeight: pw.FontWeight.bold,
                                             color: pdfNavy)),
-                                    pw.Text(exp.dates,
+                                    pw.Text(exp.datesCtrl.text,
                                         style: const pw.TextStyle(
                                             fontSize: 8,
                                             color: PdfColors.grey600)),
                                   ],
                                 ),
-                                pw.Text(exp.subtitle,
+                                pw.Text(exp.subtitleCtrl.text,
                                     style: pw.TextStyle(
                                         fontSize: 8,
                                         color: pdfGold,
                                         fontStyle: pw.FontStyle.italic)),
-                                ...exp.bullets.map((b) => pw.Text(
-                                      '• $b',
+                                ...exp.bulletCtrls.map((b) => pw.Text(
+                                      '• ${b.text}',
                                       style: const pw.TextStyle(
                                           fontSize: 8,
                                           color: PdfColors.grey700),
@@ -490,7 +622,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                             ),
                           )),
                       pw.Spacer(),
-                      // Footer
+                      // Footer Strip
                       pw.Container(
                         padding: const pw.EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
@@ -540,41 +672,60 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     final sig = _nameCtrl.text.isEmpty
         ? 'Prateek'
         : _nameCtrl.text
+            .trim()
             .split(' ')
             .first
             .toLowerCase()
-            .replaceFirst(RegExp(r'.'), _nameCtrl.text[0].toUpperCase());
+            .replaceFirst(RegExp(r'.'), _nameCtrl.text.trim()[0].toUpperCase());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F1C30),
         elevation: 0,
-        title: const Text('Mahii Luxury Template',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700)),
+        title: Row(
+          children: [
+            const Text('Mahii Luxury Template',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _pal.indicatorColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: _pal.indicatorColor, width: 0.8),
+              ),
+              child: Text(
+                '🎨 ${_pal.name}',
+                style: TextStyle(
+                    color: _pal.indicatorColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => Navigator.maybePop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded,
-                color: Colors.white),
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
             tooltip: 'Export PDF / Print',
             onPressed: _exportPdf,
           ),
           IconButton(
             icon: Icon(
-                _showControls
-                    ? Icons.visibility_off_rounded
-                    : Icons.tune_rounded,
-                color: Colors.white70),
-            tooltip: _showControls ? 'Hide Panel' : 'Show Panel',
-            onPressed: () =>
-                setState(() => _showControls = !_showControls),
+                _showTools
+                    ? Icons.tune_rounded
+                    : Icons.tune_outlined,
+                color: _showTools ? _pal.indicatorColor : Colors.white70),
+            tooltip: _showTools ? 'Hide Toolbar' : 'Show Toolbar',
+            onPressed: () => setState(() => _showTools = !_showTools),
           ),
         ],
       ),
@@ -583,10 +734,9 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           final isNarrow = constraints.maxWidth < 850;
 
           if (isNarrow) {
-            // Mobile layout with top tabs
+            // Mobile layout with tabs
             return Column(
               children: [
-                // Top Tab Bar for Mobile
                 Container(
                   color: const Color(0xFF0F1C30),
                   padding:
@@ -606,13 +756,13 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.visibility_rounded,
-                                    size: 15,
+                                Icon(Icons.edit_note_rounded,
+                                    size: 16,
                                     color: _mobileTab == 0
                                         ? Colors.black
                                         : Colors.white70),
                                 const SizedBox(width: 6),
-                                Text('View Resume',
+                                Text('Canvas Edit',
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -638,13 +788,13 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.tune_rounded,
-                                    size: 15,
+                                Icon(Icons.palette_rounded,
+                                    size: 16,
                                     color: _mobileTab == 1
                                         ? Colors.black
                                         : Colors.white70),
                                 const SizedBox(width: 6),
-                                Text('Customize',
+                                Text('Themes & Tools',
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -666,62 +816,34 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                           child: Center(
                             child: FittedBox(
                               fit: BoxFit.contain,
-                              child: Container(
-                                width: 794,
-                                constraints:
-                                    const BoxConstraints(minHeight: 1123),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.25),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 5))
-                                  ],
-                                ),
-                                child: _buildResumeBody(sig),
-                              ),
+                              child: _buildA4Sheet(sig),
                             ),
                           ),
                         )
                       : Container(
-                          color: const Color(0xFF1A1D26),
-                          child: _buildEditPanel(sig),
+                          color: const Color(0xFF181B24),
+                          child: _buildToolSidebar(),
                         ),
                 ),
               ],
             );
           }
 
-          // Desktop/Tablet layout (side by side)
+          // Desktop/Tablet view: Left tool panel + Right interactive A4 canvas
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_showControls)
+              if (_showTools)
                 Container(
-                  width: 310,
-                  color: const Color(0xFF1A1D26),
-                  child: _buildEditPanel(sig),
+                  width: 320,
+                  color: const Color(0xFF181B24),
+                  child: _buildToolSidebar(),
                 ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(28),
                   child: Center(
-                    child: Container(
-                      width: 794,
-                      constraints: const BoxConstraints(minHeight: 1123),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 40,
-                              offset: const Offset(0, 10))
-                        ],
-                      ),
-                      child: _buildResumeBody(sig),
-                    ),
+                    child: _buildA4Sheet(sig),
                   ),
                 ),
               ),
@@ -733,131 +855,230 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // EDIT PANEL (LEFT)
+  // A4 SHEET CONTAINER (794px width)
   // ═══════════════════════════════════════════════════════════════════════
-  Widget _buildEditPanel(String sig) {
+  Widget _buildA4Sheet(String sig) {
+    return Container(
+      width: 794,
+      constraints: const BoxConstraints(minHeight: 1123),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 36,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── LEFT SIDEBAR ──────────────────────────────────────────
+            _buildSidebar(sig),
+
+            // ── RIGHT CANVAS (DIRECT INLINE EDITABLE) ─────────────────
+            Expanded(child: _buildRightContent()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STUDIO TOOLBAR PANEL (LEFT)
+  // ═══════════════════════════════════════════════════════════════════════
+  Widget _buildToolSidebar() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       children: [
-        // COLOR PALETTE
-        _panelSection('🎨 Sidebar Color'),
+        // Helper Banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF222634),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.touch_app_rounded, color: Color(0xFF38BDF8), size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Direct In-Place Edit: Click on any text directly on the resume to type, copy, or paste!',
+                  style: TextStyle(
+                      color: Colors.white70, fontSize: 11, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 🎨 5 FIXED COLOR PALETTES
+        _toolHeader('🎨 5 Color Themes (Adaptive Contrast)'),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: List.generate(kMahiiPalettes.length, (i) {
             final pal = kMahiiPalettes[i];
+            final isSelected = _paletteIndex == i;
             return GestureDetector(
               onTap: () => setState(() => _paletteIndex = i),
-              child: Container(
-                width: 54,
-                height: 36,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 42,
                 decoration: BoxDecoration(
                   color: pal.sidebarColor,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _paletteIndex == i
-                        ? pal.goldAccent
-                        : Colors.white12,
-                    width: _paletteIndex == i ? 2.5 : 1,
+                    color: isSelected ? pal.indicatorColor : Colors.white12,
+                    width: isSelected ? 2.5 : 1,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: pal.indicatorColor.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                          )
+                        ]
+                      : null,
                 ),
-                child: _paletteIndex == i
-                    ? Icon(Icons.check_rounded,
-                        color: pal.goldAccent, size: 18)
-                    : null,
+                child: Stack(
+                  children: [
+                    // Indicator color pip inside swatch
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: pal.indicatorColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Center(
+                        child: Icon(Icons.check_rounded,
+                            color: pal.indicatorColor, size: 18),
+                      ),
+                  ],
+                ),
               ),
             );
           }),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(kMahiiPalettes[_paletteIndex].name,
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: 11)),
-        ),
-
-        const SizedBox(height: 14),
-
-        // PHOTO
-        _panelSection('📷 Profile Photo'),
-        GestureDetector(
-          onTap: _pickPhoto,
-          child: Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A2D3A),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.add_a_photo_outlined,
-                    color: Colors.white54, size: 16),
-                SizedBox(width: 8),
-                Text('Choose Photo from Gallery',
-                    style: TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
-            ),
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              Text(
+                'Selected: ${_pal.name}',
+                style: TextStyle(
+                    color: _pal.indicatorColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: _pal.indicatorColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text('Contrast Pip',
+                  style: TextStyle(color: Colors.white38, fontSize: 10)),
+            ],
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
 
-        // NAME / TITLE / TAGLINE
-        _panelSection('✏️ Header'),
-        _editField('Full Name', _nameCtrl, onChanged: (_) => setState(() {})),
-        _editField('Job Title', _titleCtrl),
-        _editField('Tagline', _taglineCtrl),
+        // 📷 PHOTO UPLOAD / REMOVE
+        _toolHeader('📷 Profile Photo (Circle Frame)'),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isPickingPhoto ? null : _pickPhoto,
+                icon: _isPickingPhoto
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.add_a_photo_outlined, size: 15),
+                label: const Text('Choose Photo',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E3346),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            if (_photoBytes != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _removePhoto,
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Color(0xFFEF4444), size: 20),
+                tooltip: 'Remove photo (reset to placeholder)',
+              ),
+            ],
+          ],
+        ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
 
-        // CONTACT
-        _panelSection('📞 Contact'),
-        _editField('Phone', _phoneCtrl),
-        _editField('Email', _emailCtrl),
-        _editField('Location', _locationCtrl),
-        _editField('LinkedIn', _linkedinCtrl),
-        _editField('Website', _websiteCtrl),
-
-        const SizedBox(height: 8),
-
-        // SUMMARY
-        _panelSection('📝 Professional Summary'),
-        _editField('Summary', _summaryCtrl, maxLines: 4),
-
-        const SizedBox(height: 8),
-
-        // SKILLS
-        _panelSection('⚡ Skills  (drag bar to adjust level)'),
+        // ⚡ SKILLS SLIDERS
+        _toolHeader('⚡ Skills Level (Adjust % Length)'),
         ..._skills.asMap().entries.map((e) {
           final i = e.key;
-          final skill = e.value;
+          final s = e.value;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                Expanded(
-                    child: Text(skill.name,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(s.nameCtrl.text,
                         style: const TextStyle(
-                            color: Colors.white70, fontSize: 11))),
-                Text('${(skill.level * 100).round()}%',
+                            color: Colors.white70, fontSize: 11)),
+                  ),
+                  Text(
+                    '${(s.level * 100).round()}%',
                     style: TextStyle(
-                        color: _gold, fontSize: 11, fontWeight: FontWeight.w700)),
-              ]),
+                        color: _indicator,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: _gold,
+                  activeTrackColor: _indicator,
                   inactiveTrackColor: Colors.white12,
-                  thumbColor: _gold,
-                  overlayColor: _gold.withValues(alpha: 0.2),
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  thumbColor: _indicator,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 6),
                   trackHeight: 3,
                 ),
                 child: Slider(
-                  value: skill.level,
-                  min: 0,
-                  max: 1,
+                  value: s.level,
+                  min: 0.1,
+                  max: 1.0,
                   onChanged: (v) => setState(() => _skills[i].level = v),
                 ),
               ),
@@ -865,34 +1086,33 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           );
         }),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
 
-        // LANGUAGES
-        _panelSection('🌐 Languages  (tap dots to adjust)'),
+        // 🌐 LANGUAGES DOT INDICATOR
+        _toolHeader('🌐 Languages (Tap Dots 1–7)'),
         ..._langs.asMap().entries.map((e) {
           final i = e.key;
           final lang = e.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(lang.name,
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 11)),
-                const SizedBox(height: 4),
+                Expanded(
+                  child: Text(lang.nameCtrl.text,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 11)),
+                ),
                 Row(
-                  children: List.generate(7, (dotIdx) {
-                    final filled = dotIdx < lang.dots;
+                  children: List.generate(7, (d) {
+                    final filled = d < lang.dots;
                     return GestureDetector(
-                      onTap: () => setState(
-                          () => _langs[i].dots = dotIdx + 1),
+                      onTap: () => setState(() => _langs[i].dots = d + 1),
                       child: Container(
                         width: 14,
                         height: 14,
-                        margin: const EdgeInsets.only(right: 4),
+                        margin: const EdgeInsets.only(left: 3),
                         decoration: BoxDecoration(
-                          color: filled ? _gold : Colors.white12,
+                          color: filled ? _indicator : Colors.white12,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -904,208 +1124,222 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           );
         }),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
 
-        // FOOTER
-        _panelSection('🗂️ Footer Info'),
-        _editField("Father's Name", _fatherCtrl),
-        _editField('Date of Birth', _dobCtrl),
-        _editField('Gender', _genderCtrl),
-        _editField('Marital Status', _maritalCtrl),
+        // 📥 EXPORT PDF BUTTON
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _exportPdf,
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+            label: const Text('Export / Print PDF',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _indicator,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
 
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _panelSection(String title) => Padding(
+  Widget _toolHeader(String title) => Padding(
         padding: const EdgeInsets.only(bottom: 8, top: 4),
-        child: Text(title,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3)),
-      );
-
-  Widget _editField(
-    String label,
-    TextEditingController ctrl, {
-    int maxLines = 1,
-    ValueChanged<String>? onChanged,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5)),
-            const SizedBox(height: 3),
-            TextField(
-              controller: ctrl,
-              maxLines: maxLines,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              onChanged: onChanged ?? (_) {},
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                filled: true,
-                fillColor: const Color(0xFF2A2D3A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: _gold, width: 1.5),
-                ),
-              ),
-            ),
-          ],
+        child: Text(
+          title,
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3),
         ),
       );
 
   // ═══════════════════════════════════════════════════════════════════════
-  // RESUME BODY (RIGHT CANVAS)
+  // LEFT SIDEBAR (NAVY / RED / SKY BLUE / GREY / GOLDEN)
   // ═══════════════════════════════════════════════════════════════════════
-  Widget _buildResumeBody(String sig) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── NAVY LEFT SIDEBAR ──────────────────────────────────────────
-          _buildSidebar(sig),
-
-          // ── WHITE RIGHT CONTENT ────────────────────────────────────────
-          Expanded(child: _buildRightContent()),
-        ],
-      ),
-    );
-  }
-
-  // ── LEFT SIDEBAR ──────────────────────────────────────────────────────
   Widget _buildSidebar(String sig) {
     return Stack(
       children: [
-        // Main sidebar container
         Container(
-          width: 262,
+          width: 265,
           color: _sidebar,
-          padding: const EdgeInsets.fromLTRB(22, 30, 22, 24),
+          padding: const EdgeInsets.fromLTRB(22, 32, 22, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── PHOTO ──────────────────────────────────────────────────
+              // ── PHOTO WITH GOLD RING ───────────────────────────────────
               Center(
                 child: GestureDetector(
                   onTap: _pickPhoto,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [_gold, _gold.withValues(alpha: 0.5)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _gold.withValues(alpha: 0.4),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(3),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: _sidebar, width: 3),
-                          ),
-                          child: ClipOval(
-                            child: _photoFile != null
-                                ? Image.file(_photoFile!,
-                                    fit: BoxFit.cover)
-                                : Container(
-                                    color: _sidebar.withValues(alpha: 0.6),
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.add_a_photo_outlined,
-                                              color: _gold.withValues(alpha: 0.7),
-                                              size: 28),
-                                          const SizedBox(height: 4),
-                                          Text('Add Photo',
-                                              style: TextStyle(
-                                                  color: _gold.withValues(alpha: 0.7),
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ),
+                  child: Container(
+                    width: 124,
+                    height: 124,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [_gold, _gold.withValues(alpha: 0.5)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: _gold.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(3.5),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _sidebar, width: 3),
+                      ),
+                      child: ClipOval(
+                        child: _photoBytes != null
+                            ? Image.memory(
+                                _photoBytes!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                              )
+                            : Container(
+                                color: _sidebar.withValues(alpha: 0.7),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_a_photo_outlined,
+                                          color: _indicator.withValues(alpha: 0.8),
+                                          size: 28),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Add Photo',
+                                        style: TextStyle(
+                                            color: _indicator
+                                                .withValues(alpha: 0.9),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
                   ),
                 ),
               ),
 
               const SizedBox(height: 22),
 
-              // ── CONTACT ───────────────────────────────────────────────
+              // ── CONTACT (INLINE EDITABLE) ──────────────────────────────
               _sidebarHeading('CONTACT'),
               const SizedBox(height: 8),
-              _contactRow(Icons.phone_outlined, _phoneCtrl.text),
-              _contactRow(Icons.email_outlined, _emailCtrl.text),
-              _contactRow(Icons.location_on_outlined, _locationCtrl.text),
-              _contactRow(Icons.link_outlined, _linkedinCtrl.text),
-              _contactRow(Icons.language_outlined, _websiteCtrl.text),
+              _sidebarContactRow(Icons.phone_outlined, _phoneCtrl),
+              _sidebarContactRow(Icons.email_outlined, _emailCtrl),
+              _sidebarContactRow(Icons.location_on_outlined, _locationCtrl),
+              _sidebarContactRow(Icons.link_outlined, _linkedinCtrl),
+              _sidebarContactRow(Icons.language_outlined, _websiteCtrl),
 
               const SizedBox(height: 18),
 
-              // ── EDUCATION ─────────────────────────────────────────────
-              _sidebarHeading('EDUCATION'),
-              const SizedBox(height: 8),
-              ..._eduEntries.asMap().entries.map(
-                    (e) => _eduTimelineItem(
-                      e.value['degree']!.text,
-                      e.value['inst']!.text,
-                      e.value['year']!.text,
-                      isLast: e.key == _eduEntries.length - 1,
-                    ),
+              // ── EDUCATION (INLINE EDITABLE WITH + BUTTON) ───────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sidebarHeading('EDUCATION'),
+                  IconButton(
+                    icon: Icon(Icons.add_circle_outline_rounded,
+                        color: _indicator, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Add Education Degree',
+                    onPressed: () {
+                      setState(() {
+                        _eduEntries.add(_EduItem(
+                          degree: 'New Degree / Certification',
+                          inst: 'Institute Name',
+                          year: '2023 – 2024',
+                        ));
+                      });
+                    },
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ..._eduEntries.asMap().entries.map((e) {
+                final i = e.key;
+                final edu = e.value;
+                return _eduItemRow(edu, i);
+              }),
 
               const SizedBox(height: 18),
 
-              // ── SKILLS ────────────────────────────────────────────────
-              _sidebarHeading('SKILLS'),
+              // ── SKILLS (INLINE EDITABLE + SLIDERS) ───────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sidebarHeading('SKILLS'),
+                  IconButton(
+                    icon: Icon(Icons.add_circle_outline_rounded,
+                        color: _indicator, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Add Skill',
+                    onPressed: () {
+                      setState(() {
+                        _skills.add(_SkillItem('New Skill', 0.75));
+                      });
+                    },
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
-              ..._skills.map((s) => _skillBarRow(s.name, s.level)),
+              ..._skills.asMap().entries.map((e) {
+                final i = e.key;
+                final s = e.value;
+                return _skillRow(s, i);
+              }),
 
               const SizedBox(height: 18),
 
-              // ── LANGUAGES ─────────────────────────────────────────────
-              _sidebarHeading('LANGUAGES'),
+              // ── LANGUAGES (INLINE EDITABLE + TAPPABLE DOTS) ─────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sidebarHeading('LANGUAGES'),
+                  IconButton(
+                    icon: Icon(Icons.add_circle_outline_rounded,
+                        color: _indicator, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Add Language',
+                    onPressed: () {
+                      setState(() {
+                        _langs.add(_LangItem('New Language', 5));
+                      });
+                    },
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
-              ..._langs.map((l) => _langRow(l.name, l.dots)),
+              ..._langs.asMap().entries.map((e) {
+                final i = e.key;
+                final l = e.value;
+                return _langRow(l, i);
+              }),
 
-              // ── SIGNATURE ─────────────────────────────────────────────
-              const SizedBox(height: 20),
-              Divider(color: _gold.withValues(alpha: 0.3), height: 1),
+              // ── SIGNATURE AT BOTTOM (AUTO SYNCS WITH USER NAME) ─────────
+              const SizedBox(height: 22),
+              Divider(color: _indicator.withValues(alpha: 0.3), height: 1),
               const SizedBox(height: 14),
               Center(
                 child: Column(
@@ -1114,7 +1348,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                       sig,
                       style: GoogleFonts.alexBrush(
                         fontSize: 38,
-                        color: _gold,
+                        color: _indicator,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -1124,7 +1358,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                       style: TextStyle(
                         fontSize: 7,
                         letterSpacing: 1.5,
-                        color: _gold.withValues(alpha: 0.6),
+                        color: _indicator.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1135,7 +1369,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           ),
         ),
 
-        // Gold wave ribbon on right edge
+        // Gold wave decorative ribbon on right edge
         Positioned(
           top: 0,
           bottom: 0,
@@ -1146,24 +1380,18 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 sidebarColor: _sidebar, goldColor: _gold),
           ),
         ),
-
-        // Decorative dot grid top-right of page
-        Positioned(
-          top: 12,
-          right: 30,
-          child: _DotGrid(color: _gold.withValues(alpha: 0.2)),
-        ),
       ],
     );
   }
 
   Widget _sidebarHeading(String title) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: _gold,
+              color: _indicator,
               shape: BoxShape.circle,
             ),
             child: Icon(_headingIcon(title), color: _sidebar, size: 11),
@@ -1172,7 +1400,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
           Text(
             title,
             style: TextStyle(
-              color: _gold,
+              color: _indicator,
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
@@ -1183,138 +1411,164 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
 
   IconData _headingIcon(String t) {
     switch (t) {
-      case 'CONTACT': return Icons.person_outline;
-      case 'EDUCATION': return Icons.school_outlined;
-      case 'SKILLS': return Icons.settings_outlined;
-      case 'LANGUAGES': return Icons.language_outlined;
-      default: return Icons.circle;
+      case 'CONTACT':
+        return Icons.person_outline;
+      case 'EDUCATION':
+        return Icons.school_outlined;
+      case 'SKILLS':
+        return Icons.settings_outlined;
+      case 'LANGUAGES':
+        return Icons.language_outlined;
+      default:
+        return Icons.circle;
     }
   }
 
-  Widget _contactRow(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 7),
+  Widget _sidebarContactRow(IconData icon, TextEditingController ctrl) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: _gold, size: 12),
+            Icon(icon, color: _indicator, size: 12),
             const SizedBox(width: 7),
             Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 9.5, height: 1.3),
+              child: _InlineField(
+                controller: ctrl,
+                style: const TextStyle(color: Colors.white, fontSize: 9.5),
               ),
             ),
           ],
         ),
       );
 
-  Widget _eduTimelineItem(String degree, String inst, String year,
-      {bool isLast = false}) =>
-      IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _eduItemRow(_EduItem edu, int index) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 16,
-              child: Column(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                        color: _gold, shape: BoxShape.circle),
+            Row(
+              children: [
+                Expanded(
+                  child: _InlineField(
+                    controller: edu.degreeCtrl,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700),
                   ),
-                  if (!isLast)
-                    Expanded(
-                      child: Container(
-                        width: 1.5,
-                        color: _gold.withValues(alpha: 0.3),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(degree,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            height: 1.3)),
-                    const SizedBox(height: 2),
-                    Text(inst,
-                        style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 8.5,
-                            height: 1.3)),
-                    Text(year,
-                        style: TextStyle(
-                            color: _gold.withValues(alpha: 0.8),
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600)),
-                  ],
                 ),
-              ),
+                if (_eduEntries.length > 1)
+                  GestureDetector(
+                    onTap: () => setState(() => _eduEntries.removeAt(index)),
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white38, size: 12),
+                  ),
+              ],
+            ),
+            _InlineField(
+              controller: edu.instCtrl,
+              style: const TextStyle(color: Colors.white60, fontSize: 8.5),
+            ),
+            _InlineField(
+              controller: edu.yearCtrl,
+              style: TextStyle(
+                  color: _indicator,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600),
             ),
           ],
         ),
       );
 
-  Widget _skillBarRow(String name, double level) => Padding(
+  Widget _skillRow(_SkillItem s, int index) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(name,
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500)),
+            Row(
+              children: [
+                Expanded(
+                  child: _InlineField(
+                    controller: s.nameCtrl,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  '${(s.level * 100).round()}%',
+                  style: TextStyle(
+                      color: _indicator,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.bold),
+                ),
+                if (_skills.length > 1) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() => _skills.removeAt(index)),
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white38, size: 11),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 3),
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
-                value: level,
+                value: s.level,
                 minHeight: 4,
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-                valueColor: AlwaysStoppedAnimation<Color>(_gold),
+                backgroundColor: _pal.trackColor,
+                valueColor: AlwaysStoppedAnimation<Color>(_indicator),
               ),
             ),
           ],
         ),
       );
 
-  Widget _langRow(String name, int dots) => Padding(
+  Widget _langRow(_LangItem l, int index) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(
           children: [
-            SizedBox(
-              width: 70,
-              child: Text(name,
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 9.5)),
+            Expanded(
+              child: _InlineField(
+                controller: l.nameCtrl,
+                style: const TextStyle(color: Colors.white, fontSize: 9),
+              ),
             ),
-            ...List.generate(7, (i) => Container(
-                  width: 9,
-                  height: 9,
-                  margin: const EdgeInsets.only(right: 3),
-                  decoration: BoxDecoration(
-                    color: i < dots ? _gold : Colors.white12,
-                    shape: BoxShape.circle,
+            Row(
+              children: List.generate(7, (d) {
+                final filled = d < l.dots;
+                return GestureDetector(
+                  onTap: () => setState(() => l.dots = d + 1),
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    margin: const EdgeInsets.only(left: 3),
+                    decoration: BoxDecoration(
+                      color: filled ? _indicator : _pal.dotInactiveColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                )),
+                );
+              }),
+            ),
+            if (_langs.length > 1) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => setState(() => _langs.removeAt(index)),
+                child: const Icon(Icons.close_rounded,
+                    color: Colors.white38, size: 11),
+              ),
+            ],
           ],
         ),
       );
 
-  // ── RIGHT CONTENT ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // RIGHT CONTENT (DIRECT INLINE EDITABLE ON CANVAS)
+  // ═══════════════════════════════════════════════════════════════════════
   Widget _buildRightContent() {
     return Container(
       color: Colors.white,
@@ -1322,87 +1576,103 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── NAME HEADER ───────────────────────────────────────────────
-          ListenableBuilder(
-            listenable: Listenable.merge([_nameCtrl, _titleCtrl, _taglineCtrl]),
-            builder: (context, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Dot grid top right
-                Align(
-                  alignment: Alignment.topRight,
-                  child: _DotGrid(
-                      color: _sidebar.withValues(alpha: 0.12), rows: 4, cols: 6),
-                ),
-                Text(
-                  _nameCtrl.text.toUpperCase().isEmpty
-                      ? 'PRATEEK'
-                      : _nameCtrl.text.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 46,
-                    fontWeight: FontWeight.w900,
-                    color: _sidebar,
-                    letterSpacing: 2,
-                    height: 1,
-                    fontFamily: 'serif',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _titleCtrl.text.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _gold,
-                    letterSpacing: 3,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Container(
-                      width: 40,
-                      height: 1.5,
-                      color: _gold),
-                  const SizedBox(width: 6),
-                  Icon(Icons.diamond_outlined, color: _gold, size: 10),
-                  const SizedBox(width: 6),
-                  Container(
-                      width: 40,
-                      height: 1.5,
-                      color: _gold),
-                ]),
-                const SizedBox(height: 8),
-                Text(
-                  _taglineCtrl.text,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                      letterSpacing: 1),
-                ),
-              ],
+          // ── NAME & DESIGNATION (DIRECT INLINE EDIT) ───────────────────
+          _InlineField(
+            controller: _nameCtrl,
+            style: TextStyle(
+              fontSize: 44,
+              fontWeight: FontWeight.w900,
+              color: _sidebar,
+              letterSpacing: 2,
+              height: 1,
+              fontFamily: 'serif',
             ),
+            onChanged: (_) => setState(() {}), // Auto updates signature!
+          ),
+          const SizedBox(height: 6),
+          _InlineField(
+            controller: _titleCtrl,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _gold,
+              letterSpacing: 3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Container(width: 40, height: 1.5, color: _gold),
+              const SizedBox(width: 6),
+              Icon(Icons.diamond_outlined, color: _gold, size: 10),
+              const SizedBox(width: 6),
+              Container(width: 40, height: 1.5, color: _gold),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _InlineField(
+            controller: _taglineCtrl,
+            style: TextStyle(
+                fontSize: 11, color: Colors.grey[600], letterSpacing: 1),
           ),
 
           const SizedBox(height: 18),
 
-          // ── PROFESSIONAL SUMMARY ──────────────────────────────────────
-          _rightSectionHeading('PROFESSIONAL SUMMARY'),
-          const SizedBox(height: 8),
-          ListenableBuilder(
-            listenable: _summaryCtrl,
-            builder: (context, _) => _bulletPoint(_summaryCtrl.text),
+          // ── PROFESSIONAL SUMMARY (DIRECT INLINE EDIT) ─────────────────
+          _rightHeading('PROFESSIONAL SUMMARY'),
+          const SizedBox(height: 6),
+          _InlineField(
+            controller: _summaryCtrl,
+            maxLines: 4,
+            style: TextStyle(
+                fontSize: 10.5, height: 1.5, color: Colors.grey[800]),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // ── EXPERIENCE ────────────────────────────────────────────────
-          _rightSectionHeading('EXPERIENCE'),
+          // ── EXPERIENCE (DIRECT INLINE EDIT WITH + AND DELETE) ─────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _rightHeading('EXPERIENCE'),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _expEntries.add(_ExpItem(
+                      role: 'New Role / Position',
+                      subtitle: 'Company / Organization',
+                      dates: '2023 – Present',
+                      bullets: [
+                        'Key achievement or responsibility description.',
+                      ],
+                    ));
+                  });
+                },
+                icon: Icon(Icons.add_rounded, size: 14, color: _sidebar),
+                label: Text('Add Experience',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _sidebar)),
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
-          ..._expEntries.map((exp) => _expBlock(exp)),
+          ..._expEntries.asMap().entries.map((e) {
+            final i = e.key;
+            final exp = e.value;
+            return _expEntryWidget(exp, i);
+          }),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // ── EXPERTISE & ACHIEVEMENTS ──────────────────────────────────
+          // ── EXPERTISE & ACHIEVEMENTS SPLIT ────────────────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1410,51 +1680,151 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _rightSectionHeading('EXPERTISE'),
-                    const SizedBox(height: 8),
-                    ..._expertiseCtrls
-                        .map((c) => _checkItem(c.text)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _rightHeading('EXPERTISE'),
+                        IconButton(
+                          icon: Icon(Icons.add_circle_outline_rounded,
+                              size: 14, color: _sidebar),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            setState(() {
+                              _expertiseCtrls.add(
+                                  TextEditingController(text: 'New Expertise'));
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ..._expertiseCtrls.asMap().entries.map((e) {
+                      final i = e.key;
+                      final c = e.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded,
+                                size: 12, color: _gold),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _InlineField(
+                                controller: c,
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.grey[800]),
+                              ),
+                            ),
+                            if (_expertiseCtrls.length > 1)
+                              GestureDetector(
+                                onTap: () => setState(
+                                    () => _expertiseCtrls.removeAt(i)),
+                                child: const Icon(Icons.close_rounded,
+                                    size: 10, color: Colors.grey),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _rightSectionHeading('ACHIEVEMENTS'),
-                    const SizedBox(height: 8),
-                    ..._achievements.map((a) => _achieveItem(
-                        a['title']!.text, a['sub']!.text)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _rightHeading('ACHIEVEMENTS'),
+                        IconButton(
+                          icon: Icon(Icons.add_circle_outline_rounded,
+                              size: 14, color: _sidebar),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            setState(() {
+                              _achievements.add({
+                                'title': TextEditingController(
+                                    text: 'Award / Recognition'),
+                                'sub': TextEditingController(
+                                    text: 'Organization – Year'),
+                              });
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ..._achievements.asMap().entries.map((e) {
+                      final i = e.key;
+                      final a = e.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.star_rounded, color: _gold, size: 14),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _InlineField(
+                                    controller: a['title']!,
+                                    style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: _sidebar),
+                                  ),
+                                  _InlineField(
+                                    controller: a['sub']!,
+                                    style: TextStyle(
+                                        fontSize: 9.5,
+                                        color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_achievements.length > 1)
+                              GestureDetector(
+                                onTap: () => setState(
+                                    () => _achievements.removeAt(i)),
+                                child: const Icon(Icons.close_rounded,
+                                    size: 10, color: Colors.grey),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // ── FOOTER STRIP ──────────────────────────────────────────────
+          // ── FOOTER PROFILE STRIP (DIRECT INLINE EDITABLE) ─────────────
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFF8F9FB),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _footerItem(Icons.person_outline, "FATHER'S NAME",
-                    _fatherCtrl.text),
+                _footerItem(Icons.person_outline, "FATHER'S NAME", _fatherCtrl),
                 _footerItem(Icons.calendar_month_outlined, 'DATE OF BIRTH',
-                    _dobCtrl.text),
-                _footerItem(Icons.transgender_outlined, 'GENDER',
-                    _genderCtrl.text),
-                _footerItem(Icons.favorite_outline, 'MARITAL STATUS',
-                    _maritalCtrl.text),
+                    _dobCtrl),
+                _footerItem(
+                    Icons.transgender_outlined, 'GENDER', _genderCtrl),
+                _footerItem(
+                    Icons.favorite_outline, 'MARITAL STATUS', _maritalCtrl),
               ],
             ),
           ),
@@ -1463,31 +1833,38 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     );
   }
 
-  Widget _rightSectionHeading(String title) {
+  Widget _rightHeading(String title) {
     IconData icon;
     switch (title) {
-      case 'PROFESSIONAL SUMMARY': icon = Icons.person_outline; break;
-      case 'EXPERIENCE': icon = Icons.work_outline; break;
-      case 'EXPERTISE': icon = Icons.emoji_events_outlined; break;
-      case 'ACHIEVEMENTS': icon = Icons.military_tech_outlined; break;
-      default: icon = Icons.circle;
+      case 'PROFESSIONAL SUMMARY':
+        icon = Icons.person_outline;
+        break;
+      case 'EXPERIENCE':
+        icon = Icons.work_outline;
+        break;
+      case 'EXPERTISE':
+        icon = Icons.emoji_events_outlined;
+        break;
+      case 'ACHIEVEMENTS':
+        icon = Icons.military_tech_outlined;
+        break;
+      default:
+        icon = Icons.circle;
     }
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 24,
           height: 24,
-          decoration: BoxDecoration(
-            color: _sidebar,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: _sidebar, shape: BoxShape.circle),
           child: Icon(icon, color: _gold, size: 13),
         ),
         const SizedBox(width: 8),
         Text(
           title,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w800,
             color: _sidebar,
             letterSpacing: 1,
@@ -1497,43 +1874,17 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     );
   }
 
-  Widget _bulletPoint(String text) => Padding(
-        padding: const EdgeInsets.only(left: 6, bottom: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                      color: _gold, shape: BoxShape.circle)),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontSize: 10.5,
-                      height: 1.5,
-                      color: Colors.grey[700])),
-            ),
-          ],
-        ),
-      );
-
-  Widget _expBlock(_ExpEntry exp) {
+  Widget _expEntryWidget(_ExpItem exp, int index) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gold circle dot on left timeline
           Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 4),
             child: Container(
-              width: 9,
-              height: 9,
+              width: 8,
+              height: 8,
               decoration: BoxDecoration(color: _gold, shape: BoxShape.circle),
             ),
           ),
@@ -1545,52 +1896,89 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(exp.role,
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: _sidebar)),
+                      child: _InlineField(
+                        controller: exp.roleCtrl,
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: _sidebar),
+                      ),
                     ),
-                    Row(
-                      children: [
-                        Text(exp.dates,
-                            style: TextStyle(
-                                fontSize: 9.5,
-                                color: Colors.grey[500],
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 4),
-                        Icon(Icons.calendar_today_outlined,
-                            size: 10, color: Colors.grey[400]),
-                      ],
+                    SizedBox(
+                      width: 90,
+                      child: _InlineField(
+                        controller: exp.datesCtrl,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                            fontSize: 9.5,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600),
+                      ),
                     ),
+                    if (_expEntries.length > 1) ...[
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => setState(() => _expEntries.removeAt(index)),
+                        child: const Icon(Icons.close_rounded,
+                            size: 12, color: Colors.grey),
+                      ),
+                    ],
                   ],
                 ),
-                Text(exp.subtitle,
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: _gold,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                ...exp.bullets.map((b) => Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('• ',
-                              style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: Colors.grey)),
-                          Expanded(
-                            child: Text(b,
-                                style: TextStyle(
-                                    fontSize: 10.5,
-                                    height: 1.4,
-                                    color: Colors.grey[700])),
-                          ),
-                        ],
+                _InlineField(
+                  controller: exp.subtitleCtrl,
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: _gold,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 3),
+                ...exp.bulletCtrls.asMap().entries.map((bEntry) {
+                  final bIndex = bEntry.key;
+                  final bCtrl = bEntry.value;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ',
+                          style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                      Expanded(
+                        child: _InlineField(
+                          controller: bCtrl,
+                          maxLines: 2,
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              height: 1.4,
+                              color: Colors.grey[800]),
+                        ),
                       ),
-                    )),
+                      if (exp.bulletCtrls.length > 1)
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => exp.bulletCtrls.removeAt(bIndex)),
+                          child: const Icon(Icons.close_rounded,
+                              size: 10, color: Colors.grey),
+                        ),
+                    ],
+                  );
+                }),
+                // Add bullet action
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      exp.bulletCtrls.add(
+                          TextEditingController(text: 'New bullet point.'));
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('+ Add bullet',
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: _sidebar.withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1599,65 +1987,74 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     );
   }
 
-  Widget _checkItem(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 5),
-        child: Row(
+  Widget _footerItem(
+      IconData icon, String label, TextEditingController ctrl) =>
+      Expanded(
+        child: Column(
           children: [
-            Icon(Icons.check_circle_outline_rounded,
-                size: 13, color: _gold),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey[700])),
-            ),
-          ],
-        ),
-      );
-
-  Widget _achieveItem(String title, String sub) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.star_rounded, color: _gold, size: 15),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: _sidebar)),
-                  Text(sub,
-                      style: TextStyle(
-                          fontSize: 9.5, color: Colors.grey[500])),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _footerItem(IconData icon, String label, String value) => Column(
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF64748B)),
-          const SizedBox(height: 3),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 7,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.5)),
-          const SizedBox(height: 2),
-          Text(value,
+            Icon(icon, size: 14, color: const Color(0xFF64748B)),
+            const SizedBox(height: 2),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 7,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.5)),
+            _InlineField(
+              controller: ctrl,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: _sidebar)),
-        ],
+                  fontSize: 9, fontWeight: FontWeight.w700, color: _sidebar),
+            ),
+          ],
+        ),
       );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INLINE EDITABLE TEXT FIELD WIDGET (CANVA STYLE)
+// ═══════════════════════════════════════════════════════════════════════
+class _InlineField extends StatelessWidget {
+  final TextEditingController controller;
+  final TextStyle style;
+  final int maxLines;
+  final TextAlign textAlign;
+  final ValueChanged<String>? onChanged;
+  final String hint;
+
+  const _InlineField({
+    required this.controller,
+    required this.style,
+    this.maxLines = 1,
+    this.textAlign = TextAlign.start,
+    this.onChanged,
+    this.hint = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      textAlign: textAlign,
+      style: style,
+      onChanged: onChanged,
+      cursorColor: style.color ?? Colors.blue,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: style.copyWith(
+            color: (style.color ?? Colors.grey).withValues(alpha: 0.4)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(
+              color: (style.color ?? Colors.blue).withValues(alpha: 0.6),
+              width: 1.5),
+        ),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1678,14 +2075,10 @@ class _WaveEdgePainter extends CustomPainter {
 
     final path = Path()
       ..moveTo(0, 0)
-      ..cubicTo(
-          size.width * 1.2, size.height * 0.15,
-          -size.width * 0.2, size.height * 0.35,
-          size.width * 1.0, size.height * 0.5)
-      ..cubicTo(
-          size.width * 1.2, size.height * 0.65,
-          -size.width * 0.2, size.height * 0.85,
-          size.width * 1.0, size.height)
+      ..cubicTo(size.width * 1.2, size.height * 0.15, -size.width * 0.2,
+          size.height * 0.35, size.width * 1.0, size.height * 0.5)
+      ..cubicTo(size.width * 1.2, size.height * 0.65, -size.width * 0.2,
+          size.height * 0.85, size.width * 1.0, size.height)
       ..lineTo(0, size.height)
       ..close();
 
@@ -1697,33 +2090,4 @@ class _WaveEdgePainter extends CustomPainter {
   bool shouldRepaint(covariant _WaveEdgePainter oldDelegate) =>
       oldDelegate.sidebarColor != sidebarColor ||
       oldDelegate.goldColor != goldColor;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Small dot grid decoration widget
-// ═══════════════════════════════════════════════════════════════════════
-class _DotGrid extends StatelessWidget {
-  final Color color;
-  final int rows;
-  final int cols;
-  const _DotGrid({required this.color, this.rows = 5, this.cols = 5});
-
-  @override
-  Widget build(BuildContext context) => Column(
-        children: List.generate(
-          rows,
-          (r) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(
-              cols,
-              (c) => Container(
-                width: 3,
-                height: 3,
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-            ),
-          ),
-        ),
-      );
 }

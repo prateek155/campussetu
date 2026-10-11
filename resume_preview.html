@@ -1160,37 +1160,63 @@
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.18);
+      background: var(--d4-dot-inactive, rgba(255, 255, 255, 0.18));
       cursor: pointer;
       transition: all 0.15s ease;
     }
     .d4-dot:hover {
       transform: scale(1.3);
-      background: var(--d4-accent, #c5a059);
+      background: var(--d4-indicator, #ffb800);
     }
     .d4-dot.filled {
-      background: var(--d4-accent, #c5a059);
+      background: var(--d4-indicator, #ffb800);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
     }
 
     .d4-pal-btn {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 8px;
       cursor: pointer;
       outline: none;
+      position: relative;
       transition: transform 0.15s ease, border-color 0.15s ease;
     }
     .d4-pal-btn:hover {
       transform: scale(1.1);
     }
 
+    /* Contenteditable Live Hover & Focus Styles (Direct In-Place Editing) */
+    [contenteditable="true"] {
+      outline: none !important;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+      border-radius: 3px;
+      cursor: text;
+    }
+    [contenteditable="true"]:hover {
+      background: rgba(59, 130, 246, 0.08);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+    }
+    [contenteditable="true"]:focus {
+      background: rgba(59, 130, 246, 0.12);
+      box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.7);
+    }
+    .d4-left-sidebar [contenteditable="true"]:hover {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+    .d4-left-sidebar [contenteditable="true"]:focus {
+      background: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 0 0 1.5px var(--d4-indicator, #ffb800);
+    }
+
     .d4-gold-sec-title {
       font-size: 13px;
       font-weight: 700;
-      color: var(--d4-accent, #c5a059);
+      color: var(--d4-indicator, #c5a059);
       letter-spacing: 1.5px;
       text-transform: uppercase;
-      border-bottom: 1px solid rgba(197, 160, 89, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.18);
       padding-bottom: 6px;
       margin-bottom: 12px;
       display: flex;
@@ -1211,7 +1237,7 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--d4-accent, #c5a059);
+      background: var(--d4-indicator, #c5a059);
     }
     .d4-timeline-item::after {
       content: "";
@@ -1220,7 +1246,7 @@
       top: 14px;
       bottom: -8px;
       width: 2px;
-      background: rgba(197, 160, 89, 0.25);
+      background: rgba(255, 255, 255, 0.2);
     }
     .d4-timeline-item:last-child::after {
       display: none;
@@ -1236,7 +1262,7 @@
       margin-top: 1px;
     }
 
-    /* Skills with Dual-Color Gold Fill */
+    /* Skills with Adaptive Contrast Indicator */
     .d4-skill-bar-row {
       display: flex;
       align-items: center;
@@ -1246,14 +1272,16 @@
     }
     .d4-skill-track {
       width: 90px;
-      height: 4px;
-      background: #24344d;
-      border-radius: 2px;
+      height: 5px;
+      background: var(--d4-track-bg, #24344d);
+      border-radius: 3px;
       overflow: hidden;
+      cursor: pointer;
     }
     .d4-skill-fill {
       height: 100%;
-      background: var(--d4-accent, #c5a059);
+      background: var(--d4-indicator, #ffb800);
+      transition: width 0.15s ease;
     }
 
     /* Signature footer */
@@ -1264,8 +1292,9 @@
     .d4-sig-text {
       font-family: 'Alex Brush', cursive;
       font-size: 38px;
-      color: var(--d4-accent, #c5a059);
+      color: var(--d4-indicator, #c5a059);
       line-height: 1;
+      transition: color 0.2s ease;
     }
     .d4-sig-tag {
       font-size: 8px;
@@ -1538,32 +1567,38 @@
       <div id="controls-d4" class="control-card" style="display: none;">
         <div class="control-card-title">👑 Design 4: Luxury Mahii Settings</div>
 
-        <!-- 5 FIXED COLOR OPTIONS -->
+        <!-- 5 FIXED COLOR OPTIONS WITH ADAPTIVE CONTRAST -->
         <div class="field-group">
-          <label>Sidebar Color (5 Preset Palettes)</label>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
-            <button type="button" class="d4-pal-btn" style="background: #0f1c30; border: 2.5px solid #c5a059;" onclick="setD4SidebarColor('#0f1c30', this)" title="Navy Blue"></button>
-            <button type="button" class="d4-pal-btn" style="background: #2a0a14; border: 2.5px solid transparent;" onclick="setD4SidebarColor('#2a0a14', this)" title="Burgundy"></button>
-            <button type="button" class="d4-pal-btn" style="background: #0a2217; border: 2.5px solid transparent;" onclick="setD4SidebarColor('#0a2217', this)" title="Forest Green"></button>
-            <button type="button" class="d4-pal-btn" style="background: #1c1c2e; border: 2.5px solid transparent;" onclick="setD4SidebarColor('#1c1c2e', this)" title="Charcoal"></button>
-            <button type="button" class="d4-pal-btn" style="background: #1a0a2e; border: 2.5px solid transparent;" onclick="setD4SidebarColor('#1a0a2e', this)" title="Royal Purple"></button>
+          <label>5 Fixed Color Palettes (Adaptive Contrast)</label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+            <button type="button" class="d4-pal-btn active-pal" style="background: #0f1c30; border: 2.5px solid #ffb800;" onclick="selectD4Palette('blue', this)" title="Blue (#0F1C30)"></button>
+            <button type="button" class="d4-pal-btn" style="background: #7a1526; border: 2.5px solid transparent;" onclick="selectD4Palette('red', this)" title="Red (#7A1526)"></button>
+            <button type="button" class="d4-pal-btn" style="background: #0284c7; border: 2.5px solid transparent;" onclick="selectD4Palette('skyblue', this)" title="Sky Blue (#0284C7)"></button>
+            <button type="button" class="d4-pal-btn" style="background: #334155; border: 2.5px solid transparent;" onclick="selectD4Palette('grey', this)" title="Grey (#334155)"></button>
+            <button type="button" class="d4-pal-btn" style="background: #4a3510; border: 2.5px solid transparent;" onclick="selectD4Palette('golden', this)" title="Golden (#4A3510)"></button>
           </div>
-          <span id="d4-pal-name" style="font-size: 11px; color: #a5b4fc; margin-top: 5px; font-weight: 600;">Selected: Navy Blue (#0F1C30)</span>
+          <div id="d4-pal-info" style="margin-top: 6px; padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+            <div id="d4-pal-name" style="font-size: 11.5px; color: #f8fafc; font-weight: 700;">Executive Blue (#0F1C30)</div>
+            <div id="d4-pal-contrast-note" style="font-size: 10px; color: #ffb800; margin-top: 2px;">⚡ Indicator: Vibrant Amber Gold (#FFB800)</div>
+          </div>
         </div>
 
-        <!-- PHOTO UPLOADER -->
+        <!-- PHOTO UPLOADER (SUPPORTS ANY SIZE, DRAG & DROP, PASTE) -->
         <div class="field-group">
-          <label>Profile Photo (Circle Frame)</label>
+          <label>Profile Photo (Any Size / Format / Drag & Drop / Paste)</label>
           <input type="file" id="d4-photo-file-input" accept="image/*" style="display: none;" onchange="handleD4PhotoUpload(event)">
           <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <button type="button" class="action-btn" style="flex: 1; padding: 7px 10px; font-size: 11px;" onclick="document.getElementById('d4-photo-file-input').click()">
+            <button type="button" class="action-btn" style="flex: 1; padding: 7px 10px; font-size: 11px;" onclick="triggerD4PhotoPick()">
               <span>📷</span> Upload Photo
             </button>
             <button type="button" class="action-btn" style="padding: 7px 10px; font-size: 11px;" onclick="removeD4Photo()" title="Remove Photo">
-              <span>🗑️</span>
+              <span>🗑️</span> Remove
             </button>
           </div>
-          <span style="font-size: 10.5px; color: #94a3b8; margin-top: 3px;">Default me koi photo nahi hai. Upload karke test kar sakte ho!</span>
+          <span style="font-size: 10.5px; color: #94a3b8; margin-top: 4px; line-height: 1.4; display: block;">
+            ✓ Click photo, button, ya direct photo file drag-and-drop karein.<br>
+            ✓ Copy karke canvas par <b>Ctrl+V</b> (paste) bhi kar sakte hain!
+          </span>
         </div>
 
         <!-- FULL NAME & AUTO SIGNATURE -->
@@ -1579,25 +1614,25 @@
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1;">
-                <span>Adobe Photoshop</span><span id="d4-val-s1" style="font-weight: 700; color: #c5a059;">90%</span>
+                <span>Adobe Photoshop</span><span id="d4-val-s1" class="d4-indicator-label" style="font-weight: 700; color: var(--d4-indicator, #ffb800);">90%</span>
               </div>
               <input type="range" min="10" max="100" value="90" oninput="setD4Skill('s1', this.value)" style="width: 100%;">
             </div>
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1;">
-                <span>Adobe Illustrator</span><span id="d4-val-s2" style="font-weight: 700; color: #c5a059;">85%</span>
+                <span>Adobe Illustrator</span><span id="d4-val-s2" class="d4-indicator-label" style="font-weight: 700; color: var(--d4-indicator, #ffb800);">85%</span>
               </div>
               <input type="range" min="10" max="100" value="85" oninput="setD4Skill('s2', this.value)" style="width: 100%;">
             </div>
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1;">
-                <span>Canva / Figma</span><span id="d4-val-s3" style="font-weight: 700; color: #c5a059;">80%</span>
+                <span>Canva / Figma</span><span id="d4-val-s3" class="d4-indicator-label" style="font-weight: 700; color: var(--d4-indicator, #ffb800);">80%</span>
               </div>
               <input type="range" min="10" max="100" value="80" oninput="setD4Skill('s3', this.value)" style="width: 100%;">
             </div>
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1;">
-                <span>Branding & Logo</span><span id="d4-val-s4" style="font-weight: 700; color: #c5a059;">75%</span>
+                <span>Branding & Logo</span><span id="d4-val-s4" class="d4-indicator-label" style="font-weight: 700; color: var(--d4-indicator, #ffb800);">75%</span>
               </div>
               <input type="range" min="10" max="100" value="75" oninput="setD4Skill('s4', this.value)" style="width: 100%;">
             </div>
@@ -1612,7 +1647,7 @@
               <span style="font-size: 11px; color: #cbd5e1;">Urdu / Hindi</span>
               <div style="display: flex; gap: 4px; align-items: center;">
                 <button type="button" class="action-btn" style="padding: 2px 7px; font-size: 10px;" onclick="changeD4LangDots('l1', -1)">−</button>
-                <span id="d4-val-l1" style="font-size: 11px; font-weight: bold; color: #c5a059; min-width: 16px; text-align: center;">7</span>
+                <span id="d4-val-l1" class="d4-indicator-label" style="font-size: 11px; font-weight: bold; color: var(--d4-indicator, #ffb800); min-width: 16px; text-align: center;">7</span>
                 <button type="button" class="action-btn" style="padding: 2px 7px; font-size: 10px;" onclick="changeD4LangDots('l1', 1)">+</button>
               </div>
             </div>
@@ -1620,7 +1655,7 @@
               <span style="font-size: 11px; color: #cbd5e1;">English</span>
               <div style="display: flex; gap: 4px; align-items: center;">
                 <button type="button" class="action-btn" style="padding: 2px 7px; font-size: 10px;" onclick="changeD4LangDots('l2', -1)">−</button>
-                <span id="d4-val-l2" style="font-size: 11px; font-weight: bold; color: #c5a059; min-width: 16px; text-align: center;">6</span>
+                <span id="d4-val-l2" class="d4-indicator-label" style="font-size: 11px; font-weight: bold; color: var(--d4-indicator, #ffb800); min-width: 16px; text-align: center;">6</span>
                 <button type="button" class="action-btn" style="padding: 2px 7px; font-size: 10px;" onclick="changeD4LangDots('l2', 1)">+</button>
               </div>
             </div>
@@ -1628,13 +1663,14 @@
           <span style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">Resume me dots par direct tap karke bhi kam/jyada kar sakte ho!</span>
         </div>
 
-        <!-- GOLD ACCENT COLOR -->
-        <div class="field-group">
-          <label>Gold Accent Color</label>
-          <div class="color-picker-row">
-            <input type="color" id="d4-color-picker" class="color-swatch-input" value="#c5a059" onchange="updateD4Accent(this.value)">
-            <span id="d4-color-hex" style="font-family: monospace; font-size: 12px;">#C5A059 (Champagne Gold)</span>
+        <!-- DIRECT IN-PLACE EDITING INFO -->
+        <div class="field-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 10px;">
+          <div style="font-size: 11px; font-weight: 700; color: #93c5fd; display: flex; align-items: center; gap: 6px;">
+            <span>✏️</span> Direct Canva-Style Editing Active!
           </div>
+          <p style="font-size: 10px; color: #bfdbfe; margin-top: 4px; line-height: 1.45;">
+            Kisi bhi field me jaane ki zaroorat nahi hai. Resume canvas me jis bhi text, heading ya bullet par click karoge, wahi par direct cursor aa jayega aur edit/copy/paste kar sakoge.
+          </p>
         </div>
 
       </div>
@@ -2240,7 +2276,7 @@
 
             <!-- Concentric Gold Ring Photo (Default: Clean Avatar Placeholder) -->
             <div class="d4-photo-concentric">
-              <div class="d4-photo-inner" id="d4-photo-container" onclick="document.getElementById('d4-photo-file-input').click()" title="Click to Upload/Change Photo">
+              <div class="d4-photo-inner" id="d4-photo-container" onclick="triggerD4PhotoPick()" ondragover="handlePhotoDragOver(event)" ondragleave="handlePhotoDragLeave(event)" ondrop="handlePhotoDrop(event)" title="Click or Drag & Drop Photo (Any Size / Format)">
                 <div class="d4-photo-placeholder" id="d4-photo-placeholder-view">
                   <span style="font-size: 32px;">📷</span>
                   <span style="font-size: 10px; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px;">Add Photo</span>
@@ -2548,48 +2584,182 @@
       }
     }
 
-    // Design 4 Handlers
-    function updateD4Accent(color) {
-      document.documentElement.style.setProperty('--d4-accent', color);
-      document.getElementById('d4-color-hex').textContent = color.toUpperCase();
+    // =========================================================================
+    // DESIGN 4: MAHII LUXURY HANDLERS
+    // =========================================================================
+    const d4Palettes = {
+      blue: {
+        name: 'Executive Blue (#0F1C30)',
+        sidebar: '#0f1c30',
+        accent: '#c5a059',
+        indicator: '#ffb800',
+        note: '⚡ Indicator: Vibrant Amber Gold (#FFB800) for luxury contrast',
+        track: 'rgba(255, 255, 255, 0.2)',
+        dotInactive: 'rgba(255, 255, 255, 0.18)'
+      },
+      red: {
+        name: 'Royal Red (#7A1526)',
+        sidebar: '#7a1526',
+        accent: '#fcd34d',
+        indicator: '#facc15',
+        note: '⚡ Indicator: Luminous Warm Gold (#FACC15) for royal contrast',
+        track: 'rgba(255, 255, 255, 0.2)',
+        dotInactive: 'rgba(255, 255, 255, 0.18)'
+      },
+      skyblue: {
+        name: 'Sky Blue (#0284C7)',
+        sidebar: '#0284c7',
+        accent: '#ffffff',
+        indicator: '#ffffff',
+        note: '⚡ Indicator: Crisp White (#FFFFFF) for high visibility on sky blue',
+        track: 'rgba(0, 0, 0, 0.22)',
+        dotInactive: 'rgba(255, 255, 255, 0.28)'
+      },
+      grey: {
+        name: 'Graphite Grey (#334155)',
+        sidebar: '#334155',
+        accent: '#e2b866',
+        indicator: '#38bdf8',
+        note: '⚡ Indicator: Electric Cyan (#38BDF8) pops boldly on dark grey',
+        track: 'rgba(255, 255, 255, 0.2)',
+        dotInactive: 'rgba(255, 255, 255, 0.18)'
+      },
+      golden: {
+        name: 'Antique Golden (#4A3510)',
+        sidebar: '#4a3510',
+        accent: '#fef08a',
+        indicator: '#ffffff',
+        note: '⚡ Indicator: Pure Crisp White (#FFFFFF) prevents blending into golden sidebar!',
+        track: 'rgba(0, 0, 0, 0.35)',
+        dotInactive: 'rgba(255, 255, 255, 0.22)'
+      }
+    };
+
+    let activeD4PaletteKey = 'blue';
+
+    function selectD4Palette(key, btn) {
+      const pal = d4Palettes[key];
+      if (!pal) return;
+      activeD4PaletteKey = key;
+
+      const root = document.documentElement;
+      root.style.setProperty('--d4-sidebar-bg', pal.sidebar);
+      root.style.setProperty('--d4-accent', pal.accent);
+      root.style.setProperty('--d4-indicator', pal.indicator);
+      root.style.setProperty('--d4-track-bg', pal.track);
+      root.style.setProperty('--d4-dot-inactive', pal.dotInactive);
+
+      document.querySelectorAll('.d4-pal-btn').forEach(b => {
+        b.style.borderColor = 'transparent';
+        b.classList.remove('active-pal');
+      });
+      if (btn) {
+        btn.style.borderColor = pal.indicator;
+        btn.classList.add('active-pal');
+      }
+
+      const nameEl = document.getElementById('d4-pal-name');
+      const noteEl = document.getElementById('d4-pal-contrast-note');
+      if (nameEl) nameEl.textContent = pal.name;
+      if (noteEl) {
+        noteEl.textContent = pal.note;
+        noteEl.style.color = pal.indicator === '#ffffff' ? '#38bdf8' : pal.indicator;
+      }
+
+      document.querySelectorAll('.d4-indicator-label').forEach(el => {
+        el.style.color = pal.indicator;
+      });
+
+      renderD4LangDots('l1');
+      renderD4LangDots('l2');
     }
 
-    function setD4SidebarColor(color, btn) {
-      document.documentElement.style.setProperty('--d4-sidebar-bg', color);
-      document.querySelectorAll('.d4-pal-btn').forEach(b => b.style.borderColor = 'transparent');
-      if (btn) btn.style.borderColor = '#c5a059';
-      const names = {
-        '#0f1c30': 'Navy Blue (#0F1C30)',
-        '#2a0a14': 'Deep Burgundy (#2A0A14)',
-        '#0a2217': 'Forest Green (#0A2217)',
-        '#1c1c2e': 'Slate Charcoal (#1C1C2E)',
-        '#1a0a2e': 'Royal Purple (#1A0A2E)'
-      };
-      document.getElementById('d4-pal-name').textContent = 'Selected: ' + (names[color] || color);
+    // Photo Handlers (Upload, Drag-and-Drop, Clipboard Paste, Any Size)
+    function triggerD4PhotoPick() {
+      const input = document.getElementById('d4-photo-file-input');
+      if (input) {
+        input.value = '';
+        input.click();
+      }
     }
 
-    // Photo Handlers
-    function handleD4PhotoUpload(e) {
-      const file = e.target.files && e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          const img = document.getElementById('d4-photo-img-view');
-          const placeholder = document.getElementById('d4-photo-placeholder-view');
+    function processImageFile(file) {
+      if (!file) return;
+      if (!file.type || !file.type.startsWith('image/')) {
+        alert('Kripya ek valid photo file chunein (JPG, PNG, WEBP, etc.)');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = document.getElementById('d4-photo-img-view');
+        const placeholder = document.getElementById('d4-photo-placeholder-view');
+        if (img && placeholder) {
           img.src = evt.target.result;
           img.style.display = 'block';
           placeholder.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
+        }
+      };
+      reader.onerror = function() {
+        alert('Photo load karne me problem aayi. Kripya doosri photo try karein.');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleD4PhotoUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      processImageFile(file);
+    }
+
+    function handlePhotoDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = document.getElementById('d4-photo-container');
+      if (container) container.style.outline = '2px dashed var(--d4-indicator, #ffb800)';
+    }
+
+    function handlePhotoDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = document.getElementById('d4-photo-container');
+      if (container) container.style.outline = 'none';
+    }
+
+    function handlePhotoDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = document.getElementById('d4-photo-container');
+      if (container) container.style.outline = 'none';
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processImageFile(e.dataTransfer.files[0]);
       }
     }
+
+    // Window Paste Listener for Canvas Photo
+    window.addEventListener('paste', (e) => {
+      if (currentDesign !== 'd4') return;
+      if (e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            processImageFile(blob);
+            break;
+          }
+        }
+      }
+    });
 
     function removeD4Photo() {
       const img = document.getElementById('d4-photo-img-view');
       const placeholder = document.getElementById('d4-photo-placeholder-view');
-      img.src = '';
-      img.style.display = 'none';
-      placeholder.style.display = 'flex';
+      if (img) {
+        img.src = '';
+        img.style.display = 'none';
+      }
+      if (placeholder) {
+        placeholder.style.display = 'flex';
+      }
       const fileInput = document.getElementById('d4-photo-file-input');
       if (fileInput) fileInput.value = '';
     }
@@ -2672,9 +2842,10 @@
       }
     }
 
-    // Auto-fit on load & default to Design 4: Mahii Luxury
+    // Auto-fit on load & default to Design 4: Mahii Luxury with Blue palette
     window.addEventListener('load', () => {
       switchDesign('d4');
+      selectD4Palette('blue');
       renderD4LangDots('l1');
       renderD4LangDots('l2');
       fitToScreen();
