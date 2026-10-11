@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'models/resume_category.dart';
 
 enum ResumeTemplateLayout { band, centered, sidebar, editorial }
 
@@ -10,6 +11,7 @@ class ResumeTemplateSpec {
   final Color accent;
   final ResumeTemplateLayout layout;
   final bool serif;
+  final ResumeCategory category;
 
   const ResumeTemplateSpec({
     required this.id,
@@ -19,17 +21,31 @@ class ResumeTemplateSpec {
     required this.accent,
     required this.layout,
     this.serif = false,
+    this.category = ResumeCategory.professional,
   });
 }
 
 const resumeTemplates = <ResumeTemplateSpec>[
+  // ── Canva-Style Modular Templates ───────────────────────────────────
+  ResumeTemplateSpec(
+      id: 'mahii_luxury',
+      name: 'Mahii Luxury',
+      tagline: 'Navy & Gold Executive — fully customizable',
+      isPremium: false,
+      accent: Color(0xFF0F1C30),
+      layout: ResumeTemplateLayout.sidebar,
+      serif: true,
+      category: ResumeCategory.professional),
+
+  // ── Legacy / Generic Templates ───────────────────────────────────────
   ResumeTemplateSpec(
       id: 'modern',
       name: 'Modern',
       tagline: 'Bold header, clean sections',
       isPremium: false,
       accent: Color(0xFF47545A),
-      layout: ResumeTemplateLayout.band),
+      layout: ResumeTemplateLayout.band,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'classic',
       name: 'Classic',
@@ -37,14 +53,16 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: false,
       accent: Color(0xFF364E6B),
       layout: ResumeTemplateLayout.centered,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'minimal',
       name: 'Minimal',
       tagline: 'Simple, generous spacing',
       isPremium: false,
       accent: Color(0xFF252525),
-      layout: ResumeTemplateLayout.editorial),
+      layout: ResumeTemplateLayout.editorial,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'elegant',
       name: 'Elegant',
@@ -52,42 +70,48 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: false,
       accent: Color(0xFF806B63),
       layout: ResumeTemplateLayout.centered,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'professional',
       name: 'Professional',
       tagline: 'Clear corporate structure',
       isPremium: false,
       accent: Color(0xFF315C70),
-      layout: ResumeTemplateLayout.band),
+      layout: ResumeTemplateLayout.band,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'creative',
       name: 'Creative',
       tagline: 'Colorful with a clear hierarchy',
       isPremium: false,
       accent: Color(0xFF8A4E86),
-      layout: ResumeTemplateLayout.sidebar),
+      layout: ResumeTemplateLayout.sidebar,
+      category: ResumeCategory.designed),
   ResumeTemplateSpec(
       id: 'standard',
       name: 'Standard',
       tagline: 'ATS-friendly single column',
       isPremium: false,
       accent: Color(0xFF405B4B),
-      layout: ResumeTemplateLayout.editorial),
+      layout: ResumeTemplateLayout.editorial,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'basic',
       name: 'Basic',
       tagline: 'Straightforward and readable',
       isPremium: false,
       accent: Color(0xFF4E5968),
-      layout: ResumeTemplateLayout.editorial),
+      layout: ResumeTemplateLayout.editorial,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'clean',
       name: 'Clean',
       tagline: 'Crisp teal accents',
       isPremium: false,
       accent: Color(0xFF008A91),
-      layout: ResumeTemplateLayout.band),
+      layout: ResumeTemplateLayout.band,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'simple',
       name: 'Simple',
@@ -95,7 +119,8 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: false,
       accent: Color(0xFF777777),
       layout: ResumeTemplateLayout.centered,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'executive',
       name: 'Executive',
@@ -103,7 +128,8 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: true,
       accent: Color(0xFF203A55),
       layout: ResumeTemplateLayout.sidebar,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'luxury',
       name: 'Luxury',
@@ -111,28 +137,32 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: true,
       accent: Color(0xFFAD873F),
       layout: ResumeTemplateLayout.centered,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.designed),
   ResumeTemplateSpec(
       id: 'designer',
       name: 'Designer',
       tagline: 'Portfolio-first composition',
       isPremium: true,
       accent: Color(0xFFB34D48),
-      layout: ResumeTemplateLayout.editorial),
+      layout: ResumeTemplateLayout.editorial,
+      category: ResumeCategory.designed),
   ResumeTemplateSpec(
       id: 'corporate',
       name: 'Corporate',
       tagline: 'Polished, structured layout',
       isPremium: true,
       accent: Color(0xFF123A62),
-      layout: ResumeTemplateLayout.sidebar),
+      layout: ResumeTemplateLayout.sidebar,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'tech',
       name: 'Tech',
       tagline: 'Technical skills up front',
       isPremium: true,
       accent: Color(0xFF4F46A5),
-      layout: ResumeTemplateLayout.band),
+      layout: ResumeTemplateLayout.band,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'artistic',
       name: 'Artistic',
@@ -140,14 +170,16 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: true,
       accent: Color(0xFFB15E35),
       layout: ResumeTemplateLayout.centered,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.designed),
   ResumeTemplateSpec(
       id: 'futuristic',
       name: 'Futuristic',
       tagline: 'Sharp lines and vivid contrast',
       isPremium: true,
       accent: Color(0xFF087E8B),
-      layout: ResumeTemplateLayout.sidebar),
+      layout: ResumeTemplateLayout.sidebar,
+      category: ResumeCategory.modern),
   ResumeTemplateSpec(
       id: 'elite',
       name: 'Elite',
@@ -155,7 +187,8 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: true,
       accent: Color(0xFF563E75),
       layout: ResumeTemplateLayout.band,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.professional),
   ResumeTemplateSpec(
       id: 'platinum',
       name: 'Platinum',
@@ -163,14 +196,16 @@ const resumeTemplates = <ResumeTemplateSpec>[
       isPremium: true,
       accent: Color(0xFF71808A),
       layout: ResumeTemplateLayout.editorial,
-      serif: true),
+      serif: true,
+      category: ResumeCategory.designed),
   ResumeTemplateSpec(
       id: 'premium',
       name: 'Premium',
       tagline: 'Modern signature design',
       isPremium: true,
       accent: Color(0xFF087C73),
-      layout: ResumeTemplateLayout.centered),
+      layout: ResumeTemplateLayout.centered,
+      category: ResumeCategory.modern),
 ];
 
 ResumeTemplateSpec? resumeTemplateById(String id) {

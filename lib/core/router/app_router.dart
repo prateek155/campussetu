@@ -23,6 +23,7 @@ import '../../features/products/products_screen.dart';
 import '../../features/products/product_detail_screen.dart';
 import '../../features/resume/resume_screen.dart';
 import '../../features/resume/resume_editor_screen.dart';
+import '../../features/resume/templates/professional/template_mahii_luxury.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/profile/account_password_screen.dart';
 import '../../features/profile/settings_screen.dart';
@@ -188,12 +189,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.admin, builder: (_, __) => const AdminShell()),
       GoRoute(
         path: AppRoutes.resumeEditor,
-        builder: (_, state) => ResumeEditorScreen(
-          templateId: state.pathParameters['templateId']!,
-          resumeId: state.uri.queryParameters['resumeId'],
-          handoffCode: state.uri.queryParameters['handoff'],
-          downloadIntent: state.uri.queryParameters['intent'] == 'download',
-        ),
+        builder: (_, state) {
+          final templateId = state.pathParameters['templateId']!;
+          // Canva-style modular templates: route to their dedicated screen
+          if (templateId == 'mahii_luxury') {
+            return const MahiiLuxuryTemplate();
+          }
+          // Legacy / generic editor for all other existing templates
+          return ResumeEditorScreen(
+            templateId: templateId,
+            resumeId: state.uri.queryParameters['resumeId'],
+            handoffCode: state.uri.queryParameters['handoff'],
+            downloadIntent: state.uri.queryParameters['intent'] == 'download',
+          );
+        },
+      ),
+      // Dedicated route for Mahii Luxury Professional template
+      GoRoute(
+        path: '/resume/mahii_luxury',
+        builder: (_, __) => const MahiiLuxuryTemplate(),
       ),
       GoRoute(
           path: AppRoutes.adminAddDeal,

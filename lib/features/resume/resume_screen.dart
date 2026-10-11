@@ -10,8 +10,11 @@ import '../../core/services/api_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/premium_badge.dart';
+import 'models/resume_category.dart';
 import 'resume_document_preview.dart';
 import 'resume_templates.dart';
+import 'templates/resume_template_registry.dart';
+import 'widgets/resume_category_selector.dart';
 
 class ResumeScreen extends ConsumerStatefulWidget {
   const ResumeScreen({super.key});
@@ -26,6 +29,7 @@ class _ResumeScreenState extends ConsumerState<ResumeScreen>
   bool _loadingResumes = true;
   String? _resumeError;
   String? _openingKey;
+  ResumeCategory? _selectedCategory;
 
   @override
   void initState() {
@@ -82,6 +86,14 @@ class _ResumeScreenState extends ConsumerState<ResumeScreen>
       _showPremiumDialog(template);
       return;
     }
+
+    // ── Canva-style modular templates: open directly (no API handoff needed) ──
+    const _modularTemplateIds = {'mahii_luxury'};
+    if (_modularTemplateIds.contains(template.id)) {
+      context.push('/resume/${template.id}');
+      return;
+    }
+
     if (kIsWeb) {
       final query = <String, String>{
         if (resumeId != null) 'resumeId': resumeId,
@@ -182,39 +194,69 @@ class _ResumeScreenState extends ConsumerState<ResumeScreen>
           padding: const EdgeInsets.fromLTRB(18, 6, 18, 34),
           children: [
             _intro(isPremium),
-            const SizedBox(height: 23),
-            Row(children: [
-              Expanded(
-                  child: Text('Choose a design',
-                      style: AppTypography.soraHeading3())),
-              Text('10 free  ·  10 premium',
-                  style: AppTypography.interCaption(color: AppColors.inkSoft)),
-            ]),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: resumeTemplates.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 15,
-                childAspectRatio: columns == 2 ? 0.60 : 0.68,
-              ),
-              itemBuilder: (context, index) {
-                final template = resumeTemplates[index];
-                final sample = sampleResumeDocument();
-                final isLocked = template.isPremium && !isPremium;
-                final key = template.id;
-                return _TemplateCard(
-                  template: template,
-                  document: sample,
-                  locked: isLocked,
-                  busy: _openingKey == key,
-                  onTap: () => _openEditor(template),
-                );
-              },
+            const SizedBox(height: 20),
+            ResumeCategorySelector(
+              selectedCategory: _selectedCategory,
+              onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
             ),
+            const SizedBox(height: 18),
+            Builder(builder: (context) {
+              final displayedTemplates = ResumeTemplateRegistry.instance
+                  .getTemplates(category: _selectedCategory);
+              final freeCount =
+                  displayedTemplates.where((t) => !t.isPremium).length;
+              final proCount =
+                  displayedTemplates.where((t) => t.isPremium).length;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        _selectedCategory == null
+                            ? 'All Curated Designs'
+                            : '${_selectedCategory!.emoji} ${_selectedCategory!.label} Designs',
+                        style: AppTypography.soraHeading3(),
+                      ),
+                    ),
+                    Text('$freeCount free  ·  $proCount premium',
+                        style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                  ]),
+                  const SizedBox(height: 12),
+                  if (displayedTemplates.isEmpty)
+                    const _MessageCard(
+                      icon: Icons.filter_alt_off_rounded,
+                      text: 'No templates currently available in this category.',
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: displayedTemplates.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 15,
+                        childAspectRatio: columns == 2 ? 0.60 : 0.68,
+                      ),
+                      itemBuilder: (context, index) {
+                        final template = displayedTemplates[index];
+                        final sample = sampleResumeDocument();
+                        final isLocked = template.isPremium && !isPremium;
+                        final key = template.id;
+                        return _TemplateCard(
+                          template: template,
+                          document: sample,
+                          locked: isLocked,
+                          busy: _openingKey == key,
+                          onTap: () => _openEditor(template),
+                        );
+                      },
+                    ),
+                ],
+              );
+            }),
             const SizedBox(height: 30),
             Row(children: [
               Expanded(
@@ -361,6 +403,28 @@ class _TemplateCard extends StatelessWidget {
                             top: 8,
                             right: 8,
                             child: PremiumBadge(label: 'PRO', isSmall: true)),
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18)),
+                          ),
+                          child: Text(
+                            '${template.category.emoji} ${template.category.label}',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                     ]))),
             Padding(
                 padding: const EdgeInsets.fromLTRB(11, 9, 11, 2),

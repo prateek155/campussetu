@@ -38,6 +38,9 @@ class ResumeDocumentPreview extends StatelessWidget {
       );
 
   Widget _page() {
+    if (template.id == 'mahii_luxury') {
+      return _mahiiLuxuryPreview();
+    }
     if (template.layout == ResumeTemplateLayout.sidebar) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -377,6 +380,242 @@ class ResumeDocumentPreview extends StatelessWidget {
     final value = map[key]?.toString().trim() ?? '';
     return value.isEmpty ? fallback : value;
   }
+
+  Widget _mahiiLuxuryPreview() {
+    const navy = Color(0xFF0F1C30);
+    const gold = Color(0xFFC5A059);
+    final name = _value(_personal, 'name', 'PRATEEK').toUpperCase();
+    final title =
+        _value(_personal, 'headline', 'GRAPHIC DESIGNER').toUpperCase();
+    final firstName = name.split(' ').first;
+    final sig = firstName.isEmpty
+        ? 'Prateek'
+        : firstName[0].toUpperCase() + firstName.substring(1).toLowerCase();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Navy Sidebar
+        Container(
+          width: 152,
+          color: navy,
+          padding: const EdgeInsets.fromLTRB(14, 20, 14, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: gold, width: 2),
+                  ),
+                  child: Center(
+                    child: Icon(Icons.person_outline_rounded,
+                        color: gold.withValues(alpha: 0.8), size: 28),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                Icon(Icons.person_outline, size: 10, color: gold),
+                const SizedBox(width: 4),
+                const Text('CONTACT',
+                    style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: gold,
+                        letterSpacing: 1)),
+              ]),
+              const SizedBox(height: 4),
+              Text('+91 98765 43210',
+                  style: const TextStyle(fontSize: 6.5, color: Colors.white70)),
+              Text('prateek@gmail.com',
+                  style: const TextStyle(fontSize: 6.5, color: Colors.white70)),
+              Text('Bhopal, India',
+                  style: const TextStyle(fontSize: 6.5, color: Colors.white70)),
+              const SizedBox(height: 10),
+              Row(children: [
+                Icon(Icons.school_outlined, size: 10, color: gold),
+                const SizedBox(width: 4),
+                const Text('EDUCATION',
+                    style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: gold,
+                        letterSpacing: 1)),
+              ]),
+              const SizedBox(height: 4),
+              const Text('B.Sc Computer Science',
+                  style: TextStyle(
+                      fontSize: 6.5,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold)),
+              const Text('AISECT University | 2019-2023',
+                  style: TextStyle(fontSize: 6, color: Colors.white54)),
+              const SizedBox(height: 10),
+              Row(children: [
+                Icon(Icons.settings_outlined, size: 10, color: gold),
+                const SizedBox(width: 4),
+                const Text('SKILLS',
+                    style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: gold,
+                        letterSpacing: 1)),
+              ]),
+              const SizedBox(height: 4),
+              _miniSkillBar('Flutter / Dart', 0.9, gold),
+              _miniSkillBar('Firebase', 0.85, gold),
+              _miniSkillBar('UI Design', 0.78, gold),
+              const Spacer(),
+              Center(
+                child: Column(
+                  children: [
+                    Text(
+                      sig,
+                      style: const TextStyle(
+                        fontFamily: 'serif',
+                        fontSize: 18,
+                        color: gold,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'DESIGN • CREATE • INSPIRE',
+                      style: TextStyle(
+                        fontSize: 5,
+                        letterSpacing: 1,
+                        color: gold.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Right Canvas
+        Expanded(
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(20, 24, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontFamily: 'serif',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: navy,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    color: gold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(width: 32, height: 1.5, color: gold),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Icon(Icons.person_outline, size: 11, color: navy),
+                  const SizedBox(width: 5),
+                  const Text('PROFESSIONAL SUMMARY',
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: navy,
+                          letterSpacing: 0.5)),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  'Creative and detail-oriented professional with passion for designing visually stunning, modern and effective products.',
+                  style: TextStyle(
+                      fontSize: 7.5, color: Colors.grey[700], height: 1.3),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Icon(Icons.work_outline, size: 11, color: navy),
+                  const SizedBox(width: 5),
+                  const Text('EXPERIENCE',
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: navy,
+                          letterSpacing: 0.5)),
+                ]),
+                const SizedBox(height: 4),
+                const Text('Software Developer',
+                    style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.bold,
+                        color: navy)),
+                const Text('TechSolutions Pvt. Ltd. | 2023 - Present',
+                    style: TextStyle(
+                        fontSize: 7, color: gold, fontStyle: FontStyle.italic)),
+                const SizedBox(height: 2),
+                Text('• Built cross-platform mobile apps with Flutter & Firebase.',
+                    style: TextStyle(fontSize: 7, color: Colors.grey[700])),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FB),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Father: Rajesh",
+                          style: TextStyle(fontSize: 6, color: Colors.grey[600])),
+                      Text("DOB: 12 Mar 2001",
+                          style: TextStyle(fontSize: 6, color: Colors.grey[600])),
+                      Text("Gender: Male",
+                          style: TextStyle(fontSize: 6, color: Colors.grey[600])),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _miniSkillBar(String label, double level, Color gold) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(fontSize: 6, color: Colors.white70)),
+            const SizedBox(height: 1),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: level,
+                minHeight: 2.5,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(gold),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 Map<String, dynamic> _asMap(dynamic value) =>
