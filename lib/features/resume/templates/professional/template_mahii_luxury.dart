@@ -488,7 +488,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
               child: pw.Center(
                 child: pw.Text(
                   label,
-                  style: pw.TextStyle(
+                  style: const pw.TextStyle(
                     fontSize: 5.5,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.black,
@@ -505,6 +505,118 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                   color: PdfColors.white,
                   fontSize: 7.2,
                 ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Helper: Footer Icons (Crisp Vectors) ──
+    pw.Widget pdfIconPerson() {
+      return pw.CustomPaint(
+        size: const PdfPoint(12, 12),
+        painter: (canvas, size) {
+          canvas.setStrokeColor(const PdfColor.fromInt(0xFF64748B));
+          canvas.setLineWidth(0.85);
+          // Head
+          canvas.drawEllipse(size.x / 2, size.y * 0.72, 2.3, 2.3);
+          canvas.strokePath();
+          // Shoulders
+          canvas.moveTo(size.x * 0.15, size.y * 0.15);
+          canvas.curveTo(size.x * 0.22, size.y * 0.45, size.x * 0.78,
+              size.y * 0.45, size.x * 0.85, size.y * 0.15);
+          canvas.strokePath();
+        },
+      );
+    }
+
+    pw.Widget pdfIconCalendar() {
+      return pw.CustomPaint(
+        size: const PdfPoint(12, 12),
+        painter: (canvas, size) {
+          canvas.setStrokeColor(const PdfColor.fromInt(0xFF64748B));
+          canvas.setLineWidth(0.85);
+          // Box
+          canvas.drawRect(
+              size.x * 0.12, size.y * 0.12, size.x * 0.76, size.y * 0.68);
+          canvas.strokePath();
+          // Header divider
+          canvas.moveTo(size.x * 0.12, size.y * 0.56);
+          canvas.lineTo(size.x * 0.88, size.y * 0.56);
+          canvas.strokePath();
+          // Two top rings
+          canvas.moveTo(size.x * 0.32, size.y * 0.8);
+          canvas.lineTo(size.x * 0.32, size.y * 0.98);
+          canvas.moveTo(size.x * 0.68, size.y * 0.8);
+          canvas.lineTo(size.x * 0.68, size.y * 0.98);
+          canvas.strokePath();
+        },
+      );
+    }
+
+    pw.Widget pdfIconGender() {
+      return pw.CustomPaint(
+        size: const PdfPoint(12, 12),
+        painter: (canvas, size) {
+          canvas.setStrokeColor(const PdfColor.fromInt(0xFF64748B));
+          canvas.setLineWidth(0.85);
+          // Central ring
+          canvas.drawEllipse(size.x / 2, size.y * 0.42, 2.7, 2.7);
+          canvas.strokePath();
+          // Top right arrow (Male)
+          canvas.moveTo(size.x * 0.7, size.y * 0.62);
+          canvas.lineTo(size.x * 0.92, size.y * 0.88);
+          canvas.moveTo(size.x * 0.92, size.y * 0.68);
+          canvas.lineTo(size.x * 0.92, size.y * 0.88);
+          canvas.lineTo(size.x * 0.72, size.y * 0.88);
+          canvas.strokePath();
+        },
+      );
+    }
+
+    pw.Widget pdfIconHeart() {
+      return pw.CustomPaint(
+        size: const PdfPoint(12, 12),
+        painter: (canvas, size) {
+          canvas.setStrokeColor(const PdfColor.fromInt(0xFF64748B));
+          canvas.setLineWidth(0.85);
+          // Heart outline
+          canvas.moveTo(size.x * 0.5, size.y * 0.18);
+          canvas.curveTo(size.x * 0.12, size.y * 0.48, size.x * 0.12,
+              size.y * 0.82, size.x * 0.5, size.y * 0.62);
+          canvas.curveTo(size.x * 0.88, size.y * 0.82, size.x * 0.88,
+              size.y * 0.48, size.x * 0.5, size.y * 0.18);
+          canvas.strokePath();
+        },
+      );
+    }
+
+    pw.Widget pdfFooterItem(
+        pw.Widget iconWidget, String label, String value) {
+      return pw.Expanded(
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            iconWidget,
+            pw.SizedBox(height: 2),
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: boldFont,
+                fontSize: 5.2,
+                color: const PdfColor.fromInt(0xFF94A3B8),
+                letterSpacing: 0.4,
+              ),
+            ),
+            pw.SizedBox(height: 1.5),
+            pw.Text(
+              clean(value),
+              style: pw.TextStyle(
+                font: boldFont,
+                fontSize: 7.2,
+                fontWeight: pw.FontWeight.bold,
+                color: pdfNavy,
               ),
             ),
           ],
@@ -757,7 +869,7 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                                           shape: pw.BoxShape.circle,
                                           color: filled
                                               ? pdfIndicator
-                                              : PdfColor.fromInt(0x35FFFFFF),
+                                              : const PdfColor.fromInt(0x35FFFFFF),
                                         ),
                                       );
                                     }),
@@ -1176,39 +1288,31 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
 
                           pw.Spacer(),
 
-                          // ── FOOTER PROFILE STRIP ──
+                          // ── FOOTER PROFILE STRIP (WITH ICONS) ──
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: const pw.BoxDecoration(
-                              color: PdfColor.fromInt(0xFFF8F9FB),
+                                horizontal: 10, vertical: 6.5),
+                            decoration: pw.BoxDecoration(
+                              color: const PdfColor.fromInt(0xFFF8F9FB),
                               borderRadius:
-                                  pw.BorderRadius.all(pw.Radius.circular(4)),
+                                  const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              border: pw.Border.all(
+                                color: const PdfColor.fromInt(0xFFE2E8F0),
+                                width: 0.8,
+                              ),
                             ),
                             child: pw.Row(
                               mainAxisAlignment:
                                   pw.MainAxisAlignment.spaceBetween,
                               children: [
-                                pw.Text("Father: ${clean(_fatherCtrl.text)}",
-                                    style: pw.TextStyle(
-                                        font: regularFont,
-                                        fontSize: 6.5,
-                                        color: PdfColors.grey700)),
-                                pw.Text("DOB: ${clean(_dobCtrl.text)}",
-                                    style: pw.TextStyle(
-                                        font: regularFont,
-                                        fontSize: 6.5,
-                                        color: PdfColors.grey700)),
-                                pw.Text("Gender: ${clean(_genderCtrl.text)}",
-                                    style: pw.TextStyle(
-                                        font: regularFont,
-                                        fontSize: 6.5,
-                                        color: PdfColors.grey700)),
-                                pw.Text("Marital: ${clean(_maritalCtrl.text)}",
-                                    style: pw.TextStyle(
-                                        font: regularFont,
-                                        fontSize: 6.5,
-                                        color: PdfColors.grey700)),
+                                pdfFooterItem(pdfIconPerson(), "FATHER'S NAME",
+                                    _fatherCtrl.text),
+                                pdfFooterItem(pdfIconCalendar(), 'DATE OF BIRTH',
+                                    _dobCtrl.text),
+                                pdfFooterItem(pdfIconGender(), 'GENDER',
+                                    _genderCtrl.text),
+                                pdfFooterItem(pdfIconHeart(), 'MARITAL STATUS',
+                                    _maritalCtrl.text),
                               ],
                             ),
                           ),
@@ -1480,8 +1584,8 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white12),
           ),
-          child: Row(
-            children: const [
+          child: const Row(
+            children: [
               Icon(Icons.touch_app_rounded, color: Color(0xFF38BDF8), size: 18),
               SizedBox(width: 8),
               Expanded(
