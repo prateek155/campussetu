@@ -1851,9 +1851,9 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
     return Stack(
       children: [
         Container(
-          width: 265,
+          width: 275,
           color: _sidebar,
-          padding: const EdgeInsets.fromLTRB(22, 32, 22, 24),
+          padding: const EdgeInsets.fromLTRB(20, 32, 42, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1939,21 +1939,24 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _sidebarHeading('EDUCATION'),
-                  IconButton(
-                    icon: Icon(Icons.add_circle_outline_rounded,
-                        color: _indicator, size: 16),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Add Education Degree',
-                    onPressed: () {
-                      setState(() {
-                        _eduEntries.add(_EduItem(
-                          degree: 'New Degree / Certification',
-                          inst: 'Institute Name',
-                          year: '2023 – 2024',
-                        ));
-                      });
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Icon(Icons.add_circle_outline_rounded,
+                          color: _indicator, size: 17),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Add Education Degree',
+                      onPressed: () {
+                        setState(() {
+                          _eduEntries.add(_EduItem(
+                            degree: 'New Degree / Certification',
+                            inst: 'Institute Name',
+                            year: '2023 – 2024',
+                          ));
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -1971,17 +1974,20 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _sidebarHeading('SKILLS'),
-                  IconButton(
-                    icon: Icon(Icons.add_circle_outline_rounded,
-                        color: _indicator, size: 16),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Add Skill',
-                    onPressed: () {
-                      setState(() {
-                        _skills.add(_SkillItem('New Skill', 0.75));
-                      });
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Icon(Icons.add_circle_outline_rounded,
+                          color: _indicator, size: 17),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Add Skill',
+                      onPressed: () {
+                        setState(() {
+                          _skills.add(_SkillItem('New Skill', 0.75));
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -1999,17 +2005,20 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _sidebarHeading('LANGUAGES'),
-                  IconButton(
-                    icon: Icon(Icons.add_circle_outline_rounded,
-                        color: _indicator, size: 16),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Add Language',
-                    onPressed: () {
-                      setState(() {
-                        _langs.add(_LangItem('New Language', 5));
-                      });
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Icon(Icons.add_circle_outline_rounded,
+                          color: _indicator, size: 17),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Add Language',
+                      onPressed: () {
+                        setState(() {
+                          _langs.add(_LangItem('New Language', 5));
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -2141,10 +2150,20 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                   ),
                 ),
                 if (_eduEntries.length > 1)
-                  GestureDetector(
-                    onTap: () => setState(() => _eduEntries.removeAt(index)),
-                    child: const Icon(Icons.close_rounded,
-                        color: Colors.white38, size: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6, right: 2),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _eduEntries.removeAt(index)),
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white70, size: 10),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -2187,11 +2206,21 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                       fontWeight: FontWeight.bold),
                 ),
                 if (_skills.length > 1) ...[
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => setState(() => _skills.removeAt(index)),
-                    child: const Icon(Icons.close_rounded,
-                        color: Colors.white38, size: 11),
+                  const SizedBox(width: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _skills.removeAt(index)),
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white70, size: 10),
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -2226,9 +2255,9 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
                 return GestureDetector(
                   onTap: () => setState(() => l.dots = d + 1),
                   child: Container(
-                    width: 9,
-                    height: 9,
-                    margin: const EdgeInsets.only(left: 3),
+                    width: 8.5,
+                    height: 8.5,
+                    margin: const EdgeInsets.only(left: 2.5),
                     decoration: BoxDecoration(
                       color: filled ? _indicator : _pal.dotInactiveColor,
                       shape: BoxShape.circle,
@@ -2238,11 +2267,21 @@ class _MahiiLuxuryTemplateState extends State<MahiiLuxuryTemplate> {
               }),
             ),
             if (_langs.length > 1) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => setState(() => _langs.removeAt(index)),
-                child: const Icon(Icons.close_rounded,
-                    color: Colors.white38, size: 11),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(right: 2),
+                child: GestureDetector(
+                  onTap: () => setState(() => _langs.removeAt(index)),
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white70, size: 10),
+                  ),
+                ),
               ),
             ],
           ],
