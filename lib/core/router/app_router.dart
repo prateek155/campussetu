@@ -13,8 +13,7 @@ import '../../features/connect/connect_screen.dart';
 import '../../features/connect/invitation_manager_screen.dart';
 import '../../features/connect/manage_network_screen.dart';
 import '../../features/connect/connections_screen.dart';
-import '../../features/chat/chat_list_screen.dart';
-import '../../features/chat/chat_detail_screen.dart';
+import '../../features/money/money_screen.dart';
 import '../../features/tshare/tshare_screen.dart';
 import '../../features/jobs/jobs_screen.dart';
 import '../../features/helping/helping_task_detail_screen.dart';
@@ -66,8 +65,7 @@ class AppRoutes {
   static const profileSetup = '/profile-setup';
   static const home = '/home';
   static const connect = '/connect';
-  static const chat = '/chat';
-  static const chatDetail = '/chat/:chatId';
+  static const money = '/money';
   static const tshare = '/tshare';
   static const jobs = '/jobs';
   static const helping = '/helping';
@@ -255,7 +253,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: AppRoutes.connect,
               builder: (_, __) => const ConnectScreen()),
           GoRoute(
-              path: AppRoutes.chat, builder: (_, __) => const ChatListScreen()),
+              path: AppRoutes.money, builder: (_, __) => const MoneyScreen()),
           GoRoute(
             path: AppRoutes.profile,
             builder: (_, state) {
@@ -265,30 +263,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // Legacy chat fallback redirects to Money
       GoRoute(
-        path: AppRoutes.chatDetail,
-            builder: (_, state) {
-              final rawExtra = state.extra;
-              final chat = rawExtra is Map
-                  ? Map<String, dynamic>.from(rawExtra)
-                  : <String, dynamic>{};
-              final otherUser = chat['other_user'] is Map
-                  ? Map<String, dynamic>.from(chat['other_user'] as Map)
-                  : <String, dynamic>{};
-              return ChatDetailScreen(
-                chatId: state.pathParameters['chatId']!,
-                displayName: (chat['name'] ??
-                        otherUser['name'] ??
-                        chat['group_name'] ??
-                        'Conversation')
-                    .toString(),
-                avatarUrl: (chat['avatar_url'] ??
-                        chat['photo_url'] ??
-                        otherUser['photo_url'])
-                    ?.toString(),
-              );
-            },
-          ),
+        path: '/chat',
+        redirect: (_, __) => AppRoutes.money,
+      ),
+      GoRoute(
+        path: '/chat/:chatId',
+        redirect: (_, __) => AppRoutes.money,
+      ),
           GoRoute(
               path: AppRoutes.tshare, builder: (_, __) => const TshareScreen()),
           GoRoute(

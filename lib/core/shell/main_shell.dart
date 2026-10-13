@@ -18,7 +18,7 @@ class MainShell extends ConsumerWidget {
   static const _baseNavItems = [
     NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
     NavItem(icon: Icons.people_outline, activeIcon: Icons.people_rounded, label: 'Connect'),
-    NavItem(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble_rounded, label: 'Chat'),
+    NavItem(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Money'),
     NavItem(icon: Icons.work_outline, activeIcon: Icons.work_rounded, label: 'Work'),
     NavItem(icon: Icons.person_outline, activeIcon: Icons.person_rounded, label: 'Profile'),
   ];
@@ -26,7 +26,7 @@ class MainShell extends ConsumerWidget {
   static const _routes = [
     AppRoutes.home,
     AppRoutes.connect,
-    AppRoutes.chat,
+    AppRoutes.money,
     AppRoutes.jobs,
     AppRoutes.profile,
   ];
@@ -43,7 +43,6 @@ class MainShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = _currentIndex(context);
-    final chatUnread = ref.watch(chatUnreadCountProvider).value ?? 0;
     final jobsNew = ref.watch(jobsNewCountProvider).value ?? 0;
     final updateAsync = ref.watch(updateAvailableProvider);
     final updateInfo = updateAsync.value;
@@ -51,7 +50,7 @@ class MainShell extends ConsumerWidget {
     final navItems = [
       _baseNavItems[0],
       _baseNavItems[1],
-      _baseNavItems[2].copyWith(badgeCount: chatUnread),
+      _baseNavItems[2],
       _baseNavItems[3].copyWith(badgeCount: jobsNew),
       _baseNavItems[4],
     ];

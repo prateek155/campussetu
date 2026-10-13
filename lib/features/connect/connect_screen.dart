@@ -83,7 +83,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with SingleTicker
                 ),
               ),
               const SizedBox(width: 10),
-              Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.cyanDeep.withValues(alpha: 0.12), shape: BoxShape.circle), child: IconButton(icon: const Icon(Icons.chat_bubble_rounded, size: 16, color: AppColors.cyanDeep), onPressed: () => context.go(AppRoutes.chat))),
+              Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.cyanDeep.withValues(alpha: 0.12), shape: BoxShape.circle), child: IconButton(icon: const Icon(Icons.account_balance_wallet_rounded, size: 16, color: AppColors.cyanDeep), onPressed: () => context.go(AppRoutes.money))),
             ]),
           ),
           const SizedBox(height: 8),
