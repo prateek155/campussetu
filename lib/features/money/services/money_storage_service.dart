@@ -3,7 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/money_models.dart';
 
 class MoneyStorageService {
-  static const String _key = 'campussetu_money_db_v1';
+  static const String _legacyKey = 'campussetu_money_db_v1';
+  static const String _prodKeyPrefix = 'campussetu_money_prod_v2';
   static MoneyStorageService? _instance;
 
   MoneyStorageService._();
@@ -16,17 +17,56 @@ class MoneyStorageService {
   List<SplitBill> _splits = [];
   double _budget = 8000.0;
   bool _initialized = false;
+  String? _activeUserId;
+  Future<void>? _initFuture;
 
   List<MoneyTransaction> get transactions => List.unmodifiable(_transactions);
   List<UdhaarLoan> get loans => List.unmodifiable(_loans);
   List<SplitGroup> get groups => List.unmodifiable(_groups);
   List<SplitBill> get splits => List.unmodifiable(_splits);
   double get budget => _budget;
+  String? get activeUserId => _activeUserId;
 
-  Future<void> init() async {
-    if (_initialized) return;
+  static String _getStorageKey(String? userId) {
+    final safeId = (userId == null || userId.trim().isEmpty) ? 'default' : userId.trim();
+    return '${_prodKeyPrefix}_$safeId';
+  }
+
+  Future<void> init([String? userId]) {
+    if (_initialized && _activeUserId == userId) {
+      return Future.value();
+    }
+    if (_initFuture != null) {
+      return _initFuture!;
+    }
+    _initFuture = _doInit(userId).whenComplete(() {
+      _initFuture = null;
+    });
+    return _initFuture!;
+  }
+
+  Future<void> _doInit(String? userId) async {
+    _activeUserId = userId;
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+
+    // 1. Purge legacy dummy data stored under v1 key if present
+    if (prefs.containsKey(_legacyKey)) {
+      try {
+        final legacyRaw = prefs.getString(_legacyKey);
+        if (legacyRaw != null &&
+            (legacyRaw.contains('Canteen Lunch') ||
+             legacyRaw.contains('Python Book Xerox') ||
+             legacyRaw.contains('Rahul Sharma'))) {
+          await prefs.remove(_legacyKey);
+        }
+      } catch (_) {
+        await prefs.remove(_legacyKey);
+      }
+    }
+
+    // 2. Load from production user-scoped key
+    final key = _getStorageKey(userId);
+    final raw = prefs.getString(key);
     if (raw != null && raw.isNotEmpty) {
       try {
         final data = jsonDecode(raw) as Map<String, dynamic>;
@@ -44,114 +84,39 @@ class MoneyStorageService {
             .toList() ?? [];
         _budget = (data['budget'] as num?)?.toDouble() ?? 8000.0;
       } catch (_) {
-        _seedDefaults();
+        // Fallback to clean state on corrupted data
+        _transactions = [];
+        _loans = [];
+        _groups = [];
+        _splits = [];
+        _budget = 8000.0;
       }
     } else {
-      _seedDefaults();
-      await _persist();
+      // Clean production start - zero dummy/static data
+      _transactions = [];
+      _loans = [];
+      _groups = [];
+      _splits = [];
+      _budget = 8000.0;
     }
     _initialized = true;
   }
 
-  void _seedDefaults() {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    _transactions = [
-      MoneyTransaction(
-        id: '1',
-        type: 'expense',
-        amount: 180.0,
-        title: 'Canteen Lunch',
-        category: 'Food',
-        date: today,
-        method: 'UPI',
-        note: 'With friends',
-      ),
-      MoneyTransaction(
-        id: '2',
-        type: 'expense',
-        amount: 60.0,
-        title: 'Campus Auto',
-        category: 'Travel',
-        date: today,
-        method: 'UPI',
-        note: 'To metro',
-      ),
-      MoneyTransaction(
-        id: '3',
-        type: 'expense',
-        amount: 450.0,
-        title: 'Python Book Xerox',
-        category: 'Study',
-        date: today,
-        method: 'Cash',
-        note: 'Semester 5 notes',
-      ),
-      MoneyTransaction(
-        id: '4',
-        type: 'income',
-        amount: 6000.0,
-        title: 'Monthly Pocket Money',
-        category: 'Bills',
-        date: today,
-        method: 'Bank transfer',
-        note: 'From home',
-      ),
-    ];
-
-    _loans = [
-      UdhaarLoan(
-        id: 'l1',
-        friend: 'Rahul Sharma',
-        direction: 'lent',
-        amount: 500.0,
-        remaining: 500.0,
-        date: today,
-        note: 'Zomato order',
-      ),
-      UdhaarLoan(
-        id: 'l2',
-        friend: 'Ananya Verma',
-        direction: 'borrowed',
-        amount: 200.0,
-        remaining: 200.0,
-        date: today,
-        note: 'Printout cash',
-      ),
-    ];
-
-    _groups = [
-      SplitGroup(
-        id: 'g1',
-        name: 'Room 204 (Hostel)',
-        members: ['You', 'Rahul', 'Aditi', 'Rohan'],
-      ),
-    ];
-
-    _splits = [
-      SplitBill(
-        id: 's1',
-        groupId: 'g1',
-        title: 'Wifi Bill Oct',
-        amount: 800.0,
-        payer: 'You',
-        mode: 'Equal',
-        date: today,
-      ),
-    ];
-
-    _budget = 8000.0;
-  }
-
   Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = {
-      'transactions': _transactions.map((t) => t.toJson()).toList(),
-      'loans': _loans.map((l) => l.toJson()).toList(),
-      'groups': _groups.map((g) => g.toJson()).toList(),
-      'splits': _splits.map((s) => s.toJson()).toList(),
-      'budget': _budget,
-    };
-    await prefs.setString(_key, jsonEncode(data));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getStorageKey(_activeUserId);
+      final data = {
+        'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'loans': _loans.map((l) => l.toJson()).toList(),
+        'groups': _groups.map((g) => g.toJson()).toList(),
+        'splits': _splits.map((s) => s.toJson()).toList(),
+        'budget': _budget,
+      };
+      await prefs.setString(key, jsonEncode(data));
+    } catch (_) {
+      // Prevent crash if local storage fails temporarily
+    }
   }
 
   // Transactions

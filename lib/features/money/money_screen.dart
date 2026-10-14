@@ -38,8 +38,9 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
   }
 
   Future<void> _loadData() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
     setState(() => _isLoading = true);
-    await _storage.init();
+    await _storage.init(user?.id);
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -95,6 +96,15 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     final photoUrl = user?.photoUrl;
     final initials = _getInitials(userName);
 
+    // Keep storage in sync with active user ID once loaded
+    if (!_isLoading && user?.id != null && _storage.activeUserId != user?.id) {
+      Future.microtask(() async {
+        if (!mounted) return;
+        await _storage.init(user?.id);
+        if (mounted) setState(() {});
+      });
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0C101C),
       body: _isLoading
@@ -104,39 +114,22 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
               bottom: false,
               child: CustomScrollView(
                 slivers: [
-                  // Sliver Top Banner
+                  // 1. Top Hero Section with Overlaid Floating Summary Bar
                   SliverToBoxAdapter(
-                    child: _buildTopBanner(firstName, userName, photoUrl, initials),
+                    child: _buildHeroWithSummaryBar(firstName, userName, photoUrl, initials),
                   ),
 
-                  // Floating 3-Column Summary Bar
+                  // 2. 5 Sub-Tabs Navigation Strip
                   SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: const Offset(0, -44),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        child: _buildSummaryBar(),
-                      ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                      child: _buildSubNavTabs(),
                     ),
                   ),
 
-                  // 5 Sub-Tabs Navigation Strip
+                  // 3. Tab Content
                   SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: const Offset(0, -32),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        child: _buildSubNavTabs(),
-                      ),
-                    ),
-                  ),
-
-                  // Tab Content
-                  SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: const Offset(0, -22),
-                      child: _buildActiveTabContent(userName),
-                    ),
+                    child: _buildActiveTabContent(userName),
                   ),
 
                   const SliverToBoxAdapter(
@@ -148,224 +141,241 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     );
   }
 
-  // ================= 1. TOP HERO BANNER =================
-  Widget _buildTopBanner(String firstName, String fullName, String? photoUrl, String initials) {
+  // ================= 1. TOP HERO BANNER & FLOATING SUMMARY BAR =================
+  Widget _buildHeroWithSummaryBar(String firstName, String fullName, String? photoUrl, String initials) {
     final monthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
+    const double overlap = 36.0;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1E2E78), Color(0xFF293C98), Color(0xFF17245E)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      child: Stack(
-        children: [
-          // Overlapping decorative circles matching CampusSetu wave aesthetic
-          Positioned(
-            top: -50,
-            right: -40,
-            child: Container(
-              width: 230,
-              height: 230,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.bottomCenter,
+      children: [
+        // 1. Blue Hero Card Container
+        Container(
+          margin: const EdgeInsets.only(bottom: overlap),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1E2E78), Color(0xFF293C98), Color(0xFF17245E)],
             ),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
           ),
-          Positioned(
-            bottom: -70,
-            right: 40,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF121E5C).withValues(alpha: 0.7),
+          child: Stack(
+            children: [
+              // Overlapping decorative circles
+              Positioned(
+                top: -50,
+                right: -40,
+                child: Container(
+                  width: 230,
+                  height: 230,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
               ),
-            ),
-          ),
+              Positioned(
+                bottom: -70,
+                right: 40,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF121E5C).withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
 
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 68),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Brand Row + Profile Avatar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, overlap + 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Brand Row + Profile Avatar
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF3FD8F5), Color(0xFF14B8C7)],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF14B8C7).withValues(alpha: 0.35),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '✦',
+                                  style: TextStyle(
+                                    color: Color(0xFF0A1C24),
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichText(
+                                  text: const TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Campus',
+                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                                      ),
+                                      TextSpan(
+                                        text: 'Setu ',
+                                        style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 16, fontWeight: FontWeight.w900),
+                                      ),
+                                      TextSpan(
+                                        text: 'Money',
+                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Text(
+                                  'PRIVATE STUDENT SPACE',
+                                  style: TextStyle(
+                                    color: Color(0xFFCBD5E1),
+                                    fontSize: 9,
+                                    letterSpacing: 1.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        // User Profile Avatar from Database
                         Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF3FD8F5), Color(0xFF14B8C7)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFF14B8C7),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 2),
                             boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF14B8C7).withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10),
                             ],
                           ),
-                          child: const Center(
-                            child: Text(
-                              '✦',
-                              style: TextStyle(
-                                color: Color(0xFF0A1C24),
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: const TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: 'Campus',
-                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                          child: photoUrl != null && photoUrl.isNotEmpty
+                              ? ClipOval(
+                                  child: Image.network(
+                                    photoUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
+                                      ),
+                                    ),
                                   ),
-                                  TextSpan(
-                                    text: 'Setu ',
-                                    style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 16, fontWeight: FontWeight.w900),
-                                  ),
-                                  TextSpan(
-                                    text: 'Money',
-                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Text(
-                              'PRIVATE STUDENT SPACE',
-                              style: TextStyle(
-                                color: Color(0xFFCBD5E1),
-                                fontSize: 9,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    // User Profile Avatar from Database
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF14B8C7),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 2),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10),
-                        ],
-                      ),
-                      child: photoUrl != null && photoUrl.isNotEmpty
-                          ? ClipOval(
-                              child: Image.network(
-                                photoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Center(
+                                )
+                              : Center(
                                   child: Text(
                                     initials,
                                     style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
                                   ),
                                 ),
-                              ),
-                            )
-                          : Center(
-                              child: Text(
-                                initials,
-                                style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
-                              ),
-                            ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                const SizedBox(height: 24),
-                Text(
-                  'Welcome back, $firstName 👋',
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 6),
-
-                // Hero Expense Headline + Pill
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
+                    const SizedBox(height: 22),
                     Text(
-                      _formatMoney(_currentMonthExpenses),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.2,
-                        height: 1.1,
-                      ),
+                      'Welcome back, $firstName 👋',
+                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w500),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF14B8C7).withValues(alpha: 0.18),
-                        border: Border.all(color: const Color(0xFF14B8C7).withValues(alpha: 0.35)),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        '↘ Monthly spend',
-                        style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 11, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
+                    const SizedBox(height: 6),
 
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$monthLabel Overview',
-                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+                    // Hero Expense Headline + Pill
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatMoney(_currentMonthExpenses),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.2,
+                            height: 1.1,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF14B8C7).withValues(alpha: 0.18),
+                            border: Border.all(color: const Color(0xFF14B8C7).withValues(alpha: 0.35)),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '↘ Monthly spend',
+                            style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 11, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ],
                     ),
-                    InkWell(
-                      onTap: () => setState(() => _activeTab = 4),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$monthLabel Overview',
+                          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _activeTab = 4),
                           borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Reports & Budgets ↗',
+                              style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
+                            ),
+                          ),
                         ),
-                        child: const Text(
-                          'Reports & Budgets ↗',
-                          style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+
+        // 2. 3-Column Floating Summary Bar (Always on top of the blue card!)
+        Positioned(
+          bottom: 0,
+          left: 18,
+          right: 18,
+          child: _buildSummaryBar(),
+        ),
+      ],
     );
   }
 
@@ -373,16 +383,16 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
   Widget _buildSummaryBar() {
     final net = _currentMonthNet;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFF141927),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -395,7 +405,7 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
               const Color(0xFF10B981),
             ),
           ),
-          Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.08)),
+          Container(width: 1, height: 32, color: Colors.white.withValues(alpha: 0.1)),
           Expanded(
             child: _summaryColumn(
               'EXPENSES',
@@ -403,7 +413,7 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
               const Color(0xFFF87171),
             ),
           ),
-          Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.08)),
+          Container(width: 1, height: 32, color: Colors.white.withValues(alpha: 0.1)),
           Expanded(
             child: _summaryColumn(
               'NET BALANCE',
@@ -418,30 +428,33 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
 
   Widget _summaryColumn(String label, String value, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
             style: const TextStyle(
               color: Color(0xFF8B98AD),
-              fontSize: 9.5,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+              letterSpacing: 0.6,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 5),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 15,
+              fontSize: 14.5,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.4,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -674,7 +687,10 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                 children: [
                   Text(_formatMoney(_currentMonthExpenses), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 2),
-                  const Text('Last 6 months expenses', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 11)),
+                  Text(
+                    _currentMonthExpenses > 0 ? 'Last 6 months expenses' : 'No expenses recorded this month',
+                    style: const TextStyle(color: Color(0xFF8B98AD), fontSize: 11),
+                  ),
                 ],
               ),
               _pillBadge('6 Months'),
@@ -692,8 +708,10 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                 final amt = m['amount'] as double;
                 final prevAmt = i > 0 ? (months[i - 1]['amount'] as double) : amt * 0.7;
 
-                final hMain = (amt / maxVal).clamp(0.05, 1.0) * 80;
-                final hGhost = (prevAmt / maxVal).clamp(0.05, 1.0) * 65;
+                final hasAmt = amt > 0;
+                final hasPrev = prevAmt > 0;
+                final hMain = hasAmt ? (amt / maxVal).clamp(0.12, 1.0) * 80 : 4.0;
+                final hGhost = hasPrev ? (prevAmt / maxVal).clamp(0.08, 1.0) * 65 : 4.0;
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -714,11 +732,14 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                           width: 10,
                           height: hMain,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF3FD8F5), Color(0xFF14B8C7)],
-                            ),
+                            gradient: hasAmt
+                                ? const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF3FD8F5), Color(0xFF14B8C7)],
+                                  )
+                                : null,
+                            color: hasAmt ? null : const Color(0xFF1C2438),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -748,10 +769,26 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     final recent = _storage.transactions.take(4).toList();
     if (recent.isEmpty) {
       return _cardContainer(
-        child: const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text('No transactions yet. Tap ＋ Add Expense!', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 13)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+          child: Column(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14B8C7).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF3FD8F5), size: 22),
+              ),
+              const SizedBox(height: 10),
+              const Text('No transactions yet', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text('Record your food, travel, and campus spending.', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 12), textAlign: TextAlign.center),
+              const SizedBox(height: 14),
+              _secondaryButton('＋ Add Your First Expense', _showAddExpenseModal),
+            ],
           ),
         ),
       );
@@ -771,10 +808,14 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     final list = _storage.loans.take(3).toList();
     if (list.isEmpty) {
       return _cardContainer(
-        child: const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text('No friend balances yet.', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 13)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+          child: Column(
+            children: [
+              const Text('No friend balances recorded.', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 13)),
+              const SizedBox(height: 12),
+              _secondaryButton('＋ Record New Friend Balance', () => _showAddLoanModal(defaultDir: 'lent')),
+            ],
           ),
         ),
       );
@@ -795,14 +836,15 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     final list = _storage.groups.take(3).toList();
     if (list.isEmpty) {
       return _cardContainer(
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('No groups yet. Create one to split bills!', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 13)),
-            ),
-            _secondaryButton('＋ Create Room / Flat Group', () => _showCreateGroupModal('You')),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+          child: Column(
+            children: [
+              const Text('No groups yet. Create one to split bills!', style: TextStyle(color: Color(0xFF8B98AD), fontSize: 13)),
+              const SizedBox(height: 12),
+              _secondaryButton('＋ Create Room / Flat Group', () => _showCreateGroupModal('You')),
+            ],
+          ),
         ),
       );
     }
@@ -1963,7 +2005,7 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
     String selectedGroupId = _storage.groups.first.id;
     final titleCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
-    String payer = _storage.groups.first.members.first;
+    String payer = _storage.groups.first.members.isNotEmpty ? _storage.groups.first.members.first : 'You';
     String mode = 'Equal';
     Set<String> selectedMembers = Set.from(_storage.groups.first.members);
 
@@ -1978,6 +2020,9 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
             final currentGroup = _storage.groups.firstWhere((g) => g.id == selectedGroupId, orElse: () => _storage.groups.first);
             final total = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
             final sharePerPerson = selectedMembers.isNotEmpty ? (total / selectedMembers.length) : 0.0;
+            final safePayer = currentGroup.members.contains(payer)
+                ? payer
+                : (currentGroup.members.isNotEmpty ? currentGroup.members.first : 'You');
 
             return Container(
               padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
@@ -2013,7 +2058,7 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                               setModalState(() {
                                 selectedGroupId = val;
                                 final newG = _storage.groups.firstWhere((g) => g.id == val);
-                                payer = newG.members.first;
+                                payer = newG.members.isNotEmpty ? newG.members.first : 'You';
                                 selectedMembers = Set.from(newG.members);
                               });
                             }
@@ -2048,7 +2093,7 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                       decoration: BoxDecoration(color: const Color(0xFF1C2438), border: Border.all(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(14)),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: payer,
+                          value: currentGroup.members.contains(safePayer) ? safePayer : null,
                           dropdownColor: const Color(0xFF1C2438),
                           isExpanded: true,
                           style: const TextStyle(color: Colors.white, fontSize: 14),
