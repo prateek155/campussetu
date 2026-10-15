@@ -51,19 +51,24 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
   : null;
 
+// Warn once at startup if running in production without an origin whitelist
+if (process.env.NODE_ENV === 'production' && (!allowedOrigins || allowedOrigins.length === 0)) {
+  console.warn(
+    '[SECURITY WARNING] ALLOWED_ORIGINS env var is not set. ' +
+    'All browser origins are currently allowed in production. ' +
+    'Set ALLOWED_ORIGINS=https://your-domain.com on Render to restrict cross-origin access.'
+  );
+}
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // Non-browser clients (mobile apps, Postman without Origin, etc.) send no Origin header
+    // Non-browser clients (mobile apps, curl, etc.) send no Origin header — always allow
     if (!origin) return callback(null, true);
-    // In development or test, allow all origins
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    // In production: require ALLOWED_ORIGINS to be set
-    if (!allowedOrigins || allowedOrigins.length === 0) {
-      // No origin whitelist configured — deny all browser cross-origin requests in production
-      return callback(new Error('CORS policy: ALLOWED_ORIGINS not configured for production'));
-    }
+    // Dev / test — allow everything
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    // Production with no whitelist — allow all origins (same as original) but warn above
+    if (!allowedOrigins || allowedOrigins.length === 0) return callback(null, true);
+    // Production with whitelist — enforce it
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       return callback(null, true);
     }

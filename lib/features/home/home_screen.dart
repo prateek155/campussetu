@@ -583,7 +583,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _QuickChip(label: 'Notes', icon: Icons.book_outlined, color: const Color(0xFF3B82F6), onTap: () => context.push('/notes'), isDark: isDark),
                     _QuickChip(label: 'Jobs', icon: Icons.work_outline, color: const Color(0xFF10B981), onTap: () => context.push('/jobs'), isDark: isDark),
                     _QuickChip(label: 'T-Share', icon: Icons.code_rounded, color: const Color(0xFF8B5CF6), onTap: () => context.push('/tshare'), isDark: isDark),
                     _QuickChip(label: 'Deals', icon: Icons.local_offer_outlined, color: const Color(0xFF16A34A), onTap: () => context.push('/deals'), isDark: isDark),
