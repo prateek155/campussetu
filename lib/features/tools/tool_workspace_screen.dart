@@ -2052,6 +2052,56 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               }
             },
           ),
+          // Image preview when selected
+          if (_selectedFileBytes != null && _selectedFileName != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      _selectedFileBytes!,
+                      height: 72,
+                      width: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image_rounded,
+                          size: 72),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedFileName!,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                              fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${(_selectedFileBytes!.lengthInBytes / 1024).toStringAsFixed(1)} KB',
+                          style:
+                              TextStyle(color: textMuted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (_qrImagePayload != null) ...[
             const SizedBox(height: 20),
             Container(
@@ -2059,9 +2109,34 @@ class _ToolWorkspaceScreenState extends ConsumerState<ToolWorkspaceScreen> {
               decoration: BoxDecoration(
                   color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: QrImageView(
-                  data: _qrImagePayload!, version: QrVersions.auto, size: 180),
+                data: _qrImagePayload!,
+                version: QrVersions.auto,
+                size: 180,
+                errorStateBuilder: (ctx, err) => SizedBox(
+                  height: 180,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          color: Colors.red, size: 40),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Image too large for QR.\nTry a smaller image.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 8),
+            Text(
+              'This QR embeds your image as a data URI.',
+              style: TextStyle(color: textMuted, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
             _buildActionExecuteButton(
               label: 'Download Image QR (PNG)',
               icon: Icons.download_rounded,

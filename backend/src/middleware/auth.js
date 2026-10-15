@@ -2,7 +2,7 @@
 const admin = require('../config/firebase');
 const cache = require('../config/redis');
 const { activityLogger } = require('./activityLogger');
-const { createHash } = require('crypto');
+const { createHash, randomBytes } = require('crypto');
 
 // In-memory fallback cache when Redis is unavailable
 const _memCache = new Map();
@@ -184,17 +184,10 @@ const requireEnterprise = async (req, res, next) => {
       }
     } catch (_) {}
 
-    // 4. Auto-enroll authenticated merchant/store owner to avoid 403 on first access
-    await db.query(
-      `INSERT INTO users (firebase_uid, email, name, is_enterprise)
-       VALUES ($1, $2, 'Store Owner', true)
-       ON CONFLICT (firebase_uid) DO UPDATE SET is_enterprise = true`,
-      [req.user.uid, req.user.email || '']
-    );
-    return next();
+    // 4. Strict: deny access if no enterprise flag found anywhere
+    return res.status(403).json({ error: 'Forbidden: Enterprise access required. Contact admin to enable enterprise access for your account.' });
   } catch (err) {
     console.error('requireEnterprise error:', err);
-    if (req.user?.uid) return next();
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -230,7 +223,11 @@ const requireStudent = async (req, res, next) => {
 };
 
 const jwt = require('jsonwebtoken');
-const JWT_ORGANIZER_SECRET = process.env.JWT_SECRET || 'campussetu_event_organizer_jwt_secret_2026';
+const JWT_ORGANIZER_SECRET = process.env.JWT_SECRET || (() => {
+  const generated = randomBytes(48).toString('hex');
+  console.warn('[SECURITY WARNING] JWT_SECRET env var is not set. A random one-time secret has been generated. Event organizer logins will not persist across server restarts. Set JWT_SECRET in your environment.');
+  return generated;
+})();
 
 /**
  * Allows Super Admin (via Firebase token) OR Event Organizer (via Scoped JWT).

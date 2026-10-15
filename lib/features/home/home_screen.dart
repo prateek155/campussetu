@@ -165,6 +165,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final counts = countsAsync.valueOrNull ?? {};
     final isAmbassadorOpen = ref.watch(ambassadorProgramStatusProvider).value ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+
+    // On desktop web: two-column layout (main content + right sidebar)
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left column: feed (takes most of the space)
+            Expanded(
+              flex: 3,
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: _buildScrollContent(context, userAsync, feedAsync, counts, isAmbassadorOpen, isDark, isDesktop: true),
+              ),
+            ),
+            // Right sidebar
+            SizedBox(
+              width: 300,
+              child: _buildDesktopSidebar(context, userAsync, counts, isDark),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -181,9 +207,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: CustomScrollView(
+        child: _buildScrollContent(context, userAsync, feedAsync, counts, isAmbassadorOpen, isDark),
+      ),
+    );
+  }
+
+  Widget _buildScrollContent(
+    BuildContext context,
+    AsyncValue userAsync,
+    AsyncValue feedAsync,
+    Map counts,
+    bool isAmbassadorOpen,
+    bool isDark, {
+    bool isDesktop = false,
+  }) {
+    return CustomScrollView(
           slivers: [
-            SliverAppBar(
+            // Hide mobile app bar on desktop — main_shell provides the top nav
+            if (!isDesktop)
+              SliverAppBar(
               pinned: true,
               elevation: 0,
               scrolledUnderElevation: 0,
@@ -350,7 +392,209 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
-        ),
+        );
+  }
+
+  /// Desktop sidebar: profile summary + quick feature tiles
+  Widget _buildDesktopSidebar(
+    BuildContext context,
+    AsyncValue userAsync,
+    Map counts,
+    bool isDark,
+  ) {
+    final cardBg = isDark ? const Color(0xFF1A1D2E) : Colors.white;
+    final border = isDark ? const Color(0xFF252A40) : const Color(0xFFE5E7EB);
+    final inkSoft = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final inkColor = isDark ? const Color(0xFFE9EBEE) : const Color(0xFF1A1D24);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 20, 20, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Profile card
+          userAsync.when(
+            data: (u) => Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  UserAvatar(
+                    name: u.name,
+                    size: 60,
+                    isVerified: u.isVerified,
+                    imageUrl: u.photoUrl,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    u.name,
+                    style: TextStyle(
+                      color: inkColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (u.college?.isNotEmpty == true) ...[  
+                    const SizedBox(height: 4),
+                    Text(
+                      u.college!,
+                      style: TextStyle(color: inkSoft, fontSize: 12),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _SidebarStat(
+                        label: 'Points',
+                        value: '${u.points}',
+                        isDark: isDark,
+                        color: const Color(0xFF3FD8F5),
+                      ),
+                      _SidebarStat(
+                        label: 'Connects',
+                        value: '${u.connectionsCount}',
+                        isDark: isDark,
+                        color: const Color(0xFF22C55E),
+                      ),
+                      _SidebarStat(
+                        label: 'Notes',
+                        value: '${u.notesCount}',
+                        isDark: isDark,
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => context.go(AppRoutes.profile),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3FD8F5),
+                        foregroundColor: const Color(0xFF0D0F1A),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        elevation: 0,
+                      ),
+                      child: const Text('View Profile',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            loading: () => const SizedBox(height: 160),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Quick stats
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Live on Campus',
+                    style: TextStyle(
+                        color: inkColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                _SidebarCountTile(
+                    icon: Icons.event_rounded,
+                    color: const Color(0xFF4F46E5),
+                    label: 'Events',
+                    count: counts['events'] ?? 0,
+                    isDark: isDark),
+                _SidebarCountTile(
+                    icon: Icons.handshake_outlined,
+                    color: const Color(0xFFEA580C),
+                    label: 'Help Tasks',
+                    count: counts['tasks'] ?? 0,
+                    isDark: isDark),
+                _SidebarCountTile(
+                    icon: Icons.directions_car_rounded,
+                    color: const Color(0xFF0D9488),
+                    label: 'Travel Rides',
+                    count: counts['travels'] ?? 0,
+                    isDark: isDark),
+                _SidebarCountTile(
+                    icon: Icons.home_work_outlined,
+                    color: const Color(0xFFE11D48),
+                    label: 'Flatmates',
+                    count: counts['flatmates'] ?? 0,
+                    isDark: isDark),
+                _SidebarCountTile(
+                    icon: Icons.quiz_rounded,
+                    color: const Color(0xFF7C3AED),
+                    label: 'Live Quizzes',
+                    count: counts['live_quizzes'] ?? 0,
+                    isDark: isDark),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Quick links
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Quick Links',
+                    style: TextStyle(
+                        color: inkColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _QuickChip(label: 'Notes', icon: Icons.book_outlined, color: const Color(0xFF3B82F6), onTap: () => context.push('/notes'), isDark: isDark),
+                    _QuickChip(label: 'Jobs', icon: Icons.work_outline, color: const Color(0xFF10B981), onTap: () => context.push('/jobs'), isDark: isDark),
+                    _QuickChip(label: 'T-Share', icon: Icons.code_rounded, color: const Color(0xFF8B5CF6), onTap: () => context.push('/tshare'), isDark: isDark),
+                    _QuickChip(label: 'Deals', icon: Icons.local_offer_outlined, color: const Color(0xFF16A34A), onTap: () => context.push('/deals'), isDark: isDark),
+                    _QuickChip(label: 'Resume', icon: Icons.description_outlined, color: const Color(0xFFF59E0B), onTap: () => context.push('/resume'), isDark: isDark),
+                    _QuickChip(label: 'Tools', icon: Icons.auto_fix_high_rounded, color: const Color(0xFF0284C7), onTap: () => context.push('/tools'), isDark: isDark),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -534,6 +778,121 @@ class _PostShimmer extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: NeuCard(padding: const EdgeInsets.all(16), child: Column(children: [Container(height: 14, color: AppColors.shadowDark.withValues(alpha: 0.3)), const SizedBox(height: 8), Container(height: 14, color: AppColors.shadowDark.withValues(alpha: 0.2)), const SizedBox(height: 12), Container(height: 80, decoration: BoxDecoration(color: AppColors.shadowDark.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)))])),
       );
+}
+
+// ── Desktop Sidebar Widgets ──────────────────────────────────────
+
+class _SidebarStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isDark;
+  final Color color;
+  const _SidebarStat({required this.label, required this.value, required this.isDark, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SidebarCountTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final dynamic count;
+  final bool isDark;
+  const _SidebarCountTile({required this.icon, required this.color, required this.label, required this.count, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final inkSoft = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final inkColor = isDark ? const Color(0xFFE9EBEE) : const Color(0xFF1A1D24);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label, style: TextStyle(color: inkColor, fontSize: 13)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF252A40) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(color: inkSoft, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final bool isDark;
+  const _QuickChip({required this.label, required this.icon, required this.color, required this.onTap, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CommentsSheet extends StatefulWidget {

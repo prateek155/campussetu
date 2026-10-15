@@ -53,11 +53,16 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Non-browser clients (mobile apps, curl, etc.) send no Origin header
+    // Non-browser clients (mobile apps, Postman without Origin, etc.) send no Origin header
     if (!origin) return callback(null, true);
-    // Allow all origins in non-production or if ALLOWED_ORIGINS is not set
-    if (process.env.NODE_ENV !== 'production' || !allowedOrigins || allowedOrigins.length === 0) {
+    // In development or test, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
       return callback(null, true);
+    }
+    // In production: require ALLOWED_ORIGINS to be set
+    if (!allowedOrigins || allowedOrigins.length === 0) {
+      // No origin whitelist configured — deny all browser cross-origin requests in production
+      return callback(new Error('CORS policy: ALLOWED_ORIGINS not configured for production'));
     }
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       return callback(null, true);

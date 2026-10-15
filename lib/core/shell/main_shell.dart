@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/app_providers.dart';
+import '../providers/theme_provider.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../widgets/bottom_nav_dock.dart';
+import '../widgets/user_avatar.dart';
 import '../router/app_router.dart';
 
 class MainShell extends ConsumerWidget {
@@ -81,104 +83,10 @@ class MainShell extends ConsumerWidget {
 
         // Desktop Web Top Header
         if (isDesktop)
-          Container(
-            height: 68,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      // Brand
-                      Row(
-                        children: [
-                          Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF3FD8F5), Color(0xFF1BA8C4)]),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.school_rounded, color: Colors.white, size: 20),
-                          ),
-                          const SizedBox(width: 10),
-                          RichText(
-                            text: const TextSpan(
-                              children: [
-                                TextSpan(text: 'Campus', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w800)),
-                                TextSpan(text: 'Setu', style: TextStyle(color: Color(0xFF3FD8F5), fontSize: 18, fontWeight: FontWeight.w800)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(),
-
-                      // Desktop Navigation Links
-                      Row(
-                        children: List.generate(navItems.length, (i) {
-                          final item = navItems[i];
-                          final isSelected = index == i;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () => context.go(_routes[i]),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFF3FD8F5).withValues(alpha: 0.12) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Badge(
-                                      isLabelVisible: item.badgeCount > 0,
-                                      label: Text('${item.badgeCount}'),
-                                      child: Icon(
-                                        isSelected ? item.activeIcon : item.icon,
-                                        size: 18,
-                                        color: isSelected ? const Color(0xFF3FD8F5) : AppColors.inkSoft,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      item.label,
-                                      style: TextStyle(
-                                        color: isSelected ? const Color(0xFF3FD8F5) : AppColors.ink,
-                                        fontSize: 13,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      // Notification icon
-                      IconButton(
-                        icon: const Icon(Icons.notifications_none_rounded, size: 20),
-                        color: AppColors.inkSoft,
-                        onPressed: () => context.push(AppRoutes.notifications),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          _DesktopHeader(
+            navItems: navItems,
+            selectedIndex: index,
+            routes: _routes,
           ),
 
         // Main Body (Centered on Desktop)
@@ -186,7 +94,7 @@ class MainShell extends ConsumerWidget {
           child: isDesktop
               ? Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
+                    constraints: const BoxConstraints(maxWidth: 1200),
                     child: child,
                   ),
                 )
@@ -271,4 +179,296 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
           ]
         : [TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: AppTypography.interCaption()))],
   );
+}
+
+// ── Desktop Web Header ───────────────────────────────────────────────────────
+
+class _DesktopHeader extends ConsumerWidget {
+  final List<NavItem> navItems;
+  final int selectedIndex;
+  final List<String> routes;
+
+  const _DesktopHeader({
+    required this.navItems,
+    required this.selectedIndex,
+    required this.routes,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+    final userAsync = ref.watch(currentUserProvider);
+
+    // Header colors
+    final headerBg = isDark ? const Color(0xFF161926) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF252A40) : const Color(0xFFE5E7EB);
+    final inkColor = isDark ? const Color(0xFFE9EBEE) : const Color(0xFF1A1D24);
+    final inkSoft = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    const accent = Color(0xFF3FD8F5);
+
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: headerBg,
+        border: Border(bottom: BorderSide(color: borderColor, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Row(
+              children: [
+                // ── Brand ────────────────────────────────────────
+                GestureDetector(
+                  onTap: () => context.go(AppRoutes.home),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3FD8F5), Color(0xFF1BA8C4)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.school_rounded,
+                            color: Colors.white, size: 19),
+                      ),
+                      const SizedBox(width: 10),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Campus',
+                              style: TextStyle(
+                                color: inkColor,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: 'Setu',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 40),
+
+                // ── Navigation Links ─────────────────────────────
+                Row(
+                  children: List.generate(routes.length, (i) {
+                    final item = navItems[i];
+                    final isSelected = selectedIndex == i;
+                    return _DesktopNavItem(
+                      item: item,
+                      isSelected: isSelected,
+                      isDark: isDark,
+                      accent: accent,
+                      inkColor: inkColor,
+                      inkSoft: inkSoft,
+                      onTap: () => context.go(routes[i]),
+                    );
+                  }),
+                ),
+
+                const Spacer(),
+
+                // ── Right Controls ───────────────────────────────
+                Row(
+                  children: [
+                    // Theme toggle
+                    _HeaderIconBtn(
+                      icon: isDark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      tooltip: isDark ? 'Light mode' : 'Dark mode',
+                      color: inkSoft,
+                      onTap: () => ref.read(themeModeProvider.notifier).toggle(),
+                    ),
+                    const SizedBox(width: 4),
+                    // Notifications
+                    _HeaderIconBtn(
+                      icon: Icons.notifications_none_rounded,
+                      tooltip: 'Notifications',
+                      color: inkSoft,
+                      onTap: () => context.push(AppRoutes.notifications),
+                    ),
+                    const SizedBox(width: 12),
+                    // Profile avatar
+                    GestureDetector(
+                      onTap: () => context.go(AppRoutes.profile),
+                      child: userAsync.when(
+                        data: (u) => Row(
+                          children: [
+                            UserAvatar(
+                              name: u.name,
+                              size: 34,
+                              isVerified: u.isVerified,
+                              imageUrl: u.photoUrl,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  u.name.split(' ').first,
+                                  style: TextStyle(
+                                    color: inkColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  u.college?.isNotEmpty == true
+                                      ? (u.college!.length > 20
+                                          ? '${u.college!.substring(0, 20)}…'
+                                          : u.college!)
+                                      : 'View Profile',
+                                  style: TextStyle(
+                                    color: inkSoft,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        loading: () => UserAvatar(name: '?', size: 34),
+                        error: (_, __) => UserAvatar(name: '?', size: 34),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopNavItem extends StatelessWidget {
+  final NavItem item;
+  final bool isSelected;
+  final bool isDark;
+  final Color accent;
+  final Color inkColor;
+  final Color inkSoft;
+  final VoidCallback onTap;
+
+  const _DesktopNavItem({
+    required this.item,
+    required this.isSelected,
+    required this.isDark,
+    required this.accent,
+    required this.inkColor,
+    required this.inkSoft,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          border: isSelected
+              ? Border(
+                  bottom: BorderSide(color: accent, width: 2.5),
+                )
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 2),
+            Badge(
+              isLabelVisible: item.badgeCount > 0,
+              label: Text('${item.badgeCount}',
+                  style: const TextStyle(fontSize: 10)),
+              child: Icon(
+                isSelected ? item.activeIcon : item.icon,
+                size: 17,
+                color: isSelected ? accent : inkSoft,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              item.label,
+              style: TextStyle(
+                color: isSelected ? accent : inkSoft,
+                fontSize: 11,
+                fontWeight:
+                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HeaderIconBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 19, color: color),
+        ),
+      ),
+    );
+  }
 }

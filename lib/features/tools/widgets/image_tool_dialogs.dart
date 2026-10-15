@@ -826,6 +826,7 @@ class _QrGeneratorContentState extends State<_QrGeneratorContent> with SingleTic
   final _textCtrl = TextEditingController(text: 'https://campussetu.in');
   String? _imageQrPayload;
   String? _selectedImageName;
+  Uint8List? _selectedImageBytes;
   bool _isEncodingImage = false;
 
   @override
@@ -853,7 +854,9 @@ class _QrGeneratorContentState extends State<_QrGeneratorContent> with SingleTic
 
     setState(() {
       _selectedImageName = file.name;
+      _selectedImageBytes = bytes;
       _isEncodingImage = true;
+      _imageQrPayload = null;
     });
 
     try {
@@ -948,6 +951,7 @@ class _QrGeneratorContentState extends State<_QrGeneratorContent> with SingleTic
               // TAB 2: IMAGE TO QR
               SingleChildScrollView(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     NeuCard(
                       padding: const EdgeInsets.all(16),
@@ -956,15 +960,66 @@ class _QrGeneratorContentState extends State<_QrGeneratorContent> with SingleTic
                         children: [
                           const Icon(Icons.add_photo_alternate_rounded, size: 36, color: AppColors.cyanDeep),
                           const SizedBox(height: 6),
-                          Text(_selectedImageName ?? 'Select Image to embed in QR', style: AppTypography.interBody(weight: FontWeight.w600)),
-                          Text('Scanners will read image Data-URI locally', style: AppTypography.interCaption(color: AppColors.inkSoft)),
+                          Text(
+                            _selectedImageName != null ? 'Tap to change image' : 'Select Image to embed in QR',
+                            style: AppTypography.interBody(weight: FontWeight.w600),
+                          ),
+                          Text('Image data is embedded directly in the QR code', style: AppTypography.interCaption(color: AppColors.inkSoft)),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    // Show selected image preview
+                    if (_selectedImageBytes != null) ...[                      
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black12,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cyanDeep.withValues(alpha: 0.3)),
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(
+                                _selectedImageBytes!,
+                                height: 80,
+                                width: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, size: 80, color: AppColors.cyanDeep),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedImageName ?? 'Image selected',
+                                    style: AppTypography.interBody(weight: FontWeight.w600),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${(_selectedImageBytes!.lengthInBytes / 1024).toStringAsFixed(1)} KB original',
+                                    style: AppTypography.interCaption(color: AppColors.inkSoft),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     if (_isEncodingImage)
-                      const CircularProgressIndicator()
-                    else if (_imageQrPayload != null) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_imageQrPayload != null) ...[                      
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -972,13 +1027,33 @@ class _QrGeneratorContentState extends State<_QrGeneratorContent> with SingleTic
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.black12),
                         ),
-                        child: QrImageView(
-                          data: _imageQrPayload!,
-                          version: QrVersions.auto,
-                          size: 180.0,
+                        child: Center(
+                          child: QrImageView(
+                            data: _imageQrPayload!,
+                            version: QrVersions.auto,
+                            size: 180.0,
+                            errorStateBuilder: (ctx, err) => Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: Colors.red, size: 40),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Image too large for QR.\nTry a smaller image.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.interCaption(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This QR embeds your image as a data URI. Scan with a QR reader that opens URLs.',
+                        style: AppTypography.interCaption(color: AppColors.inkSoft),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
                       _ToolActionButton(
                         text: 'Download Image QR (PNG)',
                         icon: Icons.download_rounded,
