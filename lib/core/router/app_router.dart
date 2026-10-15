@@ -244,6 +244,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: AppRoutes.alarms, builder: (_, __) => const AlarmScreen()),
 
+      // Money screen as standalone full screen without bottom navbar
+      GoRoute(
+          path: AppRoutes.money, builder: (_, __) => const MoneyScreen()),
+
       // Main app shell with bottom nav
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
@@ -252,8 +256,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: AppRoutes.connect,
               builder: (_, __) => const ConnectScreen()),
-          GoRoute(
-              path: AppRoutes.money, builder: (_, __) => const MoneyScreen()),
           GoRoute(
             path: AppRoutes.profile,
             builder: (_, state) {

@@ -70,6 +70,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895097267765:android:78e23490b6648937a2b37c",
+        "android_client_info": {
+          "package_name": "com.campussetu.enterprise"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "895097267765-84g1u1hj4s1roncb0arb6p9ljva0h2ke.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgDgsWcVyb1c7kyrF6iH9xtctOL8stNak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "895097267765-84g1u1hj4s1roncb0arb6p9ljva0h2ke.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

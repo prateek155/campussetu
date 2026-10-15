@@ -102,7 +102,7 @@ class MainShell extends ConsumerWidget {
         ),
       ]),
       extendBody: !isDesktop,
-      bottomNavigationBar: isDesktop
+      bottomNavigationBar: (isDesktop || GoRouterState.of(context).matchedLocation.startsWith(AppRoutes.money))
           ? null
           : BottomNavDock(
               currentIndex: index,

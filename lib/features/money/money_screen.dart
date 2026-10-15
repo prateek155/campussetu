@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import '../../core/providers/app_providers.dart';
 import 'models/money_models.dart';
 import 'services/money_storage_service.dart';
@@ -200,6 +202,34 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                       children: [
                         Row(
                           children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (Navigator.canPop(context)) {
+                                  Navigator.pop(context);
+                                } else {
+                                  context.go(AppRoutes.home);
+                                }
+                              },
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                margin: const EdgeInsets.only(right: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.arrow_back_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
                             Container(
                               width: 40,
                               height: 40,
@@ -263,37 +293,40 @@ class _MoneyScreenState extends ConsumerState<MoneyScreen> {
                           ],
                         ),
 
-                        // User Profile Avatar from Database
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF14B8C7),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 2),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10),
-                            ],
-                          ),
-                          child: photoUrl != null && photoUrl.isNotEmpty
-                              ? ClipOval(
-                                  child: Image.network(
-                                    photoUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Center(
-                                      child: Text(
-                                        initials,
-                                        style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
+                        // User Profile Avatar from Database (opens Profile on tap)
+                        GestureDetector(
+                          onTap: () => context.push(AppRoutes.profile),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF14B8C7),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 2),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10),
+                              ],
+                            ),
+                            child: photoUrl != null && photoUrl.isNotEmpty
+                                ? ClipOval(
+                                    child: Image.network(
+                                      photoUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          initials,
+                                          style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
+                                        ),
                                       ),
                                     ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
+                                    ),
                                   ),
-                                )
-                              : Center(
-                                  child: Text(
-                                    initials,
-                                    style: const TextStyle(color: Color(0xFF0A1C24), fontWeight: FontWeight.w900, fontSize: 14),
-                                  ),
-                                ),
+                          ),
                         ),
                       ],
                     ),

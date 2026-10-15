@@ -38,6 +38,11 @@ android {
             applicationId = "com.campussetu.admin"
             resValue("string", "app_name", "CampusSetu Admin")
         }
+        create("enterprise") {
+            dimension = "app"
+            applicationId = "com.campussetu.enterprise"
+            resValue("string", "app_name", "CampusSetu Enterprise")
+        }
     }
 
     buildTypes {
