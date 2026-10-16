@@ -13,11 +13,13 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
 class EmailAuthScreen extends StatefulWidget {
+  final bool startSignUp;
   final bool startPasswordReset;
   final String? initialEmail;
 
   const EmailAuthScreen({
     super.key,
+    this.startSignUp = false,
     this.startPasswordReset = false,
     this.initialEmail,
   });
@@ -28,16 +30,21 @@ class EmailAuthScreen extends StatefulWidget {
 
 class _EmailAuthScreenState extends State<EmailAuthScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   final _otp = TextEditingController();
   final _newPassword = TextEditingController();
-  final _confirmPassword = TextEditingController();
+
+  bool _isSignUp = false;
   bool _resetMode = false;
   int _resetStep = 0;
   int _resendSeconds = 0;
   bool _busy = false;
   bool _showPassword = false;
+  bool _showConfirmPassword = false;
+  bool _termsAccepted = true;
   String? _resetToken;
   Timer? _resendTimer;
   Timer? _loginLockTimer;
@@ -47,6 +54,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   void initState() {
     super.initState();
     _email.text = widget.initialEmail ?? '';
+    _isSignUp = widget.startSignUp;
     _resetMode = widget.startPasswordReset;
   }
 
@@ -54,12 +62,21 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   void dispose() {
     _resendTimer?.cancel();
     _loginLockTimer?.cancel();
+    _name.dispose();
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     _otp.dispose();
     _newPassword.dispose();
-    _confirmPassword.dispose();
     super.dispose();
+  }
+
+  String? _validateName(String? value) {
+    if (!_isSignUp) return null;
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return 'Enter your full name.';
+    if (name.length < 2) return 'Name is too short.';
+    return null;
   }
 
   String? _validateEmail(String? value) {
@@ -69,6 +86,62 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       return 'Enter a valid email address.';
     }
     return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final pass = value ?? '';
+    if (pass.isEmpty) return 'Enter your password.';
+    if (_isSignUp && pass.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (!_isSignUp) return null;
+    if (value == null || value.isEmpty) return 'Confirm your password.';
+    if (value != _password.text) return 'Passwords do not match.';
+    return null;
+  }
+
+  int _calculatePasswordStrength(String pass) {
+    if (pass.isEmpty) return 0;
+    int score = 0;
+    if (pass.length >= 6) score++;
+    if (pass.length >= 8) score++;
+    if (RegExp(r'[A-Za-z]').hasMatch(pass) && RegExp(r'[0-9]').hasMatch(pass)) {
+      score++;
+    }
+    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(pass)) score++;
+    return score;
+  }
+
+  Future<void> _signUp() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!_termsAccepted) {
+      _showError('Please agree to the Terms & Privacy Policy to continue.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final result = await AuthService().signUpWithEmailPassword(
+        email: _email.text.trim(),
+        password: _password.text,
+        displayName: _name.text.trim(),
+      );
+      await ApiService().clearLoginFailures();
+      if (!mounted) return;
+      if (result['profile_complete'] == true) {
+        context.go(AppRoutes.home);
+      } else {
+        context.go(AppRoutes.authConfirm, extra: result);
+      }
+    } catch (error) {
+      _showError(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _signIn() async {
@@ -253,6 +326,12 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   String _friendlyError(Object error) {
     if (error is FirebaseAuthException) {
       switch (error.code) {
+        case 'email-already-in-use':
+          return 'An account already exists with this email. Try logging in instead.';
+        case 'weak-password':
+          return 'Password is too weak. Please use at least 8 characters with letters & numbers.';
+        case 'invalid-email':
+          return 'Please enter a valid email address.';
         case 'invalid-credential':
         case 'wrong-password':
         case 'user-not-found':
@@ -264,13 +343,14 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         case 'user-disabled':
           return 'This account is disabled. Contact CampusSetu support.';
         case 'operation-not-allowed':
-          return 'Email/password sign-in is not enabled in Firebase yet.';
+          return 'Email/password authentication is not enabled in Firebase yet.';
       }
     }
     if (error is DioException) {
       final data = error.response?.data;
-      if (data is Map && data['error'] is String)
+      if (data is Map && data['error'] is String) {
         return data['error'] as String;
+      }
       if (error.type == DioExceptionType.connectionError ||
           error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.receiveTimeout) {
@@ -283,14 +363,24 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
   void _showInfo(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.success),
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
@@ -307,14 +397,18 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               isReset ? _backToSignIn() : context.go(AppRoutes.welcome),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: Text(isReset ? 'Reset password' : 'Email sign in',
-            style: AppTypography.soraHeading3()),
+        title: Text(
+          isReset
+              ? 'Reset password'
+              : (_isSignUp ? 'Create Account' : 'Email sign in'),
+          style: AppTypography.soraHeading3(),
+        ),
       ),
       body: SafeArea(
         top: false,
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 32),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
               child: Form(
@@ -322,33 +416,59 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.cyanDeep.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: AppColors.cyanDeep.withValues(alpha: 0.22)),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.lock_outline_rounded,
-                            color: AppColors.cyanDeep, size: 26),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            isReset
-                                ? 'Verify your email, then choose a new password.'
-                                : 'Sign in to your existing CampusSetu account with email and password.',
-                            style: AppTypography.interBody(
-                                color: AppColors.ink, size: 14),
-                          ),
-                        ),
-                      ]),
-                    ),
-                    const SizedBox(height: 22),
-                    if (!isReset) ..._signInFields(),
-                    if (isReset) ..._resetFields(),
+                    // Mode Toggle (Sign Up vs Sign In) when not resetting password
                     if (!isReset) ...[
+                      _buildAuthModeSegment(),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Info Header Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.cyanDeep.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: AppColors.cyanDeep.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isReset
+                                ? Icons.lock_reset_rounded
+                                : (_isSignUp
+                                    ? Icons.person_add_alt_1_rounded
+                                    : Icons.lock_outline_rounded),
+                            color: AppColors.cyanDeep,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              isReset
+                                  ? 'Verify your email, then choose a new password.'
+                                  : (_isSignUp
+                                      ? 'Create your CampusSetu student account with your college or personal email.'
+                                      : 'Sign in to your existing CampusSetu account with email and password.'),
+                              style: AppTypography.interBody(
+                                color: AppColors.ink,
+                                size: 13.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Dynamic Fields based on mode
+                    if (!isReset && _isSignUp) ..._signUpFields(),
+                    if (!isReset && !_isSignUp) ..._signInFields(),
+                    if (isReset) ..._resetFields(),
+
+                    // Sign In specific extras
+                    if (!isReset && !_isSignUp) ...[
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -356,37 +476,123 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                           child: const Text('Forgot password?'),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       _primaryButton(
                         label: 'Sign in',
                         icon: Icons.login_rounded,
-                        onPressed: _busy || _loginWaitSeconds > 0 ? null : _signIn,
+                        onPressed:
+                            _busy || _loginWaitSeconds > 0 ? null : _signIn,
                       ),
                       if (_loginWaitSeconds > 0) ...[
                         const SizedBox(height: 10),
                         Text(
                           'Too many attempts. Try again in ' +
-                              (_loginWaitSeconds ~/ 60).toString().padLeft(2, '0') +
+                              (_loginWaitSeconds ~/ 60)
+                                  .toString()
+                                  .padLeft(2, '0') +
                               ':' +
-                              (_loginWaitSeconds % 60).toString().padLeft(2, '0') +
+                              (_loginWaitSeconds % 60)
+                                  .toString()
+                                  .padLeft(2, '0') +
                               '.',
                           textAlign: TextAlign.center,
-                          style: AppTypography.interBody(color: AppColors.error, size: 13, weight: FontWeight.w600),
+                          style: AppTypography.interBody(
+                            color: AppColors.error,
+                            size: 13,
+                            weight: FontWeight.w600,
+                          ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      Text(
-                        'Google accounts can add email sign-in from Profile → Settings → Password.',
-                        textAlign: TextAlign.center,
-                        style: AppTypography.interCaption(
-                            color: AppColors.inkSoft),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't have an account?",
+                            style: AppTypography.interBodySmall(
+                                color: AppColors.inkSoft),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => setState(() => _isSignUp = true),
+                            child: const Text('Sign up here',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       TextButton.icon(
                         onPressed:
                             _busy ? null : () => context.go(AppRoutes.welcome),
-                        icon: const Icon(Icons.account_circle_outlined),
-                        label: const Text('Continue with Google instead'),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                        label: const Text('Back to Welcome Screen'),
+                      ),
+                    ],
+
+                    // Sign Up specific extras
+                    if (!isReset && _isSignUp) ...[
+                      const SizedBox(height: 12),
+                      // Terms agreement checkbox
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _termsAccepted,
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(
+                                      () => _termsAccepted = v ?? true),
+                              activeColor: AppColors.cyanDeep,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(
+                                  () => _termsAccepted = !_termsAccepted),
+                              child: Text(
+                                'I agree to CampusSetu Terms of Service & Privacy Policy',
+                                style: AppTypography.interCaption(
+                                    color: AppColors.inkSoft),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _primaryButton(
+                        label: 'Create Account',
+                        icon: Icons.person_add_rounded,
+                        onPressed: _busy ? null : _signUp,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Already registered?',
+                            style: AppTypography.interBodySmall(
+                                color: AppColors.inkSoft),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => setState(() => _isSignUp = false),
+                            child: const Text('Sign In here',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      TextButton.icon(
+                        onPressed:
+                            _busy ? null : () => context.go(AppRoutes.welcome),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                        label: const Text('Back to Welcome Screen'),
                       ),
                     ],
                   ],
@@ -399,6 +605,71 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     );
   }
 
+  Widget _buildAuthModeSegment() {
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: AppColors.isDark
+            ? AppColors.darkTile
+            : Colors.grey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: _busy ? null : () => setState(() => _isSignUp = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: !_isSignUp
+                      ? (AppColors.isDark ? AppColors.darkTileAlt : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: !_isSignUp ? AppColors.neuSmallShadows : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Sign In',
+                  style: TextStyle(
+                    fontWeight: !_isSignUp ? FontWeight.w700 : FontWeight.w500,
+                    color: !_isSignUp ? AppColors.cyanDeep : AppColors.inkSoft,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: _busy ? null : () => setState(() => _isSignUp = true),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: _isSignUp
+                      ? (AppColors.isDark ? AppColors.darkTileAlt : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: _isSignUp ? AppColors.neuSmallShadows : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Sign Up',
+                  style: TextStyle(
+                    fontWeight: _isSignUp ? FontWeight.w700 : FontWeight.w500,
+                    color: _isSignUp ? AppColors.cyanDeep : AppColors.inkSoft,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _signInFields() => [
         _emailField(),
         const SizedBox(height: 14),
@@ -407,8 +678,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           obscureText: !_showPassword,
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _signIn(),
-          validator: (value) =>
-              (value == null || value.isEmpty) ? 'Enter your password.' : null,
+          validator: _validatePassword,
           decoration:
               _decoration('Password', Icons.lock_outline_rounded).copyWith(
             suffixIcon: IconButton(
@@ -419,6 +689,117 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           ),
         ),
       ];
+
+  List<Widget> _signUpFields() {
+    final strength = _calculatePasswordStrength(_password.text);
+    return [
+      TextFormField(
+        controller: _name,
+        keyboardType: TextInputType.name,
+        textInputAction: TextInputAction.next,
+        autofillHints: const [AutofillHints.name],
+        validator: _validateName,
+        decoration: _decoration('Full Name', Icons.person_outline_rounded),
+      ),
+      const SizedBox(height: 14),
+      _emailField(),
+      const SizedBox(height: 14),
+      TextFormField(
+        controller: _password,
+        obscureText: !_showPassword,
+        textInputAction: TextInputAction.next,
+        onChanged: (_) => setState(() {}),
+        validator: _validatePassword,
+        decoration: _decoration('Password (min. 8 characters)',
+                Icons.lock_outline_rounded)
+            .copyWith(
+          suffixIcon: IconButton(
+            onPressed: () => setState(() => _showPassword = !_showPassword),
+            icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+          ),
+        ),
+      ),
+      if (_password.text.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        _buildPasswordStrengthBar(strength),
+      ],
+      const SizedBox(height: 14),
+      TextFormField(
+        controller: _confirmPassword,
+        obscureText: !_showConfirmPassword,
+        textInputAction: TextInputAction.done,
+        onFieldSubmitted: (_) => _signUp(),
+        validator: _validateConfirmPassword,
+        decoration: _decoration(
+                'Confirm Password', Icons.lock_reset_rounded)
+            .copyWith(
+          suffixIcon: IconButton(
+            onPressed: () => setState(
+                () => _showConfirmPassword = !_showConfirmPassword),
+            icon: Icon(_showConfirmPassword
+                ? Icons.visibility_off
+                : Icons.visibility),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildPasswordStrengthBar(int score) {
+    Color color;
+    String label;
+    if (score <= 1) {
+      color = AppColors.error;
+      label = 'Weak';
+    } else if (score == 2) {
+      color = AppColors.warning;
+      label = 'Fair';
+    } else if (score == 3) {
+      color = AppColors.warning;
+      label = 'Good';
+    } else {
+      color = AppColors.success;
+      label = 'Strong';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(4, (index) {
+            final active = index < score;
+            return Expanded(
+              child: Container(
+                height: 4,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: active
+                      ? color
+                      : (AppColors.isDark ? Colors.white12 : Colors.black12),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Strength: $label',
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color),
+            ),
+            Text(
+              'Min 8 chars, mix letters & numbers',
+              style: AppTypography.interCaption(color: AppColors.inkSoft),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   List<Widget> _resetFields() => [
         _emailField(readOnly: _resetStep > 0),
@@ -525,14 +906,30 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         height: 52,
         child: FilledButton.icon(
           onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.cyanDeep,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
           icon: _busy
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
-              : Icon(icon),
-          label: Text(_busy ? 'Please wait…' : label),
+              : Icon(icon, color: Colors.white),
+          label: Text(
+            _busy ? 'Please wait…' : label,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
         ),
       );
 }

@@ -59,6 +59,22 @@ class AuthService {
     return _completeSignIn(credential);
   }
 
+  Future<Map<String, dynamic>> signUpWithEmailPassword({
+    required String email,
+    required String password,
+    String? displayName,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      await credential.user?.updateDisplayName(displayName.trim());
+      await credential.user?.reload();
+    }
+    return _completeSignIn(credential);
+  }
+
   Future<Map<String, dynamic>> _completeSignIn(
       UserCredential credential) async {
     final user = credential.user;

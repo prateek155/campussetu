@@ -145,6 +145,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.emailLogin,
         builder: (_, state) => EmailAuthScreen(
+          startSignUp: state.uri.queryParameters['mode'] == 'signup',
           startPasswordReset: state.uri.queryParameters['mode'] == 'forgot',
           initialEmail: state.uri.queryParameters['email'],
         ),
